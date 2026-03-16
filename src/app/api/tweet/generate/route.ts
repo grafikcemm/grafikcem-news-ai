@@ -36,7 +36,11 @@ export async function POST(request: NextRequest) {
       ? `${TWEET_GENERATION_SYSTEM_PROMPT}\n\nEK KURALLAR:\n${settings.value}`
       : TWEET_GENERATION_SYSTEM_PROMPT;
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
+    }
+    const anthropic = new Anthropic({ apiKey });
 
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
@@ -55,13 +59,14 @@ export async function POST(request: NextRequest) {
       ],
     });
 
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+    const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+    const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
     let parsed: { options: Array<{ type: string; content: string; thread_tweets: string[] | null; score: number; score_reason: string }> };
     try {
       parsed = JSON.parse(text);
     } catch {
-      console.error("Claude returned invalid JSON:", text);
+      console.error("Claude returned invalid JSON:", rawText);
       return NextResponse.json({ error: "AI returned invalid response" }, { status: 500 });
     }
 
@@ -94,6 +99,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ options: drafts });
   } catch (err) {
     console.error("Tweet generate error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : "";
+    const isCreditError = msg.includes("credit balance");
+    return NextResponse.json(
+      { error: isCreditError ? "API kredi yetersiz — Anthropic Console'dan kredi yükleyin" : "Internal server error" },
+      { status: 500 }
+    );
   }
 }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import Parser from "rss-parser";
-import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
+import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt, AUTO_TRANSLATE_SYSTEM_PROMPT, buildAutoTranslateUserPrompt } from "@/lib/prompts";
 
 const parser = new Parser();
 
@@ -106,15 +106,16 @@ export async function POST(request: NextRequest) {
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
         });
 
-        const text = response.content[0].type === "text" ? response.content[0].text : "";
+        const rawScoreText = response.content[0].type === "text" ? response.content[0].text : "";
+        const scoreText = rawScoreText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
         // Try to parse as array of scores
         let scores: Array<{ score: number; reason: string; category?: string }>;
         try {
-          const parsed = JSON.parse(text);
+          const parsed = JSON.parse(scoreText);
           scores = Array.isArray(parsed) ? parsed : [parsed];
         } catch {
-          console.error("Claude returned invalid JSON for scoring:", text);
+          console.error("Claude returned invalid JSON for scoring:", rawScoreText);
           continue;
         }
 
@@ -138,10 +139,73 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Auto-translate non-Turkish titles
+    const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
+    const nonTurkishItems = inserted.filter(
+      (item) => !turkishChars.test(item.title)
+    );
+
+    if (nonTurkishItems.length > 0) {
+      const translateBatches = [];
+      for (let i = 0; i < nonTurkishItems.length; i += 10) {
+        translateBatches.push(nonTurkishItems.slice(i, i + 10));
+      }
+
+      for (const batch of translateBatches) {
+        try {
+          const articles = batch.map((item) => ({
+            title: item.title,
+            summary: item.summary || "",
+          }));
+
+          const translateResponse = await anthropic.messages.create({
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 2048,
+            system: AUTO_TRANSLATE_SYSTEM_PROMPT,
+            messages: [
+              { role: "user", content: buildAutoTranslateUserPrompt(articles) },
+            ],
+          });
+
+          const rawTranslateText =
+            translateResponse.content[0].type === "text"
+              ? translateResponse.content[0].text
+              : "";
+          const translateText = rawTranslateText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+
+          let translations: Array<{ title_tr: string; summary_tr: string }>;
+          try {
+            const parsed = JSON.parse(translateText);
+            translations = Array.isArray(parsed) ? parsed : [parsed];
+          } catch {
+            console.error("Claude returned invalid JSON for translation:", rawTranslateText);
+            continue;
+          }
+
+          for (let j = 0; j < Math.min(translations.length, batch.length); j++) {
+            const translation = translations[j];
+            if (translation?.title_tr) {
+              await supabaseAdmin
+                .from("news_items")
+                .update({
+                  title_tr: translation.title_tr,
+                  title_original: batch[j].title,
+                  summary: translation.summary_tr || batch[j].summary,
+                })
+                .eq("id", batch[j].id);
+            }
+          }
+        } catch (err) {
+          console.error("Claude translation error:", err);
+        }
+      }
+    }
+
     return NextResponse.json({
       message: "Fetch complete",
       newItems: inserted.length,
       scored: inserted.length,
+      translated: nonTurkishItems.length,
     });
   } catch (err) {
     console.error("Cron fetch-news error:", err);

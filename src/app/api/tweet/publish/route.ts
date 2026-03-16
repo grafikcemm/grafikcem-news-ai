@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
         // Reply chain
         let lastTweetId = tweetId;
         for (let i = 1; i < tweets.length; i++) {
+          // Add a 2 second delay between replies to avoid duplicate/rate limit issues
+          await new Promise((resolve) => setTimeout(resolve, 2000));
           const reply = await twitterClient.v2.reply(tweets[i], lastTweetId);
           lastTweetId = reply.data.id;
         }
@@ -59,11 +61,17 @@ export async function POST(request: NextRequest) {
         const tweet = await twitterClient.v2.tweet(draft.content);
         tweetId = tweet.data.id;
       }
-    } catch (err) {
-      console.error("Twitter API error:", err);
-      // Do NOT mark as published on failure
+    } catch (err: unknown) {
+      console.error("Twitter API error details:", JSON.stringify(err, null, 2));
+      
+      let detail = "Bilinmeyen hata";
+      if (err && typeof err === "object") {
+        const e = err as { data?: { detail?: string; title?: string }; message?: string; code?: number };
+        detail = e.data?.detail || e.data?.title || e.message || String(err);
+        if (e.code) detail += ` (HTTP ${e.code})`;
+      }
       return NextResponse.json(
-        { error: "Failed to publish to X. Please check your API credentials." },
+        { error: `X API hatası: ${detail}` },
         { status: 500 }
       );
     }

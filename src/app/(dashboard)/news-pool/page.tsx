@@ -6,6 +6,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useRouter } from "next/navigation";
@@ -14,7 +24,10 @@ import { toast } from "sonner";
 interface NewsItem {
   id: string;
   title: string;
+  title_tr: string | null;
+  title_original: string | null;
   summary: string;
+  full_summary_tr: string | null;
   url: string;
   category: string;
   viral_score: number;
@@ -23,6 +36,21 @@ interface NewsItem {
   fetched_at: string;
   is_used: boolean;
   sources?: { name: string };
+}
+
+interface ArticleData {
+  id: string;
+  title: string;
+  title_tr: string;
+  title_original: string;
+  full_summary_tr: string;
+  summary: string;
+  url: string;
+  source_name: string;
+  published_at: string;
+  viral_score: number;
+  viral_reason: string;
+  category: string;
 }
 
 const categories = [
@@ -56,6 +84,10 @@ export default function NewsPoolPage() {
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
+  const [articleData, setArticleData] = useState<ArticleData | null>(null);
+  const [articleLoading, setArticleLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -94,11 +126,12 @@ export default function NewsPoolPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ news_id: newsId }),
       });
+      const data = await res.json();
       if (res.ok) {
         toast.success("Tweet seçenekleri üretildi!");
         router.push(`/tweet-generator?news_id=${newsId}`);
       } else {
-        toast.error("Tweet üretimi başarısız oldu");
+        toast.error(data?.error || "Tweet üretimi başarısız oldu");
       }
     } catch {
       toast.error("Bir hata oluştu");
@@ -107,8 +140,35 @@ export default function NewsPoolPage() {
     }
   }
 
+  async function handleOpenArticle(newsId: string) {
+    setSelectedNewsId(newsId);
+    setSheetOpen(true);
+    setArticleData(null);
+    setArticleLoading(true);
+
+    try {
+      const res = await fetch("/api/news/article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ news_id: newsId }),
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setArticleData(data);
+      } else {
+        toast.error(data?.error || "Makale yüklenemedi");
+      }
+    } catch {
+      toast.error("Bir hata oluştu");
+    } finally {
+      setArticleLoading(false);
+    }
+  }
+
   const filtered = news.filter(
     (item) =>
+      (item.title_tr || item.title).toLowerCase().includes(search.toLowerCase()) ||
       item.title.toLowerCase().includes(search.toLowerCase()) ||
       (item.summary && item.summary.toLowerCase().includes(search.toLowerCase()))
   );
@@ -187,10 +247,13 @@ export default function NewsPoolPage() {
             >
               <CardContent className="p-4 flex items-center gap-4">
                 <ScoreBadge score={item.viral_score} />
-                <div className="flex-1 min-w-0">
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => handleOpenArticle(item.id)}
+                >
                   <div className="flex items-start gap-2">
                     <h3 className="text-sm font-semibold text-slate-900 line-clamp-1 flex-1">
-                      {item.title}
+                      {item.title_tr || item.title}
                     </h3>
                     {item.is_used && (
                       <span className="text-[10px] font-medium bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">
@@ -200,7 +263,7 @@ export default function NewsPoolPage() {
                   </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-slate-400">{item.sources?.name}</span>
-                    <span className="text-slate-300">•</span>
+                    <span className="text-slate-300">&bull;</span>
                     <span className="text-xs text-slate-400">
                       {formatDistanceToNow(new Date(item.fetched_at), {
                         addSuffix: true,
@@ -209,7 +272,7 @@ export default function NewsPoolPage() {
                     </span>
                     {item.viral_reason && (
                       <>
-                        <span className="text-slate-300 hidden sm:inline">•</span>
+                        <span className="text-slate-300 hidden sm:inline">&bull;</span>
                         <span className="text-xs text-violet-500 italic hidden sm:inline">
                           {item.viral_reason}
                         </span>
@@ -219,7 +282,10 @@ export default function NewsPoolPage() {
                 </div>
                 <Button
                   size="sm"
-                  onClick={() => handleGenerate(item.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleGenerate(item.id);
+                  }}
                   disabled={generatingId === item.id}
                   className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 h-11 min-w-[100px]"
                 >
@@ -240,6 +306,125 @@ export default function NewsPoolPage() {
           ))}
         </div>
       )}
+
+      {/* Article Reader Sheet */}
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <SheetContent
+          side="right"
+          className="data-[side=right]:sm:max-w-xl data-[side=right]:lg:max-w-2xl overflow-y-auto"
+        >
+          {articleLoading ? (
+            <div className="p-6 space-y-4">
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Separator />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+          ) : articleData ? (
+            <>
+              <SheetHeader className="pr-8">
+                <SheetTitle className="text-lg font-bold text-slate-900 leading-tight">
+                  {articleData.title_tr}
+                </SheetTitle>
+                {articleData.title_original && articleData.title_original !== articleData.title_tr && (
+                  <SheetDescription className="text-xs text-slate-400 italic mt-1">
+                    {articleData.title_original}
+                  </SheetDescription>
+                )}
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <Badge variant="secondary" className="text-xs">
+                    {articleData.source_name}
+                  </Badge>
+                  {articleData.published_at && (
+                    <span className="text-xs text-slate-400">
+                      {formatDistanceToNow(new Date(articleData.published_at), {
+                        addSuffix: true,
+                        locale: tr,
+                      })}
+                    </span>
+                  )}
+                  <Badge
+                    className={`text-xs ${
+                      articleData.viral_score >= 80
+                        ? "bg-emerald-100 text-emerald-700"
+                        : articleData.viral_score >= 60
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    Viral: {articleData.viral_score}
+                  </Badge>
+                </div>
+              </SheetHeader>
+
+              <Separator className="my-2" />
+
+              <div className="px-4 py-2 space-y-4 flex-1">
+                {articleData.full_summary_tr ? (
+                  articleData.full_summary_tr.split("\n\n").map((paragraph, i) => (
+                    <p key={i} className="text-sm text-slate-700 leading-relaxed">
+                      {paragraph}
+                    </p>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    {articleData.summary || "Özet mevcut değil."}
+                  </p>
+                )}
+              </div>
+
+              <SheetFooter className="border-t border-slate-100 gap-2">
+                <a
+                  href={articleData.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full"
+                >
+                  <Button
+                    variant="outline"
+                    className="w-full h-11"
+                  >
+                    Orijinal Makaleyi Aç
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="ml-2"
+                    >
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      <polyline points="15 3 21 3 21 9" />
+                      <line x1="10" x2="21" y1="14" y2="3" />
+                    </svg>
+                  </Button>
+                </a>
+                <Button
+                  onClick={() => {
+                    setSheetOpen(false);
+                    if (selectedNewsId) handleGenerate(selectedNewsId);
+                  }}
+                  className="w-full bg-blue-500 hover:bg-blue-600 text-white h-11"
+                >
+                  Tweet Üret
+                </Button>
+              </SheetFooter>
+            </>
+          ) : (
+            <div className="p-12 text-center text-slate-400">
+              <p>Makale yüklenemedi</p>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

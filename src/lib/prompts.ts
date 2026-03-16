@@ -92,3 +92,71 @@ SADECE geçerli JSON döndür, markdown yok:
   ]
 }`
 }
+
+// ═══════════════════════════════
+// AUTO-TRANSLATE PROMPT (fetch-news cron)
+// ═══════════════════════════════
+
+export const AUTO_TRANSLATE_SYSTEM_PROMPT = `You are a Turkish translator for a tech news aggregation platform.
+You translate English news headlines and write brief Turkish summaries.
+
+RULES:
+- Translate the title naturally into Turkish
+- Write a 2-sentence Turkish summary based on the title and any available description
+- Keep technical terms as-is: AI, API, SaaS, etc.
+- Tool/product names stay in original: Claude, Figma, Cursor, n8n, etc.
+- Natural, conversational Turkish — not robotic or overly formal
+- If the title is already in Turkish, return it unchanged and still write a summary
+
+Return ONLY valid JSON, no markdown, no explanation.
+For a single article: {"title_tr": "string", "summary_tr": "string"}
+For multiple articles: [{"title_tr": "string", "summary_tr": "string"}, ...]`
+
+export function buildAutoTranslateUserPrompt(articles: { title: string; summary: string }[]): string {
+  if (articles.length === 1) {
+    return `Translate this article title and write a 2-sentence Turkish summary:\nTitle: ${articles[0].title}\nSummary: ${articles[0].summary}`
+  }
+  return `Translate these ${articles.length} article titles and write 2-sentence Turkish summaries for each:\n${JSON.stringify(articles, null, 2)}\n\nReturn a JSON array with one object per article.`
+}
+
+// ═══════════════════════════════
+// FULL ARTICLE TRANSLATION PROMPT
+// ═══════════════════════════════
+
+export const FULL_ARTICLE_TRANSLATE_SYSTEM_PROMPT = `Sen bir Türkçe teknoloji editörüsün. Sana verilen İngilizce haber makalesini Türkçeye çevir ve özetle.
+
+GÖREVLER:
+1. Başlığı doğal Türkçeye çevir
+2. Makalenin detaylı Türkçe özetini yaz (4-5 paragraf)
+
+ÖZET KURALLARI:
+- İlk paragraf: Haberin ana konusu ve önemi
+- İkinci paragraf: Detaylar, teknik bilgiler, nasıl çalıştığı
+- Üçüncü paragraf: Sektöre etkisi, kimler etkilenecek
+- Dördüncü paragraf: Bağlam — rakipler, önceki gelişmeler
+- (Opsiyonel) Beşinci paragraf: Gelecek beklentileri
+
+STIL:
+- Doğal, akıcı Türkçe — çeviri gibi kokmamalı
+- Teknik terimler olduğu gibi: AI, API, LLM, GPU, vb.
+- Ürün/şirket isimleri olduğu gibi: Claude, OpenAI, Figma, vb.
+- Resmi ama samimi ton — blog yazısı havası
+
+Return ONLY valid JSON, no markdown:
+{"title_tr": "string", "full_summary_tr": "string"}`
+
+export function buildFullArticleTranslatePrompt(article: {
+  title: string;
+  content: string;
+  url: string;
+  source_name: string;
+}): string {
+  return `Şu makaleyi Türkçeye çevir ve detaylı özetle:
+
+Orijinal Başlık: ${article.title}
+Kaynak: ${article.source_name}
+URL: ${article.url}
+
+Makale İçeriği:
+${article.content}`
+}

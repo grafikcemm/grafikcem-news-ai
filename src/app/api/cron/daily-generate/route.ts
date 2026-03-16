@@ -63,13 +63,14 @@ export async function POST(request: NextRequest) {
           ],
         });
 
-        const text = response.content[0].type === "text" ? response.content[0].text : "";
+        const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+        const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
         let parsed: { options: Array<{ type: string; content: string; thread_tweets: string[] | null; score: number; score_reason: string }> };
         try {
           parsed = JSON.parse(text);
         } catch {
-          console.error("Claude returned invalid JSON for tweet generation:", text);
+          console.error("Claude returned invalid JSON for tweet generation:", rawText);
           continue;
         }
 

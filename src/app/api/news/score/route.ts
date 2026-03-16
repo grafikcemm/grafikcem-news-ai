@@ -48,14 +48,15 @@ export async function POST(request: NextRequest) {
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
         });
 
-        const text = response.content[0].type === "text" ? response.content[0].text : "";
+        const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+        const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
         let scores: Array<{ score: number; reason: string; category?: string }>;
         try {
           const parsed = JSON.parse(text);
           scores = Array.isArray(parsed) ? parsed : [parsed];
         } catch {
-          console.error("Claude returned invalid JSON for scoring:", text);
+          console.error("Claude returned invalid JSON for scoring:", rawText);
           continue;
         }
 
