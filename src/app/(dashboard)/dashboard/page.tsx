@@ -35,7 +35,6 @@ interface Stats {
   todayNews: number;
   avgScore: number;
   pendingDrafts: number;
-  publishedThisWeek: number;
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -72,12 +71,10 @@ export default function DashboardPage() {
       today.setHours(0, 0, 0, 0);
       const todayISO = today.toISOString();
 
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const weekAgoISO = weekAgo.toISOString();
+
 
       // Parallel fetch all stats
-      const [newsToday, avgResult, pendingResult, publishedResult, topResult, recentResult, recommendedResult] =
+      const [newsToday, avgResult, pendingResult, topResult, recentResult, recommendedResult] =
         await Promise.all([
           supabase
             .from("news_items")
@@ -91,10 +88,6 @@ export default function DashboardPage() {
             .from("tweet_drafts")
             .select("id", { count: "exact", head: true })
             .eq("status", "pending"),
-          supabase
-            .from("published_tweets")
-            .select("id", { count: "exact", head: true })
-            .gte("published_at", weekAgoISO),
           supabase
             .from("news_items")
             .select("*, sources(name)")
@@ -125,7 +118,6 @@ export default function DashboardPage() {
         todayNews: newsToday.count || 0,
         avgScore: avg,
         pendingDrafts: pendingResult.count || 0,
-        publishedThisWeek: publishedResult.count || 0,
       });
 
       if (topResult.data) setTopNews(topResult.data as NewsItem);
@@ -181,14 +173,6 @@ export default function DashboardPage() {
       ),
       gradient: "from-amber-500 to-orange-500",
     },
-    {
-      title: "Bu Hafta Yayınlanan",
-      value: stats?.publishedThisWeek ?? 0,
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"/></svg>
-      ),
-      gradient: "from-emerald-500 to-teal-500",
-    },
   ];
 
   return (
@@ -200,7 +184,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {statCards.map((card, i) => (
           <Card key={i} className="border-0 shadow-sm bg-white">
             <CardContent className="p-4 lg:p-6">

@@ -47,7 +47,6 @@ function TweetGeneratorContent() {
   const [drafts, setDrafts] = useState<TweetDraft[]>([]);
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
-  const [publishingId, setPublishingId] = useState<string | null>(null);
   const [newsId, setNewsId] = useState(newsIdParam || "");
 
   useEffect(() => {
@@ -140,29 +139,6 @@ function TweetGeneratorContent() {
     }
   }
 
-  async function handlePublish(draftId: string) {
-    setPublishingId(draftId);
-    try {
-      const res = await fetch("/api/tweet/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_id: draftId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setDrafts((prev) =>
-          prev.map((d) => (d.id === draftId ? { ...d, status: "published" } : d))
-        );
-        toast.success("Tweet X'te yayınlandı! 🎉");
-      } else {
-        toast.error(data.error || "Yayınlama başarısız");
-      }
-    } catch {
-      toast.error("Bir hata oluştu");
-    } finally {
-      setPublishingId(null);
-    }
-  }
 
   return (
     <div className="p-4 lg:p-8 space-y-6">
@@ -273,9 +249,7 @@ function TweetGeneratorContent() {
               <Card
                 key={draft.id}
                 className={`border-0 shadow-sm bg-white ${
-                  draft.status === "published"
-                    ? "ring-2 ring-emerald-500/30"
-                    : draft.status === "approved"
+                  draft.status === "approved"
                     ? "ring-2 ring-blue-500/30"
                     : draft.status === "rejected"
                     ? "opacity-50"
@@ -299,16 +273,12 @@ function TweetGeneratorContent() {
                       {draft.status !== "pending" && (
                         <Badge
                           className={`text-[10px] ${
-                            draft.status === "published"
-                              ? "bg-emerald-100 text-emerald-700"
-                              : draft.status === "approved"
+                            draft.status === "approved"
                               ? "bg-blue-100 text-blue-700"
                               : "bg-red-100 text-red-600"
                           }`}
                         >
-                          {draft.status === "published"
-                            ? "Yayınlandı"
-                            : draft.status === "approved"
+                          {draft.status === "approved"
                             ? "Onaylandı"
                             : "Reddedildi"}
                         </Badge>
@@ -357,14 +327,6 @@ function TweetGeneratorContent() {
                       </Button>
                       <Button
                         size="sm"
-                        onClick={() => handlePublish(draft.id)}
-                        disabled={publishingId === draft.id}
-                        className="bg-blue-500 hover:bg-blue-600 text-white"
-                      >
-                        {publishingId === draft.id ? "Yayınlanıyor..." : "🚀 Şimdi Yayınla"}
-                      </Button>
-                      <Button
-                        size="sm"
                         variant="ghost"
                         onClick={() => handleReject(draft.id)}
                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
@@ -372,16 +334,6 @@ function TweetGeneratorContent() {
                         ✕ Reddet
                       </Button>
                     </div>
-                  )}
-                  {draft.status === "approved" && (
-                    <Button
-                      size="sm"
-                      onClick={() => handlePublish(draft.id)}
-                      disabled={publishingId === draft.id}
-                      className="bg-blue-500 hover:bg-blue-600 text-white"
-                    >
-                      {publishingId === draft.id ? "Yayınlanıyor..." : "🚀 Şimdi Yayınla"}
-                    </Button>
                   )}
                 </CardContent>
               </Card>

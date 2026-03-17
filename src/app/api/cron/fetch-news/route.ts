@@ -4,6 +4,8 @@ import Anthropic from "@anthropic-ai/sdk";
 import Parser from "rss-parser";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt, AUTO_TRANSLATE_SYSTEM_PROMPT, buildAutoTranslateUserPrompt } from "@/lib/prompts";
 
+export const maxDuration = 60; // Max allowed for Vercel Hobby tier
+
 const parser = new Parser();
 
 export async function POST(request: NextRequest) {
@@ -72,10 +74,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No new items found", count: 0 });
     }
 
-    // Insert new items
+    // Insert or ignore new items based on their url
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("news_items")
-      .insert(newItems)
+      .upsert(newItems, { onConflict: 'url', ignoreDuplicates: true })
       .select("id, title, summary, url, published_at");
 
     if (insertError || !inserted) {
@@ -100,7 +102,7 @@ export async function POST(request: NextRequest) {
         }));
 
         const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-3-5-sonnet-20241022",
           max_tokens: 2048,
           system: VIRAL_SCORING_SYSTEM_PROMPT,
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
@@ -159,7 +161,7 @@ export async function POST(request: NextRequest) {
           }));
 
           const translateResponse = await anthropic.messages.create({
-            model: "claude-sonnet-4-20250514",
+            model: "claude-3-5-sonnet-20241022",
             max_tokens: 2048,
             system: AUTO_TRANSLATE_SYSTEM_PROMPT,
             messages: [
