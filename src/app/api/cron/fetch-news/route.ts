@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
         console.log(`[fetch-news] Sending batch of ${articles.length} to Claude for scoring`);
 
         const response = await anthropic.messages.create({
-          model: "claude-3-5-sonnet-20241022",
+          model: "claude-haiku-4-5-20251001",
           max_tokens: 2048,
           system: VIRAL_SCORING_SYSTEM_PROMPT,
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
@@ -186,7 +186,7 @@ export async function POST(request: NextRequest) {
           }));
 
           const translateResponse = await anthropic.messages.create({
-            model: "claude-3-5-sonnet-20241022",
+            model: "claude-haiku-4-5-20251001",
             max_tokens: 2048,
             system: AUTO_TRANSLATE_SYSTEM_PROMPT,
             messages: [
