@@ -12,7 +12,12 @@ export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
     const authHeader = request.headers.get("authorization");
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    const cronHeader = request.headers.get("x-vercel-cron");
+
+    const isVercelCron = cronHeader === "1";
+    const isManualCall = authHeader === process.env.CRON_SECRET;
+
+    if (!isVercelCron && !isManualCall) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
