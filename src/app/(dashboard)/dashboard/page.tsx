@@ -37,6 +37,70 @@ interface Stats {
   pendingDrafts: number;
 }
 
+function OptimalTimesCard() {
+  const [data, setData] = useState<{ hours: Record<number, number>; best_hours: number[]; message: string; is_estimated: boolean } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/analysis/optimal-times")
+      .then((r) => r.json())
+      .then((d) => setData(d))
+      .catch(() => {});
+  }, []);
+
+  const now = new Date().getHours();
+  const isGoodTime = data?.best_hours?.includes(now);
+
+  return (
+    <Card className="border-0 shadow-sm bg-white">
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base font-semibold text-slate-900">En İyi Paylaşım Saatleri</CardTitle>
+          {data && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isGoodTime ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+              {isGoodTime ? `✓ Şu an iyi saat (${now}:00)` : `Şu an: ${now}:00`}
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {!data ? (
+          <Skeleton className="h-12 w-full" />
+        ) : (
+          <>
+            <div className="flex items-end gap-0.5 h-12">
+              {Array.from({ length: 24 }, (_, h) => {
+                const val = data.hours?.[h] ?? 0;
+                const isBest = data.best_hours?.includes(h);
+                const isCurrent = h === now;
+                return (
+                  <div key={h} className="flex-1 flex flex-col items-center gap-0.5" title={`${h}:00 — ${val}%`}>
+                    <div
+                      className={`w-full rounded-sm transition-all ${isCurrent ? "bg-blue-500" : isBest ? "bg-violet-400" : "bg-slate-200"}`}
+                      style={{ height: `${Math.max(4, val)}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+              <span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
+            </div>
+            <div className="flex items-center gap-4 mt-3 flex-wrap">
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <span className="w-3 h-2 rounded-sm bg-violet-400 inline-block" /> En iyi saatler:{" "}
+                {data.best_hours?.map((h) => `${h}:00`).join(", ")}
+              </div>
+              {data.is_estimated && (
+                <span className="text-[10px] text-slate-400 italic">Türk X kitlesi ortalaması</span>
+              )}
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ScoreBadge({ score }: { score: number }) {
   const color =
     score >= 80
@@ -196,7 +260,7 @@ export default function DashboardPage() {
                     <p className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                       {card.title}
                     </p>
-                    <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center text-white`}>
+                    <div className={`w-8 h-8 rounded-lg bg-linear-to-br ${card.gradient} flex items-center justify-center text-white`}>
                       {card.icon}
                     </div>
                   </div>
@@ -212,7 +276,7 @@ export default function DashboardPage() {
       {loading ? (
         <Skeleton className="h-40 w-full rounded-xl" />
       ) : topNews ? (
-        <Card className="border-0 shadow-sm bg-gradient-to-r from-slate-900 to-slate-800 text-white overflow-hidden">
+        <Card className="border-0 shadow-sm bg-linear-to-r from-slate-900 to-slate-800 text-white overflow-hidden">
           <CardContent className="p-6 lg:p-8">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -302,6 +366,9 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* Optimal Posting Times */}
+      <OptimalTimesCard />
 
       {/* Recent News */}
       <Card className="border-0 shadow-sm bg-white">

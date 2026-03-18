@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
-import { TWEET_GENERATION_SYSTEM_PROMPT, buildTweetUserPrompt } from "@/lib/prompts";
+import { TWEET_GENERATION_SYSTEM, TWEET_GENERATION_USER, FORMAT_INSTRUCTIONS } from "@/lib/prompts";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { news_id } = body as { news_id: string };
+    const { news_id, format } = body as { news_id: string; format?: string };
 
     if (!news_id) {
       return NextResponse.json({ error: "news_id required" }, { status: 400 });
@@ -25,16 +25,27 @@ export async function POST(request: NextRequest) {
 
     const sourceName = (newsItem.sources as { name: string } | null)?.name || "Unknown";
 
+    // Load style profile if available
+    const { data: styleSettings } = await supabaseAdmin
+      .from("settings")
+      .select("value")
+      .eq("key", "style_profile")
+      .single();
+
+    const styleSection = styleSettings?.value
+      ? `\n\nSTYLE PROFILE — write exactly in this style:\n${JSON.stringify(styleSettings.value)}`
+      : "";
+
     // Check for custom voice prompt
-    const { data: settings } = await supabaseAdmin
+    const { data: voiceSettings } = await supabaseAdmin
       .from("settings")
       .select("value")
       .eq("key", "custom_voice_prompt")
       .single();
 
-    const systemPrompt = settings?.value
-      ? `${TWEET_GENERATION_SYSTEM_PROMPT}\n\nEK KURALLAR:\n${settings.value}`
-      : TWEET_GENERATION_SYSTEM_PROMPT;
+    const voiceSection = voiceSettings?.value ? `\n\nEK KURALLAR:\n${voiceSettings.value}` : "";
+
+    const systemPrompt = `${TWEET_GENERATION_SYSTEM}${styleSection}${voiceSection}`;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
@@ -42,27 +53,36 @@ export async function POST(request: NextRequest) {
     }
     const anthropic = new Anthropic({ apiKey });
 
+    const title = newsItem.title_tr || newsItem.title;
+    const summary = newsItem.summary || "";
+
+    // Build user prompt — inject format instruction if a specific format was chosen
+    const baseUserPrompt = TWEET_GENERATION_USER(title, summary, sourceName, newsItem.category || "ai_news");
+    const formatInstruction = format && FORMAT_INSTRUCTIONS[format]
+      ? `\n\nFORMAT ZORUNLU:\n${FORMAT_INSTRUCTIONS[format]}`
+      : "";
+    const userPrompt = baseUserPrompt + formatInstruction;
+
     const response = await anthropic.messages.create({
       model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: buildTweetUserPrompt({
-            title: newsItem.title,
-            summary: newsItem.summary || "",
-            source_name: sourceName,
-            category: newsItem.category || "ai_news",
-          }),
-        },
-      ],
+      messages: [{ role: "user", content: userPrompt }],
     });
 
     const rawText = response.content[0].type === "text" ? response.content[0].text : "";
     const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
-    let parsed: { options: Array<{ type: string; content: string; thread_tweets: string[] | null; score: number; score_reason: string }> };
+    let parsed: {
+      options: Array<{
+        type: string;
+        content: string;
+        thread_tweets: string[] | null;
+        score: number;
+        score_reason: string;
+        pattern_used?: string;
+      }>;
+    };
     try {
       parsed = JSON.parse(text);
     } catch {
@@ -74,7 +94,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "AI returned unexpected format" }, { status: 500 });
     }
 
-    // Save all 3 as pending drafts
+    // Save drafts
     const drafts = [];
     for (const option of parsed.options) {
       const { data: draft, error: draftError } = await supabaseAdmin
@@ -92,7 +112,11 @@ export async function POST(request: NextRequest) {
         .single();
 
       if (!draftError && draft) {
-        drafts.push({ ...draft, score_reason: option.score_reason });
+        drafts.push({
+          ...draft,
+          score_reason: option.score_reason,
+          pattern_used: option.pattern_used || null,
+        });
       }
     }
 

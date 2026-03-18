@@ -29,7 +29,19 @@ interface TweetDraft {
   ai_score: number;
   status: string;
   score_reason?: string;
+  pattern_used?: string | null;
 }
+
+const FORMATS = [
+  { id: "mikro", label: "Mikro", desc: "Max 100 karakter", icon: "⚡" },
+  { id: "standard", label: "Standard", desc: "240-270 karakter", icon: "💬" },
+  { id: "hook", label: "Hook", desc: "FOMO / Provokasyon", icon: "🎣" },
+  { id: "liste", label: "Liste", desc: "Numaralı format", icon: "📋" },
+  { id: "thread_mini", label: "Thread Mini", desc: "3 tweet", icon: "🧵" },
+  { id: "thread_orta", label: "Thread Orta", desc: "5 tweet", icon: "🧵🧵" },
+  { id: "thread_uzun", label: "Thread Uzun", desc: "10 tweet", icon: "📖" },
+  { id: "thunder", label: "Thunder ⚡", desc: "MAX VİRAL", icon: "🔥" },
+];
 
 export default function TweetGeneratorPage() {
   return (
@@ -48,6 +60,7 @@ function TweetGeneratorContent() {
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [newsId, setNewsId] = useState(newsIdParam || "");
+  const [selectedFormat, setSelectedFormat] = useState<string>("standard");
 
   useEffect(() => {
     if (newsIdParam) {
@@ -59,7 +72,6 @@ function TweetGeneratorContent() {
   async function loadNewsAndDrafts(id: string) {
     setLoading(true);
     try {
-      // Load news item
       const { data: news } = await supabase
         .from("news_items")
         .select("*, sources(name)")
@@ -68,7 +80,6 @@ function TweetGeneratorContent() {
 
       if (news) setNewsItem(news as NewsItem);
 
-      // Load existing drafts
       const { data: existingDrafts } = await supabase
         .from("tweet_drafts")
         .select("*")
@@ -91,13 +102,13 @@ function TweetGeneratorContent() {
       const res = await fetch("/api/tweet/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ news_id: newsId }),
+        body: JSON.stringify({ news_id: newsId, format: selectedFormat }),
       });
       const data = await res.json();
       if (res.ok && data.options) {
         setDrafts(data.options);
-        toast.success("3 tweet seçeneği üretildi!");
-        // Also load the news item if not loaded
+        const fmt = FORMATS.find((f) => f.id === selectedFormat);
+        toast.success(`${fmt?.label || "Tweet"} formatında üretildi!`);
         if (!newsItem) await loadNewsAndDrafts(newsId);
       } else {
         toast.error(data.error || "Tweet üretimi başarısız");
@@ -111,13 +122,8 @@ function TweetGeneratorContent() {
 
   async function handleApprove(draftId: string) {
     try {
-      await supabase
-        .from("tweet_drafts")
-        .update({ status: "approved" })
-        .eq("id", draftId);
-      setDrafts((prev) =>
-        prev.map((d) => (d.id === draftId ? { ...d, status: "approved" } : d))
-      );
+      await supabase.from("tweet_drafts").update({ status: "approved" }).eq("id", draftId);
+      setDrafts((prev) => prev.map((d) => (d.id === draftId ? { ...d, status: "approved" } : d)));
       toast.success("Taslak onaylandı!");
     } catch {
       toast.error("Onaylama başarısız");
@@ -126,27 +132,48 @@ function TweetGeneratorContent() {
 
   async function handleReject(draftId: string) {
     try {
-      await supabase
-        .from("tweet_drafts")
-        .update({ status: "rejected" })
-        .eq("id", draftId);
-      setDrafts((prev) =>
-        prev.map((d) => (d.id === draftId ? { ...d, status: "rejected" } : d))
-      );
+      await supabase.from("tweet_drafts").update({ status: "rejected" }).eq("id", draftId);
+      setDrafts((prev) => prev.map((d) => (d.id === draftId ? { ...d, status: "rejected" } : d)));
       toast.info("Taslak reddedildi");
     } catch {
       toast.error("İşlem başarısız");
     }
   }
 
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text);
+    toast.success("Kopyalandı!");
+  }
 
   return (
     <div className="p-4 lg:p-8 space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Tweet Üretici</h1>
         <p className="text-slate-500 text-sm mt-1">
-          AI ile tweet seçenekleri üret, onayla ve yayınla
+          12 viral pattern + 8 format — AI ile tweet seçenekleri üret
         </p>
+      </div>
+
+      {/* Format Selector */}
+      <div>
+        <p className="text-sm font-medium text-slate-600 mb-2">Format Seç</p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {FORMATS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setSelectedFormat(f.id)}
+              className={`p-2 rounded-lg border text-left transition-all ${
+                selectedFormat === f.id
+                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                  : "border-slate-200 hover:border-slate-300 bg-white"
+              }`}
+            >
+              <div className="text-lg">{f.icon}</div>
+              <div className="text-xs font-medium">{f.label}</div>
+              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{f.desc}</div>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid lg:grid-cols-5 gap-6">
@@ -154,9 +181,7 @@ function TweetGeneratorContent() {
         <div className="lg:col-span-2 space-y-4">
           <Card className="border-0 shadow-sm bg-white sticky top-4">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-slate-900">
-                Haber Detayı
-              </CardTitle>
+              <CardTitle className="text-sm font-semibold text-slate-900">Haber Detayı</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {loading ? (
@@ -199,16 +224,21 @@ function TweetGeneratorContent() {
               ) : (
                 <div className="text-center py-8 text-slate-400 text-sm">
                   <p>Tweet üretmek için bir haber seçin</p>
-                  <p className="mt-2 text-xs">Haber Havuzu'ndan bir haber seçip "Tweet Üret" butonuna tıklayın</p>
+                  <p className="mt-2 text-xs">Haber Havuzu&apos;ndan bir haber seçip &quot;Tweet Üret&quot; butonuna tıklayın</p>
                 </div>
               )}
 
               <Separator />
 
+              <div className="flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 rounded-lg p-2">
+                <span>{FORMATS.find((f) => f.id === selectedFormat)?.icon}</span>
+                <span>Format: <strong>{FORMATS.find((f) => f.id === selectedFormat)?.label}</strong></span>
+              </div>
+
               <Button
                 onClick={handleGenerate}
                 disabled={generating || !newsId}
-                className="w-full bg-gradient-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white h-11"
+                className="w-full bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white h-11"
               >
                 {generating ? (
                   <span className="flex items-center gap-2">
@@ -219,7 +249,7 @@ function TweetGeneratorContent() {
                     AI Üretiyor...
                   </span>
                 ) : (
-                  "🚀 Tweet Seçenekleri Üret"
+                  `${FORMATS.find((f) => f.id === selectedFormat)?.label || "Tweet"} Üret`
                 )}
               </Button>
             </CardContent>
@@ -241,7 +271,7 @@ function TweetGeneratorContent() {
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
                 </div>
                 <p className="font-medium text-slate-500">Henüz tweet seçeneği yok</p>
-                <p className="text-xs text-slate-400 mt-1">Bir haber seçip "Tweet Seçenekleri Üret" butonuna tıklayın</p>
+                <p className="text-xs text-slate-400 mt-1">Bir haber seçip format belirleyerek üret butonuna tıklayın</p>
               </CardContent>
             </Card>
           ) : (
@@ -257,8 +287,8 @@ function TweetGeneratorContent() {
                 }`}
               >
                 <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-bold text-slate-400">Seçenek {i + 1}</span>
                       <Badge
                         variant="outline"
@@ -270,6 +300,11 @@ function TweetGeneratorContent() {
                       >
                         {draft.tweet_type === "thread" ? "Thread" : "Single"}
                       </Badge>
+                      {draft.pattern_used && (
+                        <Badge className="text-[10px] bg-amber-100 text-amber-700 hover:bg-amber-100">
+                          {draft.pattern_used}
+                        </Badge>
+                      )}
                       {draft.status !== "pending" && (
                         <Badge
                           className={`text-[10px] ${
@@ -278,21 +313,26 @@ function TweetGeneratorContent() {
                               : "bg-red-100 text-red-600"
                           }`}
                         >
-                          {draft.status === "approved"
-                            ? "Onaylandı"
-                            : "Reddedildi"}
+                          {draft.status === "approved" ? "Onaylandı" : "Reddedildi"}
                         </Badge>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">
-                        {draft.content.length} karakter
+                      <span
+                        className={`text-xs ${
+                          draft.content.length > 280 ? "text-red-500 font-semibold" : "text-slate-400"
+                        }`}
+                      >
+                        {draft.content.length} kar
+                        {draft.content.length > 280 && " ⚠"}
                       </span>
-                      <span className="text-xs font-bold text-violet-500">
-                        AI: {draft.ai_score}
-                      </span>
+                      <span className="text-xs font-bold text-violet-500">AI: {draft.ai_score}</span>
                     </div>
                   </div>
+
+                  {draft.score_reason && (
+                    <p className="text-[10px] text-slate-400 italic mb-2">{draft.score_reason}</p>
+                  )}
 
                   {/* Tweet content */}
                   <div className="bg-slate-50 rounded-xl p-4 mb-4">
@@ -305,9 +345,7 @@ function TweetGeneratorContent() {
                         <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
                           {draft.thread_tweets.map((tweet, j) => (
                             <div key={j} className="flex gap-2">
-                              <span className="text-xs text-slate-400 shrink-0 mt-0.5">
-                                {j + 1}.
-                              </span>
+                              <span className="text-xs text-slate-400 shrink-0 mt-0.5">{j + 1}.</span>
                               <p className="text-sm text-slate-700">{tweet}</p>
                             </div>
                           ))}
@@ -316,25 +354,47 @@ function TweetGeneratorContent() {
                   </div>
 
                   {/* Actions */}
-                  {draft.status === "pending" && (
-                    <div className="flex items-center gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleApprove(draft.id)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                      >
-                        ✓ Onayla
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleReject(draft.id)}
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                      >
-                        ✕ Reddet
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {draft.status === "pending" && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleApprove(draft.id)}
+                          className="bg-emerald-500 hover:bg-emerald-600 text-white"
+                        >
+                          ✓ Onayla
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleReject(draft.id)}
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        >
+                          ✕ Reddet
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => copyToClipboard(draft.content)}
+                      className="text-xs ml-auto"
+                    >
+                      Kopyala
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        window.open(
+                          `https://twitter.com/intent/tweet?text=${encodeURIComponent(draft.content)}`,
+                          "_blank"
+                        )
+                      }
+                      className="text-xs bg-slate-900 hover:bg-slate-800 text-white"
+                    >
+                      X&apos;te Paylaş
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             ))
