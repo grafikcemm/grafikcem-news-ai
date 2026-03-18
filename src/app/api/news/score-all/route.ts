@@ -3,6 +3,8 @@ import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 
+export const maxDuration = 60; // Max for Vercel Hobby
+
 export async function POST(request: NextRequest) {
   // Auth check — same pattern as cron routes
   const authHeader = request.headers.get("authorization");
@@ -26,7 +28,7 @@ export async function POST(request: NextRequest) {
       .select("id, title, summary, url, published_at")
       .eq("viral_score", 0)
       .order("fetched_at", { ascending: false })
-      .limit(200); // safety cap
+      .limit(30); // 3 batches of 10 — fits within 60s Vercel limit
 
     if (fetchError) {
       console.error("[score-all] Failed to fetch unscored items:", fetchError);
