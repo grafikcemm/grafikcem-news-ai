@@ -131,11 +131,7 @@ export default function DashboardPage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayISO = today.toISOString();
-
-
+      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
       // Parallel fetch all stats
       const [newsToday, avgResult, pendingResult, topResult, recentResult, recommendedResult] =
@@ -143,11 +139,12 @@ export default function DashboardPage() {
           supabase
             .from("news_items")
             .select("id", { count: "exact", head: true })
-            .gte("fetched_at", todayISO),
+            .gte("fetched_at", yesterday),
           supabase
             .from("news_items")
             .select("viral_score")
-            .gte("fetched_at", todayISO),
+            .gte("fetched_at", yesterday)
+            .gt("viral_score", 0),
           supabase
             .from("tweet_drafts")
             .select("id", { count: "exact", head: true })
@@ -156,7 +153,7 @@ export default function DashboardPage() {
             .from("news_items")
             .select("*, sources(name)")
             .order("viral_score", { ascending: false })
-            .gte("fetched_at", todayISO)
+            .gte("fetched_at", yesterday)
             .limit(1)
             .single(),
           supabase

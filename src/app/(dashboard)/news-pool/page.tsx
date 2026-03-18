@@ -47,7 +47,7 @@ interface ArticleData {
   summary: string;
   url: string;
   source_name: string;
-  published_at: string;
+  fetched_at: string;
   viral_score: number;
   viral_reason: string;
   category: string;
@@ -339,9 +339,9 @@ export default function NewsPoolPage() {
                   <Badge variant="secondary" className="text-xs">
                     {articleData.source_name}
                   </Badge>
-                  {articleData.published_at && (
+                  {articleData.fetched_at && (
                     <span className="text-xs text-slate-400">
-                      {formatDistanceToNow(new Date(articleData.published_at), {
+                      {formatDistanceToNow(new Date(articleData.fetched_at), {
                         addSuffix: true,
                         locale: tr,
                       })}

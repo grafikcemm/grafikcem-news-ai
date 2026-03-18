@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         summary: newsItem.summary,
         url: newsItem.url,
         source_name: sourceName,
-        published_at: newsItem.published_at,
+        fetched_at: newsItem.fetched_at,
         viral_score: newsItem.viral_score,
         viral_reason: newsItem.viral_reason,
         category: newsItem.category,
