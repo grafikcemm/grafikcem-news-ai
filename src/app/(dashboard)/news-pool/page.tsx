@@ -101,6 +101,7 @@ export default function NewsPoolPage() {
         .from("news_items")
         .select("*, sources(name)")
         .order("viral_score", { ascending: false })
+        .order("fetched_at", { ascending: false })
         .limit(50);
 
       if (activeCategory !== "all") {
