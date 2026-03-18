@@ -9,6 +9,11 @@ export const maxDuration = 60; // Max allowed for Vercel Hobby tier
 const parser = new Parser();
 
 export async function POST(request: NextRequest) {
+  // Check API key at startup
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error("ANTHROPIC_API_KEY is missing");
+  }
+
   try {
     // Verify cron secret
     const authHeader = request.headers.get("authorization");
@@ -90,12 +95,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to insert news items" }, { status: 500 });
     }
 
+    console.log(`[fetch-news] Inserted ${inserted.length} new items`);
+
     // Batch score with Claude (max 10 per call)
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
     const batches = [];
     for (let i = 0; i < inserted.length; i += 10) {
       batches.push(inserted.slice(i, i + 10));
     }
+
+    console.log(`[fetch-news] Scoring ${inserted.length} items in ${batches.length} batch(es)`);
 
     for (const batch of batches) {
       try {
@@ -106,6 +115,8 @@ export async function POST(request: NextRequest) {
           published_at: item.published_at || "",
         }));
 
+        console.log(`[fetch-news] Sending batch of ${articles.length} to Claude for scoring`);
+
         const response = await anthropic.messages.create({
           model: "claude-3-5-sonnet-20241022",
           max_tokens: 2048,
@@ -114,6 +125,8 @@ export async function POST(request: NextRequest) {
         });
 
         const rawScoreText = response.content[0].type === "text" ? response.content[0].text : "";
+        console.log(`[fetch-news] Claude raw scoring response:`, rawScoreText.substring(0, 500));
+
         const scoreText = rawScoreText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
         // Try to parse as array of scores
@@ -121,8 +134,10 @@ export async function POST(request: NextRequest) {
         try {
           const parsed = JSON.parse(scoreText);
           scores = Array.isArray(parsed) ? parsed : [parsed];
-        } catch {
-          console.error("Claude returned invalid JSON for scoring:", rawScoreText);
+          console.log(`[fetch-news] Parsed ${scores.length} scores from Claude`);
+        } catch (parseErr) {
+          console.error("[fetch-news] Claude returned invalid JSON for scoring. Raw text:", rawScoreText);
+          console.error("[fetch-news] JSON parse error:", parseErr);
           continue;
         }
 
@@ -130,7 +145,7 @@ export async function POST(request: NextRequest) {
         for (let j = 0; j < Math.min(scores.length, batch.length); j++) {
           const score = scores[j];
           if (typeof score?.score === "number") {
-            await supabaseAdmin
+            const { error: updateErr } = await supabaseAdmin
               .from("news_items")
               .update({
                 viral_score: Math.min(100, Math.max(0, score.score)),
@@ -138,10 +153,15 @@ export async function POST(request: NextRequest) {
                 category: score.category || batch[j].url,
               })
               .eq("id", batch[j].id);
+            if (updateErr) {
+              console.error(`[fetch-news] Failed to update score for item ${batch[j].id}:`, updateErr);
+            }
+          } else {
+            console.warn(`[fetch-news] Score at index ${j} is not a number:`, score);
           }
         }
       } catch (err) {
-        console.error("Claude scoring error:", err);
+        console.error("[fetch-news] Claude scoring batch error:", err);
         // Skip this batch, continue
       }
     }
