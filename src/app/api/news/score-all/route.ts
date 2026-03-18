@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
 
     let totalScored = 0;
     let totalFailed = 0;
+    const errors: string[] = [];
 
     for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
       const batch = batches[batchIdx];
@@ -115,7 +116,9 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
         console.error(`[score-all] Batch ${batchIdx + 1} error:`, err);
+        errors.push(`Batch ${batchIdx + 1}: ${msg}`);
         totalFailed += batch.length;
       }
     }
@@ -127,6 +130,7 @@ export async function POST(request: NextRequest) {
       total: unscoredItems.length,
       scored: totalScored,
       failed: totalFailed,
+      ...(errors.length > 0 ? { errors } : {}),
     });
   } catch (err) {
     console.error("[score-all] Unexpected error:", err);
