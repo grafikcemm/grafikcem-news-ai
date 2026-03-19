@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 interface NewsItem {
   id: string;
@@ -347,6 +348,31 @@ export default function DashboardPage() {
           ))}
         </div>
       )}
+
+      {/* Channels Overview */}
+      <div className="space-y-3">
+        <h2 className="text-base font-semibold text-slate-900">Kanallar</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {[
+            { id: "grafikcem", label: "@grafikcem", desc: "X — AI & Tasarım", dot: "bg-blue-400", href: "/channels/grafikcem" },
+            { id: "maskulenkod", label: "@maskulenkod", desc: "X — Disiplin & Mentorluk", dot: "bg-slate-500", href: "/channels/maskulenkod" },
+            { id: "linkedin", label: "LinkedIn", desc: "Profesyonel İçerik", dot: "bg-indigo-500", href: "/channels/linkedin" },
+          ].map((ch) => (
+            <Link key={ch.id} href={ch.href}>
+              <Card className="border-0 shadow-sm bg-white hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${ch.dot}`} />
+                    <span className="font-semibold text-slate-900 text-sm">{ch.label}</span>
+                  </div>
+                  <p className="text-xs text-slate-500">{ch.desc}</p>
+                  <p className="text-xs text-blue-500 mt-2 font-medium">İçerik görüntüle →</p>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
 
       {/* Optimal Posting Times */}
       <OptimalTimesCard />
