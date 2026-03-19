@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GRAFIKCEM_SYSTEM, buildGrafikcemUserPrompt } from "@/lib/prompts/grafikcem.prompt";
 import { MASKULENKOD_SYSTEM, buildMaskulenkodUserPrompt, getNextCategory } from "@/lib/prompts/maskulenkod.prompt";
 import { LINKEDIN_SYSTEM, buildLinkedInUserPrompt } from "@/lib/prompts/linkedin.prompt";
+import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
 
 export const maxDuration = 60;
 
@@ -16,11 +17,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function handler(request: NextRequest) {
-  const authHeader = request.headers.get("authorization");
-  const cronHeader = request.headers.get("x-vercel-cron");
-  if (cronHeader !== "1" && authHeader !== process.env.CRON_SECRET) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!validateCronRequest(request)) return unauthorizedResponse();
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const results: Record<string, string> = {};

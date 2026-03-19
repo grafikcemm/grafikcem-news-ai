@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { TWEET_GENERATION_SYSTEM, TWEET_GENERATION_USER, FORMAT_INSTRUCTIONS } from "@/lib/prompts";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   try {
     const body = await request.json();
     const { news_id, format } = body as { news_id: string; format?: string };
@@ -12,7 +15,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "news_id required" }, { status: 400 });
     }
 
-    // Fetch news item with source
     const { data: newsItem, error } = await supabaseAdmin
       .from("news_items")
       .select("*, sources(name)")
@@ -25,7 +27,6 @@ export async function POST(request: NextRequest) {
 
     const sourceName = (newsItem.sources as { name: string } | null)?.name || "Unknown";
 
-    // Load style profile if available
     const { data: styleSettings } = await supabaseAdmin
       .from("settings")
       .select("value")
@@ -36,7 +37,6 @@ export async function POST(request: NextRequest) {
       ? `\n\nSTYLE PROFILE — write exactly in this style:\n${JSON.stringify(styleSettings.value)}`
       : "";
 
-    // Check for custom voice prompt
     const { data: voiceSettings } = await supabaseAdmin
       .from("settings")
       .select("value")
@@ -44,7 +44,6 @@ export async function POST(request: NextRequest) {
       .single();
 
     const voiceSection = voiceSettings?.value ? `\n\nEK KURALLAR:\n${voiceSettings.value}` : "";
-
     const systemPrompt = `${TWEET_GENERATION_SYSTEM}${styleSection}${voiceSection}`;
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -55,8 +54,6 @@ export async function POST(request: NextRequest) {
 
     const title = newsItem.title_tr || newsItem.title;
     const summary = newsItem.summary || "";
-
-    // Build user prompt — inject format instruction if a specific format was chosen
     const baseUserPrompt = TWEET_GENERATION_USER(title, summary, sourceName, newsItem.category || "ai_news");
     const formatInstruction = format && FORMAT_INSTRUCTIONS[format]
       ? `\n\nFORMAT ZORUNLU:\n${FORMAT_INSTRUCTIONS[format]}`
@@ -94,7 +91,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "AI returned unexpected format" }, { status: 500 });
     }
 
-    // Save drafts
     const drafts = [];
     for (const option of parsed.options) {
       const { data: draft, error: draftError } = await supabaseAdmin

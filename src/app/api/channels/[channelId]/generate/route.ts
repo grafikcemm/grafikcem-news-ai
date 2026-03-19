@@ -4,13 +4,22 @@ import Anthropic from "@anthropic-ai/sdk";
 import { GRAFIKCEM_SYSTEM, buildGrafikcemUserPrompt } from "@/lib/prompts/grafikcem.prompt";
 import { MASKULENKOD_SYSTEM, buildMaskulenkodUserPrompt, getNextCategory } from "@/lib/prompts/maskulenkod.prompt";
 import { LINKEDIN_SYSTEM, buildLinkedInUserPrompt } from "@/lib/prompts/linkedin.prompt";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
 
 export const maxDuration = 30;
+
+function getSourceName(sources: unknown): string | undefined {
+  if (!sources) return undefined;
+  if (Array.isArray(sources)) return (sources[0] as { name?: string })?.name;
+  return (sources as { name?: string })?.name;
+}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ channelId: string }> }
 ) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   const { channelId } = await params;
   const validChannels = ["grafikcem", "maskulenkod", "linkedin"];
   if (!validChannels.includes(channelId)) {
@@ -36,17 +45,18 @@ export async function POST(
       }
 
       const system = channelId === "grafikcem" ? GRAFIKCEM_SYSTEM : LINKEDIN_SYSTEM;
+      const sourceName = getSourceName(unusedNews.sources);
       const userPrompt = channelId === "grafikcem"
         ? buildGrafikcemUserPrompt({
             title: unusedNews.title,
             summary: unusedNews.summary || "",
-            source: (unusedNews.sources as unknown as { name: string } | null)?.name,
+            source: sourceName,
             category: unusedNews.category,
           })
         : buildLinkedInUserPrompt({
             title: unusedNews.title,
             summary: unusedNews.summary || "",
-            source: (unusedNews.sources as unknown as { name: string } | null)?.name,
+            source: sourceName,
             category: unusedNews.category,
           });
 
@@ -59,7 +69,14 @@ export async function POST(
 
       const text = (raw.content[0].type === "text" ? raw.content[0].text : "")
         .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-      const parsed = JSON.parse(text);
+
+      let parsed: { content: string; pattern_used?: string; linkedin_format?: string };
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        console.error(`[channels/${channelId}/generate] Invalid JSON:`, text.slice(0, 300));
+        return NextResponse.json({ error: "AI returned invalid response" }, { status: 502 });
+      }
 
       const { data: record, error } = await supabaseAdmin
         .from("generated_content")
@@ -92,7 +109,6 @@ export async function POST(
 
       const category = getNextCategory(channelSettings?.last_post_category || null);
 
-      // Optional AI news inspiration
       const { data: topNews } = await supabaseAdmin
         .from("news_items")
         .select("title, summary")
@@ -115,15 +131,18 @@ export async function POST(
 
       const text = (raw.content[0].type === "text" ? raw.content[0].text : "")
         .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
-      const parsed = JSON.parse(text);
+
+      let parsed: { content: string };
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        console.error(`[channels/maskulenkod/generate] Invalid JSON:`, text.slice(0, 300));
+        return NextResponse.json({ error: "AI returned invalid response" }, { status: 502 });
+      }
 
       const { data: record, error } = await supabaseAdmin
         .from("generated_content")
-        .insert({
-          channel: "maskulenkod",
-          content: parsed.content,
-          content_category: category,
-        })
+        .insert({ channel: "maskulenkod", content: parsed.content, content_category: category })
         .select()
         .single();
 

@@ -2,19 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
+import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
 
 export const maxDuration = 60; // Max for Vercel Hobby
 
 export async function POST(request: NextRequest) {
-  // Auth check — same pattern as cron routes
-  const authHeader = request.headers.get("authorization");
-  const cronHeader = request.headers.get("x-vercel-cron");
-  const isVercelCron = cronHeader === "1";
-  const isManualCall = authHeader === process.env.CRON_SECRET;
-
-  if (!isVercelCron && !isManualCall) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!validateCronRequest(request)) return unauthorizedResponse();
 
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("[score-all] ANTHROPIC_API_KEY is missing");

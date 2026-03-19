@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+
+const MAX_CONTENT_LENGTH = 5000;
 
 // GET /api/channels/[channelId]/content?status=draft
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ channelId: string }> }
 ) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   const { channelId } = await params;
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -20,7 +25,6 @@ export async function GET(
   if (status) {
     query = query.eq("status", status);
   } else {
-    // Exclude rejected by default
     query = query.neq("status", "rejected");
   }
 
@@ -35,11 +39,17 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ channelId: string }> }
 ) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   const { channelId } = await params;
   const body = await request.json();
   const { id, status, content } = body;
 
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
+
+  if (content !== undefined && content.length > MAX_CONTENT_LENGTH) {
+    return NextResponse.json({ error: "Content too long (max 5000 chars)" }, { status: 400 });
+  }
 
   const updates: Record<string, unknown> = {};
   if (status) {

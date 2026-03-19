@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
 
 const VALID_CHANNELS = ["grafikcem", "maskulenkod", "linkedin"];
 
 // GET /api/style/profile?channel=grafikcem
 export async function GET(request: NextRequest) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   const channel = request.nextUrl.searchParams.get("channel") || "grafikcem";
   if (!VALID_CHANNELS.includes(channel)) {
     return NextResponse.json({ error: "Invalid channel" }, { status: 400 });
@@ -23,6 +26,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/style/profile
 export async function POST(request: NextRequest) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   const body = await request.json();
   const { channel, profile } = body as {
     channel: string;

@@ -2,8 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+
+const MAX_NEWS_IDS = 30;
 
 export async function POST(request: NextRequest) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   try {
     const body = await request.json();
     const { news_ids } = body as { news_ids: string[] };
@@ -12,11 +17,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "news_ids array required" }, { status: 400 });
     }
 
+    const limitedIds = news_ids.slice(0, MAX_NEWS_IDS);
+
     // Fetch news items
     const { data: items, error } = await supabaseAdmin
       .from("news_items")
       .select("id, title, summary, url, published_at")
-      .in("id", news_ids);
+      .in("id", limitedIds);
 
     if (error || !items || items.length === 0) {
       return NextResponse.json({ error: "No matching news items found" }, { status: 404 });
@@ -80,7 +87,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({ message: "Scoring complete", scored });
+    return NextResponse.json({
+      message: "Scoring complete",
+      scored,
+      requested: news_ids.length,
+      processed: limitedIds.length,
+    });
   } catch (err) {
     console.error("Score API error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

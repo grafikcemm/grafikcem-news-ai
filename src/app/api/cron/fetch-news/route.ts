@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import Anthropic from "@anthropic-ai/sdk";
 import Parser from "rss-parser";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt, AUTO_TRANSLATE_SYSTEM_PROMPT, buildAutoTranslateUserPrompt } from "@/lib/prompts";
+import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
 
 export const maxDuration = 60; // Max allowed for Vercel Hobby tier
 
@@ -17,22 +18,13 @@ export async function POST(request: NextRequest) {
 }
 
 async function handler(request: NextRequest) {
-  // Check API key at startup
+  if (!validateCronRequest(request)) return unauthorizedResponse();
+
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY is missing");
   }
 
   try {
-    // Verify cron secret
-    const authHeader = request.headers.get("authorization");
-    const cronHeader = request.headers.get("x-vercel-cron");
-
-    const isVercelCron = cronHeader === "1";
-    const isManualCall = authHeader === process.env.CRON_SECRET;
-
-    if (!isVercelCron && !isManualCall) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
 
     // Fetch active sources
     const { data: sources, error: sourcesError } = await supabaseAdmin

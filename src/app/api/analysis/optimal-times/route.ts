@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
 
 // Turkish X audience peak hours as fallback
 const FALLBACK_HOURS: Record<number, number> = {
@@ -9,9 +10,10 @@ const FALLBACK_HOURS: Record<number, number> = {
   18: 55, 19: 65, 20: 80, 21: 85, 22: 70, 23: 40,
 };
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!validateApiRequest(request)) return unauthorizedResponse();
+
   try {
-    // Try to get actual data from published tweets
     const { data: published } = await supabaseAdmin
       .from("tweet_drafts")
       .select("created_at, ai_score")
@@ -19,7 +21,6 @@ export async function GET() {
       .limit(200);
 
     if (!published || published.length < 10) {
-      // Not enough data — use fallback
       return NextResponse.json({
         hours: FALLBACK_HOURS,
         is_estimated: true,
@@ -28,7 +29,6 @@ export async function GET() {
       });
     }
 
-    // Aggregate by hour
     const hourCounts: Record<number, { count: number; total_score: number }> = {};
     for (let h = 0; h < 24; h++) {
       hourCounts[h] = { count: 0, total_score: 0 };
@@ -40,7 +40,6 @@ export async function GET() {
       hourCounts[hour].total_score += draft.ai_score || 50;
     }
 
-    // Normalize to 0-100
     const maxCount = Math.max(...Object.values(hourCounts).map((v) => v.count), 1);
     const hours: Record<number, number> = {};
     for (let h = 0; h < 24; h++) {
