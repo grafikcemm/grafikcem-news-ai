@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
         console.log(`[score-all] Batch ${batchIdx + 1}/${batches.length}: sending ${articles.length} items to Claude`);
 
         const response = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-sonnet-4-6-20260218",
           max_tokens: 2048,
           system: VIRAL_SCORING_SYSTEM_PROMPT,
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],

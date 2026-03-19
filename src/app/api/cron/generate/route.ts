@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         if (!news) { results.grafikcem = "no_news"; continue; }
 
         const raw = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-sonnet-4-6-20260218",
           max_tokens: 512,
           system: GRAFIKCEM_SYSTEM,
           messages: [{ role: "user", content: buildGrafikcemUserPrompt({
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           : undefined;
 
         const raw = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-sonnet-4-6-20260218",
           max_tokens: 512,
           system: MASKULENKOD_SYSTEM,
           messages: [{ role: "user", content: buildMaskulenkodUserPrompt(category, inspiration) }],
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
         if (!news) { results.linkedin = "no_news"; continue; }
 
         const raw = await anthropic.messages.create({
-          model: "claude-haiku-4-5-20251001",
+          model: "claude-sonnet-4-6-20260218",
           max_tokens: 1024,
           system: LINKEDIN_SYSTEM,
           messages: [{ role: "user", content: buildLinkedInUserPrompt({

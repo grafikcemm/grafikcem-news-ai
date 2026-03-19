@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         }));
 
         const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-20250514",
+          model: "claude-sonnet-4-6-20260218",
           max_tokens: 2048,
           system: VIRAL_SCORING_SYSTEM_PROMPT,
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
