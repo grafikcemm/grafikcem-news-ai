@@ -51,7 +51,7 @@ export async function POST(
           });
 
       const raw = await anthropic.messages.create({
-        model: "claude-sonnet-4-6-20260218",
+        model: "claude-sonnet-4-6",
         max_tokens: channelId === "linkedin" ? 1024 : 512,
         system,
         messages: [{ role: "user", content: userPrompt }],
@@ -107,7 +107,7 @@ export async function POST(
         : undefined;
 
       const raw = await anthropic.messages.create({
-        model: "claude-sonnet-4-6-20260218",
+        model: "claude-sonnet-4-6",
         max_tokens: 512,
         system: MASKULENKOD_SYSTEM,
         messages: [{ role: "user", content: buildMaskulenkodUserPrompt(category, inspiration) }],

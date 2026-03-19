@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
   const raw = await anthropic.messages.create({
-    model: "claude-sonnet-4-6-20260218",
+    model: "claude-sonnet-4-6",
     max_tokens: 2000,
     system: modeConfig.systemPrompt,
     messages: [{ role: "user", content: userInput.trim() }],
