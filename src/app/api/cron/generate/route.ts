@@ -7,7 +7,15 @@ import { LINKEDIN_SYSTEM, buildLinkedInUserPrompt } from "@/lib/prompts/linkedin
 
 export const maxDuration = 60;
 
+export async function GET(request: NextRequest) {
+  return handler(request);
+}
+
 export async function POST(request: NextRequest) {
+  return handler(request);
+}
+
+async function handler(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const cronHeader = request.headers.get("x-vercel-cron");
   if (cronHeader !== "1" && authHeader !== process.env.CRON_SECRET) {

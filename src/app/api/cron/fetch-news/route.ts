@@ -8,7 +8,15 @@ export const maxDuration = 60; // Max allowed for Vercel Hobby tier
 
 const parser = new Parser();
 
+export async function GET(request: NextRequest) {
+  return handler(request);
+}
+
 export async function POST(request: NextRequest) {
+  return handler(request);
+}
+
+async function handler(request: NextRequest) {
   // Check API key at startup
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY is missing");
