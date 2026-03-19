@@ -1,241 +1,361 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
+import { useEffect, useState, KeyboardEvent } from "react";
 import { toast } from "sonner";
 
+type Channel = "grafikcem" | "maskulenkod" | "linkedin";
+
 interface StyleProfile {
-  avg_length: number;
-  uses_emoji: boolean;
-  emoji_frequency: string;
+  sample_tweets: string;
   tone: string;
-  sentence_style: string;
-  common_openers: string[];
-  common_closers: string[];
-  vocabulary_level: string;
-  humor_style: string;
-  signature_phrases: string[];
-  topics_covered: string[];
-  style_summary: string;
+  sentence_length: number;
+  emoji_usage: string;
+  signature_closer: string;
+  avoid_words: string[];
+  sample_count?: number;
+  updated_at?: string;
+}
+
+const CHANNELS: { id: Channel; label: string; dot: string }[] = [
+  { id: "grafikcem", label: "@grafikcem", dot: "bg-blue-400" },
+  { id: "maskulenkod", label: "@maskulenkod", dot: "bg-slate-400" },
+  { id: "linkedin", label: "LinkedIn", dot: "bg-indigo-400" },
+];
+
+const TONES = ["Analitik", "Heyecanlı", "Felsefi", "Direkt", "Mentor"];
+const EMOJI_OPTIONS = ["Yok", "Az", "Orta"];
+
+const DEFAULT_PROFILE: StyleProfile = {
+  sample_tweets: "",
+  tone: "Direkt",
+  sentence_length: 40,
+  emoji_usage: "Yok",
+  signature_closer: "",
+  avoid_words: [],
+};
+
+function TagInput({
+  tags,
+  onChange,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+}) {
+  const [input, setInput] = useState("");
+
+  const addTag = (val: string) => {
+    const trimmed = val.trim().replace(/,+$/, "");
+    if (trimmed && !tags.includes(trimmed)) onChange([...tags, trimmed]);
+    setInput("");
+  };
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      addTag(input);
+    } else if (e.key === "Backspace" && !input && tags.length > 0) {
+      onChange(tags.slice(0, -1));
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-slate-700/60 bg-slate-900 min-h-[44px] focus-within:border-slate-500 transition-colors">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          className="flex items-center gap-1 text-xs bg-slate-700 text-slate-200 rounded-full px-2.5 py-1"
+        >
+          {tag}
+          <button
+            onClick={() => onChange(tags.filter((t) => t !== tag))}
+            className="text-slate-400 hover:text-white ml-0.5"
+          >
+            ×
+          </button>
+        </span>
+      ))}
+      <input
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => input.trim() && addTag(input)}
+        placeholder={tags.length === 0 ? "Kelime yaz, Enter ile ekle..." : ""}
+        className="flex-1 min-w-[120px] bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none"
+      />
+    </div>
+  );
 }
 
 export default function StyleProfilePage() {
-  const [profile, setProfile] = useState<StyleProfile | null>(null);
+  const [activeChannel, setActiveChannel] = useState<Channel>("grafikcem");
+  const [profile, setProfile] = useState<StyleProfile>(DEFAULT_PROFILE);
+  const [savedProfile, setSavedProfile] = useState<StyleProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [tweetsAnalyzed, setTweetsAnalyzed] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchProfile();
-  }, []);
+    loadProfile(activeChannel);
+  }, [activeChannel]);
 
-  async function fetchProfile() {
+  async function loadProfile(channel: Channel) {
     setLoading(true);
     try {
-      const res = await fetch("/api/style/analyze");
+      const res = await fetch(`/api/style/profile?channel=${channel}`);
       const data = await res.json();
-      if (data.profile) setProfile(data.profile as StyleProfile);
+      if (data.profile) {
+        setProfile(data.profile);
+        setSavedProfile(data.profile);
+      } else {
+        setProfile(DEFAULT_PROFILE);
+        setSavedProfile(null);
+      }
     } catch {
-      // No profile yet
+      setProfile(DEFAULT_PROFILE);
+      setSavedProfile(null);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleAnalyze(refresh = false) {
-    setAnalyzing(true);
+  async function handleSave() {
+    if (!profile.sample_tweets.trim()) {
+      toast.error("En az bir örnek tweet gir");
+      return;
+    }
+    setSaving(true);
     try {
-      const res = await fetch("/api/style/analyze", {
+      const res = await fetch("/api/style/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh }),
+        body: JSON.stringify({ channel: activeChannel, profile }),
       });
       const data = await res.json();
-      if (res.ok && data.profile) {
-        setProfile(data.profile as StyleProfile);
-        setTweetsAnalyzed(data.tweets_analyzed || null);
-        toast.success(
-          data.cached ? "Mevcut profil yüklendi" : `${data.tweets_analyzed} tweet analiz edildi!`
-        );
-      } else {
-        toast.error(data.error || "Analiz başarısız");
-      }
-    } catch {
-      toast.error("Bir hata oluştu");
+      if (!res.ok) throw new Error(data.error);
+      setSavedProfile(data.profile);
+      toast.success("Stil profili kaydedildi");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Kaydetme başarısız");
     } finally {
-      setAnalyzing(false);
+      setSaving(false);
     }
   }
 
-  const statItems = profile
-    ? [
-        { label: "Ort. Tweet Uzunluğu", value: `${profile.avg_length} karakter` },
-        { label: "Emoji Kullanımı", value: profile.emoji_frequency },
-        { label: "Ton", value: profile.tone },
-        { label: "Cümle Stili", value: profile.sentence_style },
-        { label: "Kelime Seviyesi", value: profile.vocabulary_level },
-        { label: "Mizah Stili", value: profile.humor_style },
-      ]
-    : [];
+  const sentenceLengthLabel =
+    profile.sentence_length < 30
+      ? "Çok Kısa"
+      : profile.sentence_length < 50
+      ? "Kısa"
+      : profile.sentence_length < 70
+      ? "Orta"
+      : "Uzun";
+
+  const sampleCount = profile.sample_tweets
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean).length;
 
   return (
-    <div className="p-4 lg:p-8 space-y-6">
-      <div className="flex items-start justify-between">
+    <div className="min-h-screen bg-slate-950 p-6 lg:p-8">
+      <div className="max-w-3xl mx-auto space-y-8">
+
+        {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Stil Profili</h1>
-          <p className="text-slate-500 text-sm mt-1">
-            @grafikcem yazım stili analizi — tüm tweet üretiminde kullanılır
+          <h1 className="text-2xl font-bold text-white tracking-tight">Stil Profili</h1>
+          <p className="mt-1 text-sm text-slate-400">
+            Her kanalın yazım stilini tanımla — üretimde kullanılır
           </p>
         </div>
-        <div className="flex gap-2">
-          {profile && (
-            <Button
-              variant="outline"
-              onClick={() => handleAnalyze(true)}
-              disabled={analyzing}
-              className="text-sm"
-            >
-              {analyzing ? "Analiz ediliyor..." : "Yenile"}
-            </Button>
-          )}
-          {!profile && (
-            <Button
-              onClick={() => handleAnalyze(false)}
-              disabled={analyzing}
-              className="bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white"
-            >
-              {analyzing ? (
-                <span className="flex items-center gap-2">
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
-                    <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
-                  </svg>
-                  Analiz Ediliyor...
-                </span>
-              ) : (
-                "Stili Analiz Et"
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
 
-      {loading ? (
-        <div className="grid md:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
-        </div>
-      ) : !profile ? (
-        <Card className="border-0 shadow-sm bg-white">
-          <CardContent className="p-16 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-blue-100 to-violet-100 flex items-center justify-center mx-auto mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-violet-500"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>
-            </div>
-            <h3 className="font-semibold text-slate-800 text-lg mb-2">Henüz stil profili yok</h3>
-            <p className="text-slate-500 text-sm mb-6 max-w-sm mx-auto">
-              @grafikcem hesabının son 200 tweetini analiz ederek kişisel yazım stili profili oluştur.
-              Bu profil tüm tweet üretiminde kullanılacak.
-            </p>
-            <Button
-              onClick={() => handleAnalyze(false)}
-              disabled={analyzing}
-              className="bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white px-8"
+        {/* Channel Tabs */}
+        <div className="flex gap-1.5 p-1.5 bg-slate-900 border border-slate-700/60 rounded-xl w-fit">
+          {CHANNELS.map((ch) => (
+            <button
+              key={ch.id}
+              onClick={() => setActiveChannel(ch.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeChannel === ch.id
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-400 hover:text-white"
+              }`}
             >
-              {analyzing ? "Analiz Ediliyor..." : "Stili Analiz Et"}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Style summary */}
-          <Card className="border-0 shadow-sm bg-linear-to-r from-slate-900 to-slate-800 text-white">
-            <CardContent className="p-6">
-              <p className="text-xs font-medium text-blue-300 uppercase tracking-wider mb-2">Stil Özeti</p>
-              <p className="text-white text-base leading-relaxed">{profile.style_summary}</p>
-              {tweetsAnalyzed && (
-                <p className="text-slate-400 text-xs mt-3">{tweetsAnalyzed} tweet analiz edildi</p>
-              )}
-            </CardContent>
-          </Card>
+              <span className={`w-2 h-2 rounded-full ${ch.dot}`} />
+              {ch.label}
+            </button>
+          ))}
+        </div>
 
-          {/* Stats grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {statItems.map((item) => (
-              <Card key={item.label} className="border-0 shadow-sm bg-white">
-                <CardContent className="p-4">
-                  <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">{item.label}</p>
-                  <p className="text-slate-900 font-semibold capitalize">{item.value}</p>
-                </CardContent>
-              </Card>
+        {loading ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="h-32 rounded-xl bg-slate-800/60 animate-pulse" />
             ))}
           </div>
+        ) : (
+          <div className="space-y-6">
 
-          {/* Common openers/closers */}
-          <div className="grid md:grid-cols-2 gap-4">
-            <Card className="border-0 shadow-sm bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-900">Sık Açılışlar</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                {(profile.common_openers || []).map((opener, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs font-normal">{opener}</Badge>
-                ))}
-              </CardContent>
-            </Card>
-            <Card className="border-0 shadow-sm bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-900">Sık Kapanışlar</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                {(profile.common_closers || []).map((closer, i) => (
-                  <Badge key={i} variant="secondary" className="text-xs font-normal">{closer}</Badge>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+            {/* Section 1: Sample Tweets */}
+            <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-6 space-y-3">
+              <div>
+                <h2 className="text-base font-semibold text-white">Yazım Stilini Tanımla</h2>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  Geçmiş paylaşımlarından 5–10 örnek yapıştır. Sistem bunları öğrenip aynı tarzda üretim yapar.
+                </p>
+              </div>
+              <textarea
+                value={profile.sample_tweets}
+                onChange={(e) => setProfile({ ...profile, sample_tweets: e.target.value })}
+                placeholder={"Örnek paylaşımları buraya yapıştır, her biri yeni satırda...\n\nÖrn:\nYapay zeka araçlarını kullanmak rekabet avantajı değil, minimum standart haline geliyor.\nSabah rutini olmayan biri için \"motivasyon\" kelimesi anlamsızdır."}
+                rows={8}
+                className="w-full rounded-lg border border-slate-700/60 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-y transition-colors font-mono"
+              />
+              <p className="text-xs text-slate-600">{sampleCount} örnek girişi</p>
+            </div>
 
-          {/* Signature phrases */}
-          {profile.signature_phrases?.length > 0 && (
-            <Card className="border-0 shadow-sm bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-900">İmza İfadeler</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                {profile.signature_phrases.map((phrase, i) => (
-                  <Badge key={i} className="text-xs font-normal bg-violet-100 text-violet-700 hover:bg-violet-100">{phrase}</Badge>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+            {/* Section 2: Style Parameters */}
+            <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-6 space-y-5">
+              <h2 className="text-base font-semibold text-white">Stil Parametreleri</h2>
 
-          {/* Topics */}
-          {profile.topics_covered?.length > 0 && (
-            <Card className="border-0 shadow-sm bg-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-900">Kapsanan Konular</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-wrap gap-2">
-                {profile.topics_covered.map((topic, i) => (
-                  <Badge key={i} variant="outline" className="text-xs font-normal">{topic}</Badge>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+              {/* Ton */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ton</label>
+                <div className="flex flex-wrap gap-2">
+                  {TONES.map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setProfile({ ...profile, tone: t })}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                        profile.tone === t
+                          ? "bg-[#C8F135]/15 text-[#C8F135] border-[#C8F135]/40"
+                          : "text-slate-400 border-slate-700/60 hover:text-white hover:border-slate-600"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-          <div className="text-center">
-            <Button
-              variant="outline"
-              onClick={() => handleAnalyze(true)}
-              disabled={analyzing}
-              className="text-sm text-slate-500"
+              {/* Sentence length slider */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                    Cümle Uzunluğu
+                  </label>
+                  <span className="text-xs text-slate-300 font-medium">{sentenceLengthLabel}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-slate-600 w-10">Kısa</span>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={profile.sentence_length}
+                    onChange={(e) =>
+                      setProfile({ ...profile, sentence_length: Number(e.target.value) })
+                    }
+                    className="flex-1 accent-[#C8F135] cursor-pointer"
+                  />
+                  <span className="text-xs text-slate-600 w-10 text-right">Uzun</span>
+                </div>
+              </div>
+
+              {/* Emoji usage */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Emoji Kullanımı
+                </label>
+                <div className="flex gap-2">
+                  {EMOJI_OPTIONS.map((opt) => (
+                    <button
+                      key={opt}
+                      onClick={() => setProfile({ ...profile, emoji_usage: opt })}
+                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all border ${
+                        profile.emoji_usage === opt
+                          ? "bg-[#C8F135]/15 text-[#C8F135] border-[#C8F135]/40"
+                          : "text-slate-400 border-slate-700/60 hover:text-white hover:border-slate-600"
+                      }`}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Signature closer */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  İmza Kapanış
+                </label>
+                <input
+                  type="text"
+                  value={profile.signature_closer}
+                  onChange={(e) =>
+                    setProfile({ ...profile, signature_closer: e.target.value })
+                  }
+                  placeholder="örn: Odakta kal."
+                  className="w-full rounded-lg border border-slate-700/60 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 transition-colors"
+                />
+              </div>
+
+              {/* Avoid words */}
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Kaçınılacak Kelimeler
+                </label>
+                <TagInput
+                  tags={profile.avoid_words}
+                  onChange={(tags) => setProfile({ ...profile, avoid_words: tags })}
+                />
+              </div>
+            </div>
+
+            {/* Save button */}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full rounded-xl bg-[#C8F135] py-3 text-sm font-bold text-slate-950 hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
-              {analyzing ? "Yenileniyor..." : "Stili Yeniden Analiz Et"}
-            </Button>
+              {saving ? "Kaydediliyor..." : "Stili Kaydet"}
+            </button>
+
+            {/* Section 3: Active Style Summary */}
+            {savedProfile && (
+              <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-6 space-y-4">
+                <h2 className="text-base font-semibold text-white">Aktif Stil Özeti</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { label: "Örnek Sayısı", value: `${savedProfile.sample_count || 0} tweet` },
+                    { label: "Ton", value: savedProfile.tone },
+                    { label: "Cümle Uzunluğu", value: savedProfile.sentence_length < 30 ? "Çok Kısa" : savedProfile.sentence_length < 50 ? "Kısa" : savedProfile.sentence_length < 70 ? "Orta" : "Uzun" },
+                    { label: "Emoji", value: savedProfile.emoji_usage },
+                    ...(savedProfile.signature_closer ? [{ label: "Kapanış", value: savedProfile.signature_closer }] : []),
+                    ...(savedProfile.avoid_words?.length ? [{ label: "Kaçınılan", value: `${savedProfile.avoid_words.length} kelime` }] : []),
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-lg bg-slate-800/60 p-3">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        {item.label}
+                      </p>
+                      <p className="text-sm text-white font-medium truncate">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {savedProfile.updated_at && (
+                  <p className="text-xs text-slate-600">
+                    Son güncelleme:{" "}
+                    {new Date(savedProfile.updated_at).toLocaleDateString("tr-TR", {
+                      day: "2-digit",
+                      month: "long",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }
