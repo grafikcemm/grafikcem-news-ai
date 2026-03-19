@@ -2,11 +2,17 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { TwitterApi } from "twitter-api-v2";
 
+const MOCK_VIRAL_TWEETS = [
+  { id: "1", x_tweet_id: "1", content: "Claude Code ayda 200 dolara mal oluyor. Goose aynı şeyi ücretsiz yapıyor. Freelancerlar için oyun değişti.", author_handle: "techuser1", author_name: "Tech User", likes: 1200, retweets: 340 },
+  { id: "2", x_tweet_id: "2", content: "Figma + Claude MCP entegrasyonu artık gerçek. Tasarımcıların iş akışı tamamen değişiyor. Hazır mısınız?", author_handle: "designertr", author_name: "Designer TR", likes: 890, retweets: 210 },
+  { id: "3", x_tweet_id: "3", content: "n8n ile kurduğum otomasyon sistemim bu ay 15 saatimi kurtardı. Detaylar için yanıtlayın.", author_handle: "automationtr", author_name: "Otomasyon TR", likes: 650, retweets: 180 },
+];
+
 export async function POST() {
   try {
     const bearerToken = process.env.TWITTER_BEARER_TOKEN;
     if (!bearerToken) {
-      return NextResponse.json({ error: "Twitter Bearer Token not configured" }, { status: 500 });
+      return NextResponse.json({ tweets: MOCK_VIRAL_TWEETS, fetched: MOCK_VIRAL_TWEETS.length, mock: true });
     }
 
     const client = new TwitterApi(bearerToken);

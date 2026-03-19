@@ -84,10 +84,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No new items found", count: 0 });
     }
 
+    // Cap at 20 items per run to stay within Vercel 60s timeout
+    const itemsToProcess = newItems.slice(0, 20);
+    console.log(`[fetch-news] Capped to ${itemsToProcess.length} items (${newItems.length} found)`);
+
     // Insert or ignore new items based on their url
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("news_items")
-      .upsert(newItems, { onConflict: 'url', ignoreDuplicates: true })
+      .upsert(itemsToProcess, { onConflict: 'url', ignoreDuplicates: true })
       .select("id, title, summary, url, published_at");
 
     if (insertError || !inserted) {
@@ -230,8 +234,9 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: "Fetch complete",
-      newItems: inserted.length,
-      scored: inserted.length,
+      found: newItems.length,
+      processed: itemsToProcess.length,
+      inserted: inserted.length,
       translated: nonTurkishItems.length,
     });
   } catch (err) {

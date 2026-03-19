@@ -121,7 +121,6 @@ export default function DashboardPage() {
   const [recentNews, setRecentNews] = useState<NewsItem[]>([]);
   const [recommendedDrafts, setRecommendedDrafts] = useState<RecommendedDraft[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -191,22 +190,8 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleGenerate(newsId: string) {
-    setGenerating(true);
-    try {
-      const res = await fetch("/api/tweet/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ news_id: newsId }),
-      });
-      if (res.ok) {
-        router.push(`/tweet-generator?news_id=${newsId}`);
-      }
-    } catch (err) {
-      console.error("Generate error:", err);
-    } finally {
-      setGenerating(false);
-    }
+  function handleGenerate(newsId: string) {
+    router.push(`/tweet-generator?news_id=${newsId}`);
   }
 
   const statCards = [
@@ -300,10 +285,9 @@ export default function DashboardPage() {
               </div>
               <Button
                 onClick={() => handleGenerate(topNews.id)}
-                disabled={generating}
                 className="bg-blue-500 hover:bg-blue-600 text-white shrink-0"
               >
-                {generating ? "Üretiliyor..." : "Tweet Üret"}
+                Tweet Üret
               </Button>
             </div>
           </CardContent>
