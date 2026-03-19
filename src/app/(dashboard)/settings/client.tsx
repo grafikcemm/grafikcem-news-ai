@@ -12,10 +12,6 @@ import { toast } from "sonner";
 interface SettingsClientProps {
   initialPrompt: string;
   envs: {
-    xApiKey: string;
-    xApiSecret: string;
-    xAccessToken: string;
-    xAccessSecret: string;
     anthropicKey: string;
   };
 }
@@ -86,40 +82,15 @@ export function SettingsClient({ initialPrompt, envs }: SettingsClientProps) {
             Bu değerleri projenizin .env ortam değişkenlerinden düzenleyebilirsiniz.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm text-slate-900 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-                X (Twitter) API
-              </h3>
-              <div>
-                <Label className="text-xs text-slate-500">API Key</Label>
-                <Input value={envs.xApiKey} disabled className="mt-1 bg-slate-50 font-mono text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-500">API Secret</Label>
-                <Input value={envs.xApiSecret} disabled className="mt-1 bg-slate-50 font-mono text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-500">Access Token</Label>
-                <Input value={envs.xAccessToken} disabled className="mt-1 bg-slate-50 font-mono text-sm" />
-              </div>
-              <div>
-                <Label className="text-xs text-slate-500">Access Secret</Label>
-                <Input value={envs.xAccessSecret} disabled className="mt-1 bg-slate-50 font-mono text-sm" />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium text-sm text-slate-900 flex items-center gap-2">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                Anthropic (Claude) API
-              </h3>
-              <div>
-                <Label className="text-xs text-slate-500">API Key</Label>
-                <Input value={envs.anthropicKey} disabled className="mt-1 bg-slate-50 font-mono text-sm" />
-              </div>
+        <CardContent className="space-y-4">
+          <div className="space-y-4 max-w-sm">
+            <h3 className="font-medium text-sm text-slate-900 flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+              Anthropic (Claude) API
+            </h3>
+            <div>
+              <Label className="text-xs text-slate-500">API Key</Label>
+              <Input value={envs.anthropicKey} disabled className="mt-1 bg-slate-50 font-mono text-sm" />
             </div>
           </div>
         </CardContent>

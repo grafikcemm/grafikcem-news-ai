@@ -21,10 +21,6 @@ export default async function SettingsPage() {
   };
 
   const envs = {
-    xApiKey: mask(process.env.TWITTER_API_KEY),
-    xApiSecret: mask(process.env.TWITTER_API_SECRET),
-    xAccessToken: mask(process.env.TWITTER_ACCESS_TOKEN),
-    xAccessSecret: mask(process.env.TWITTER_ACCESS_TOKEN_SECRET),
     anthropicKey: mask(process.env.ANTHROPIC_API_KEY),
   };
 
