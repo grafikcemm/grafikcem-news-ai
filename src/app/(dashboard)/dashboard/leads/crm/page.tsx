@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { 
   Building2, MapPin, Globe, Phone, FileText,
-  MessageSquare, Edit3, X, Mail
+  MessageSquare, Edit3, X, Mail, Zap
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
