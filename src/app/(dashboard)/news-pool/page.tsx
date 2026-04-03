@@ -35,6 +35,7 @@ interface NewsItem {
   published_at: string;
   fetched_at: string;
   is_used: boolean;
+  is_read: boolean;
   sources?: { name: string };
 }
 
@@ -55,6 +56,7 @@ interface ArticleData {
 
 const categories = [
   { value: "all", label: "Hepsi" },
+  { value: "unread", label: "Okunmadı" },
   { value: "ai_news", label: "AI" },
   { value: "design", label: "Design" },
   { value: "automation", label: "Otomasyon" },
@@ -83,7 +85,11 @@ export default function NewsPoolPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
+  const [activeSource, setActiveSource] = useState<string>("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loadingBulk, setLoadingBulk] = useState(false);
+  
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
@@ -100,11 +106,13 @@ export default function NewsPoolPage() {
       let query = supabase
         .from("news_items")
         .select("*, sources(name)")
-        .order("viral_score", { ascending: false })
+        .order("viral_score", { ascending: false, nullsFirst: false })
         .order("fetched_at", { ascending: false })
         .limit(50);
 
-      if (activeCategory !== "all") {
+      if (activeCategory === "unread") {
+        query = query.eq("is_read", false);
+      } else if (activeCategory !== "all") {
         query = query.eq("category", activeCategory);
       }
 
@@ -121,6 +129,11 @@ export default function NewsPoolPage() {
 
   async function handleGenerate(newsId: string) {
     setGeneratingId(newsId);
+    
+    // Mark as read optimistically
+    setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
+    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then();
+
     try {
       const res = await fetch("/api/tweet/generate", {
         method: "POST",
@@ -141,11 +154,37 @@ export default function NewsPoolPage() {
     }
   }
 
+  async function handleBulkGenerate() {
+    if (selectedIds.size === 0) return;
+    setLoadingBulk(true);
+    let count = 0;
+    for (const id of Array.from(selectedIds)) {
+      setNews(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+      supabase.from("news_items").update({ is_read: true }).eq("id", id).then();
+      try {
+        const res = await fetch("/api/tweet/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ news_id: id }),
+        });
+        if (res.ok) count++;
+      } catch {}
+    }
+    setLoadingBulk(false);
+    toast.success(`${count} adet haber için tweet üretildi!`);
+    setSelectedIds(new Set());
+    // Opt: router.push('/tweet-generator');
+  }
+
   async function handleOpenArticle(newsId: string) {
     setSelectedNewsId(newsId);
     setSheetOpen(true);
     setArticleData(null);
     setArticleLoading(true);
+
+    // Mark as read optimistically
+    setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
+    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then();
 
     try {
       const res = await fetch("/api/news/article", {
@@ -167,15 +206,40 @@ export default function NewsPoolPage() {
     }
   }
 
-  const filtered = news.filter(
-    (item) =>
+  const filtered = news.filter((item) => {
+    const matchSearch =
       (item.title_tr || item.title).toLowerCase().includes(search.toLowerCase()) ||
       item.title.toLowerCase().includes(search.toLowerCase()) ||
-      (item.summary && item.summary.toLowerCase().includes(search.toLowerCase()))
-  );
+      (item.summary && item.summary.toLowerCase().includes(search.toLowerCase()));
+    
+    if (!matchSearch) return false;
+    if (activeSource !== "all") {
+      if (item.sources?.name !== activeSource) return false;
+    }
+    return true;
+  });
+
+  const uniqueSources = Array.from(new Set(news.map(n => n.sources?.name).filter(Boolean))) as string[];
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length && filtered.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(f => f.id)));
+    }
+  };
 
   return (
-    <div className="p-4 lg:p-8 space-y-6">
+    <div className="p-4 lg:p-8 space-y-6 pb-24">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Haber Havuzu</h1>
@@ -201,10 +265,41 @@ export default function NewsPoolPage() {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm font-medium text-slate-500">Kaynaklar:</span>
+        <button
+          onClick={() => setActiveSource("all")}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+            activeSource === "all" ? "bg-slate-200 text-slate-800" : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
+          }`}
+        >
+          Hepsi
+        </button>
+        {uniqueSources.map(src => (
+          <button
+            key={src}
+            onClick={() => setActiveSource(src)}
+            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+              activeSource === src ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
+            }`}
+          >
+            {src}
+          </button>
+        ))}
+      </div>
+
+      {/* Search & Bulk Select */}
+      <div className="flex items-center gap-4">
+        <Button 
+          variant="outline" 
+          onClick={toggleAll}
+          className="shrink-0 w-11 h-11 border-slate-200 p-0 flex items-center justify-center bg-white"
+        >
+           {selectedIds.size === filtered.length && filtered.length > 0 ? "☑️" : "☑"}
+        </Button>
+        <div className="relative flex-1">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
           xmlns="http://www.w3.org/2000/svg"
           width="16"
           height="16"
@@ -224,6 +319,7 @@ export default function NewsPoolPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="pl-10 bg-white border-slate-200 h-11"
         />
+        </div>
       </div>
 
       {/* News list — vertical, full-width cards */}
@@ -244,18 +340,38 @@ export default function NewsPoolPage() {
           {filtered.map((item) => (
             <Card
               key={item.id}
-              className="border-0 shadow-sm bg-white hover:shadow-md transition-shadow"
+              className={`border-0 shadow-sm transition-shadow ${
+                item.viral_score === 0 || !item.viral_score
+                  ? "bg-slate-50 opacity-60 hover:opacity-100"
+                  : selectedIds.has(item.id) 
+                    ? "bg-blue-50 border border-blue-200" 
+                    : "bg-white hover:shadow-md"
+              }`}
             >
               <CardContent className="p-4 flex items-center gap-4">
-                <ScoreBadge score={item.viral_score} />
+                <input 
+                  type="checkbox" 
+                  checked={selectedIds.has(item.id)} 
+                  onChange={() => toggleSelection(item.id)}
+                  className="w-4 h-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <ScoreBadge score={item.viral_score || 0} />
                 <div
                   className="flex-1 min-w-0 cursor-pointer"
                   onClick={() => handleOpenArticle(item.id)}
                 >
                   <div className="flex items-start gap-2">
-                    <h3 className="text-sm font-semibold text-slate-900 line-clamp-1 flex-1">
+                    {!item.is_read && (
+                      <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                    )}
+                    <h3 className={`text-sm line-clamp-1 flex-1 ${item.is_read ? "font-medium text-slate-700" : "font-bold text-slate-900"}`}>
                       {item.title_tr || item.title}
                     </h3>
+                    {(item.viral_score === 0 || !item.viral_score) && (
+                      <span className="text-[10px] font-medium bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
+                        Düşük Potansiyel
+                      </span>
+                    )}
                     {item.is_used && (
                       <span className="text-[10px] font-medium bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">
                         Kullanıldı
@@ -426,6 +542,50 @@ export default function NewsPoolPage() {
           )}
         </SheetContent>
       </Sheet>
+
+      {/* Bulk Action Bar */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 h-20 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 transform transition-transform animate-in slide-in-from-bottom">
+          <div className="h-full flex items-center justify-between px-6 lg:ml-64 max-w-5xl mx-auto">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
+                {selectedIds.size}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Haber seçildi</p>
+                <p className="text-xs text-slate-500">Toplu işlem yapabilirsiniz</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline" 
+                onClick={() => setSelectedIds(new Set())}
+                className="border-slate-200"
+              >
+                Vazgeç
+              </Button>
+              <Button 
+                onClick={handleBulkGenerate}
+                disabled={loadingBulk}
+                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 px-8"
+              >
+                {loadingBulk ? (
+                  <span className="flex items-center gap-2">
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
+                      <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" className="opacity-75" />
+                    </svg>
+                    Üretiliyor...
+                  </span>
+                ) : (
+                  `Toplu Tweet Üret (${selectedIds.size})`
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

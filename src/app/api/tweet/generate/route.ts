@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { news_id, format } = body as { news_id: string; format?: string };
+    const { news_id, format, abMode, tone, language } = body as { news_id: string; format?: string; abMode?: boolean; tone?: string; language?: string };
 
     if (!news_id) {
       return NextResponse.json({ error: "news_id required" }, { status: 400 });
@@ -55,9 +55,22 @@ export async function POST(request: NextRequest) {
     const title = newsItem.title_tr || newsItem.title;
     const summary = newsItem.summary || "";
     const baseUserPrompt = TWEET_GENERATION_USER(title, summary, sourceName, newsItem.category || "ai_news");
-    const formatInstruction = format && FORMAT_INSTRUCTIONS[format]
-      ? `\n\nFORMAT ZORUNLU:\n${FORMAT_INSTRUCTIONS[format]}`
+    
+    let formatInstruction = format && FORMAT_INSTRUCTIONS[format as keyof typeof FORMAT_INSTRUCTIONS]
+      ? `\n\nFORMAT ZORUNLU:\n${FORMAT_INSTRUCTIONS[format as keyof typeof FORMAT_INSTRUCTIONS]}`
       : "";
+      
+    if (abMode) {
+      formatInstruction += `\n\nA/B TEST MODU AKTİF: Lütfen birbirinden tamamen farklı açılara sahip en az 2 farklı varyasyon üret.`;
+    }
+    if (tone) {
+      formatInstruction += `\n\nİSTENEN TON/TARZ: ${tone}`;
+    }
+    if (language && language !== "tr") {
+      if (language === "en") formatInstruction += `\n\nİSTENEN DİL: Yalnızca İngilizce (English) üret.`;
+      if (language === "bilingual") formatInstruction += `\n\nİSTENEN DİL: İki dilli (Bilingual) - bir kısmını Türkçe bir kısmını İngilizce veya ayrı ayrı iki versiyon üret.`;
+    }
+    
     const userPrompt = baseUserPrompt + formatInstruction;
 
     const response = await anthropic.messages.create({

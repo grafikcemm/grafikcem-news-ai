@@ -100,6 +100,37 @@ const toolItems = [
   },
 ];
 
+const leadItems = [
+  {
+    label: "Lead Havuzu",
+    href: "/dashboard/leads",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><line x1="21.17" x2="12" y1="8" y2="8"/><line x1="3.95" x2="8.54" y1="6.06" y2="14"/><line x1="10.88" x2="15.46" y1="21.94" y2="14"/></svg>
+    ),
+  },
+  {
+    label: "Haftalık Plan",
+    href: "/dashboard/leads/weekly",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+    ),
+  },
+  {
+    label: "İletişim Merkezi",
+    href: "/dashboard/leads/outreach",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    ),
+  },
+  {
+    label: "CRM Pipeline",
+    href: "/dashboard/leads/crm",
+    icon: (
+      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 3v18"/><path d="M16 3v18"/></svg>
+    ),
+  },
+];
+
 function SidebarContent({ pathname }: { pathname: string }) {
   return (
     <div className="flex flex-col h-full">
@@ -184,6 +215,32 @@ function SidebarContent({ pathname }: { pathname: string }) {
                   }`}
                 >
                   <span className={isActive ? "text-blue-400" : ""}>{item.icon}</span>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Leads */}
+        <div>
+          <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-1 mt-4">
+            Müşteri
+          </p>
+          <div className="space-y-0.5">
+            {leadItems.map((item) => {
+              const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    isActive
+                      ? "bg-linear-to-r from-emerald-500/20 to-teal-500/20 text-white border border-emerald-500/20"
+                      : "text-slate-400 hover:text-white hover:bg-slate-800/50"
+                  }`}
+                >
+                  <span className={isActive ? "text-emerald-400" : ""}>{item.icon}</span>
                   {item.label}
                 </Link>
               );

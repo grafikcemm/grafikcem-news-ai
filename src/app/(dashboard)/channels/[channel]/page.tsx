@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, useCallback, use } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
@@ -16,7 +15,7 @@ interface ContentItem {
   content: string;
   content_category: string | null;
   linkedin_format: string | null;
-  status: "draft" | "used" | "rejected";
+  status: "draft" | "used" | "rejected" | "editing";
   used_at: string | null;
   created_at: string;
   news_items?: { title: string; url: string } | null;
@@ -49,23 +48,28 @@ const CHANNEL_CONFIG = {
   },
 } as const;
 
-type TabStatus = "draft" | "used" | "rejected";
+type TabStatus = "all" | "draft" | "used" | "editing";
 
 function StatusDot({ status }: { status: ContentItem["status"] }) {
   const colors = {
     draft: "bg-amber-400",
     used: "bg-emerald-400",
+    editing: "bg-blue-400",
     rejected: "bg-slate-300",
   };
-  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status]}`} />;
+  return <span className={`inline-block w-2 h-2 rounded-full ${colors[status] || "bg-slate-400"}`} />;
 }
 
 function ContentCard({
   item,
   onUpdate,
+  isSelected,
+  onToggleSelect,
 }: {
   item: ContentItem;
   onUpdate: (id: string, updates: Partial<ContentItem>) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [editText, setEditText] = useState(item.content);
@@ -114,13 +118,22 @@ function ContentCard({
   };
 
   const charCount = item.content.length;
-  const isLong = charCount > 280;
+  const maxChar = item.channel === "linkedin" ? 3000 : 280;
+  const isLong = charCount > maxChar;
 
   return (
-    <Card className="border border-slate-200 shadow-sm bg-white">
-      <CardContent className="p-4">
+    <Card className={`border shadow-sm transition-all ${isSelected ? 'border-blue-400 bg-blue-50/10' : 'border-slate-200 bg-white'}`}>
+      <CardContent className="p-4 relative">
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(item.id)}
+            className="absolute top-4 left-4 z-10 w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+          />
+        )}
         {/* Header */}
-        <div className="flex items-center gap-2 mb-3">
+        <div className={`flex items-center gap-2 mb-3 flex-wrap ${onToggleSelect ? 'pl-7' : ''}`}>
           <StatusDot status={item.status} />
           <span className="text-xs text-slate-500">
             {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: tr })}
@@ -136,7 +149,7 @@ function ContentCard({
             </span>
           )}
           <span className={`text-xs ml-auto font-mono ${isLong ? "text-rose-500" : "text-slate-400"}`}>
-            {charCount} kr
+            {charCount} / {maxChar}
           </span>
         </div>
 
@@ -225,10 +238,12 @@ export default function ChannelPage() {
   const channel = params.channel as string;
   const config = CHANNEL_CONFIG[channel as keyof typeof CHANNEL_CONFIG];
 
-  const [activeTab, setActiveTab] = useState<TabStatus>("draft");
+  const [activeTab, setActiveTab] = useState<TabStatus>("all");
   const [items, setItems] = useState<ContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const fetchContent = useCallback(async (status?: TabStatus) => {
     setLoading(true);
@@ -241,7 +256,11 @@ export default function ChannelPage() {
     setLoading(false);
   }, [channel, activeTab]);
 
-  useEffect(() => { fetchContent(); }, [fetchContent]);
+  useEffect(() => { 
+    // disable exhaustive-deps warning to fix cascade render issue temporarily
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    fetchContent(); 
+  }, [channel]);
 
   const handleTabChange = (tab: TabStatus) => {
     setActiveTab(tab);
@@ -270,10 +289,61 @@ export default function ChannelPage() {
     setItems((prev) =>
       prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
         .filter((item) => {
-          if (activeTab === "draft") return item.status === "draft";
-          if (activeTab === "used") return item.status === "used";
-          return item.status === "rejected";
+          if (activeTab === "all") return item.status !== "rejected";
+          return item.status === activeTab;
         })
+    );
+  };
+
+  const handleExportCSV = () => {
+    if (selectedIds.size === 0) return toast.error("Kayıt seçilmedi");
+    const selectedItems = items.filter(i => selectedIds.has(i.id));
+    const header = "ID,Tarih,Durum,Icerik\n";
+    const csv = selectedItems.map(i => `"${i.id}","${i.created_at}","${i.status}","${i.content.replace(/"/g, '""')}"`).join("\n");
+    const blob = new Blob(["\ufeff" + header + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `export_${channel}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const toggleSelection = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const renderCalendar = () => {
+    const days = ["Pzt", "Sal", "Çar", "Per", "Cum", "Cmt", "Paz"];
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+        {days.map((day, i) => {
+          const dayItems = items.filter((_, idx) => (idx % 7) === i);
+          return (
+            <div key={day} className="border border-slate-200 rounded-lg bg-slate-50 min-h-[300px] flex flex-col">
+              <div className="bg-slate-100 border-b border-slate-200 px-3 py-2 text-center text-xs font-bold text-slate-500">
+                {day}
+              </div>
+              <div className="p-2 space-y-2 flex-1 relative">
+                {dayItems.map(item => (
+                  <div key={item.id} className="bg-white border flex flex-col border-slate-300 rounded p-2 text-[10px] shadow-sm overflow-hidden">
+                     <span className="line-clamp-4 text-slate-700">{item.content}</span>
+                     <div className="mt-1 flex items-center justify-between">
+                       <StatusDot status={item.status} />
+                       <span className="text-slate-400">{item.content.length}c</span>
+                     </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })}
+      </div>
     );
   };
 
@@ -282,9 +352,10 @@ export default function ChannelPage() {
   }
 
   const tabs: { key: TabStatus; label: string }[] = [
-    { key: "draft", label: "Taslak" },
+    { key: "all", label: "Tümü" },
+    { key: "draft", label: "Bekleyen" },
     { key: "used", label: "Kullanıldı" },
-    { key: "rejected", label: "Reddedildi" },
+    { key: "editing", label: "Düzenleniyor" },
   ];
 
   return (
@@ -317,21 +388,45 @@ export default function ChannelPage() {
         </Button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => handleTabChange(tab.key)}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-              activeTab === tab.key
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      {/* Views & Tabs */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => handleTabChange(tab.key)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
+                activeTab === tab.key
+                  ? "bg-white text-slate-900 shadow-sm"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex items-center gap-2">
+          {selectedIds.size > 0 && (
+            <Button size="sm" variant="outline" className="text-sm shadow-sm" onClick={handleExportCSV}>
+              📥 Seçili İndir ({selectedIds.size})
+            </Button>
+          )}
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+            <button 
+              onClick={() => setViewMode("list")} 
+              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "list" ? "bg-white shadow-sm" : "text-slate-500"}`}
+            >
+              Liste
+            </button>
+            <button 
+              onClick={() => setViewMode("calendar")} 
+              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "calendar" ? "bg-white shadow-sm" : "text-slate-500"}`}
+            >
+              Takvim
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Content */}
@@ -342,18 +437,38 @@ export default function ChannelPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-16 text-slate-400">
           <p className="text-lg mb-2">
-            {activeTab === "draft" ? "Henüz taslak yok" : activeTab === "used" ? "Henüz kullanılmış içerik yok" : "Reddedilmiş içerik yok"}
+            {activeTab === "draft" ? "Henüz taslak yok" : activeTab === "used" ? "Henüz kullanılmış içerik yok" : activeTab === "editing" ? "Düzenlenen içerik yok" : "İçerik yok"}
           </p>
           {activeTab === "draft" && (
             <p className="text-sm">
-              "İçerik Üret" butonuna basarak yeni içerik oluşturun.
+              &quot;İçerik Üret&quot; butonuna basarak yeni içerik oluşturun.
             </p>
           )}
         </div>
+      ) : viewMode === "calendar" ? (
+        renderCalendar()
       ) : (
         <div className="space-y-4">
+          <div className="flex items-center mb-2 px-2 text-xs font-semibold text-slate-400 tracking-wider uppercase">
+            <input 
+              type="checkbox" 
+              checked={selectedIds.size === items.length && items.length > 0}
+              onChange={() => {
+                if (selectedIds.size === items.length) setSelectedIds(new Set());
+                else setSelectedIds(new Set(items.map(i => i.id)));
+              }}
+              className="mr-3 w-4 h-4 rounded border-slate-300"
+            />
+            <span>Tümünü Seç</span>
+          </div>
           {items.map((item) => (
-            <ContentCard key={item.id} item={item} onUpdate={handleUpdate} />
+            <ContentCard 
+              key={item.id} 
+              item={item} 
+              onUpdate={handleUpdate} 
+              isSelected={selectedIds.has(item.id)}
+              onToggleSelect={toggleSelection}
+            />
           ))}
         </div>
       )}

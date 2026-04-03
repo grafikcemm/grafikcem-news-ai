@@ -42,9 +42,16 @@ export default function PromptCard({ prompt, onOpen, onCopy, isCopied }: PromptC
       </div>
 
       {/* Başlık */}
-      <h3 className="text-[#F5F5F0] font-semibold text-sm line-clamp-2">
-        {prompt.title_tr}
-      </h3>
+      <div>
+        <h3 className="text-[#F5F5F0] font-semibold text-sm line-clamp-2">
+          {prompt.title_tr || prompt.title_original}
+        </h3>
+        {prompt.title_tr && prompt.title_original && (
+          <p className="text-[#888888] text-[10px] mt-0.5 line-clamp-1">
+            {prompt.title_original}
+          </p>
+        )}
+      </div>
 
       {/* Açıklama */}
       <p className="text-[#888888] text-xs line-clamp-3">

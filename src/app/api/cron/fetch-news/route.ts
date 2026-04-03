@@ -7,7 +7,9 @@ import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
 
 export const maxDuration = 60; // Max allowed for Vercel Hobby tier
 
-const parser = new Parser();
+const parser = new Parser({
+  timeout: 8000, // 5. fetch işlemlerinde timeout kontrolü ekle
+});
 
 export async function GET(request: NextRequest) {
   return handler(request);
@@ -36,6 +38,16 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch sources" }, { status: 500 });
     }
 
+    // 3. Eğer Hobby plan ise işlemi parçala
+    const sourceParam = request.nextUrl.searchParams.get("source");
+    let sourcesToProcess = sources;
+    if (sourceParam !== null) {
+      const idx = parseInt(sourceParam, 10);
+      if (!isNaN(idx) && idx >= 0 && idx < sources.length) {
+        sourcesToProcess = [sources[idx]];
+      }
+    }
+
     const newItems: Array<{
       source_id: string;
       title: string;
@@ -46,7 +58,7 @@ async function handler(request: NextRequest) {
     }> = [];
 
     // Parse each RSS feed
-    const feedPromises = sources.map(async (source) => {
+    const feedPromises = sourcesToProcess.map(async (source) => {
       try {
         const feed = await parser.parseURL(source.rss_url);
         const items = feed.items.slice(0, 20); // Max 20 per source
@@ -84,8 +96,8 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ message: "No new items found", count: 0 });
     }
 
-    // Cap at 20 items per run to stay within Vercel 60s timeout
-    const itemsToProcess = newItems.slice(0, 20);
+    // Cap at 3 items per run to stay within Vercel 10s Hobby timeout
+    const itemsToProcess = newItems.slice(0, 3);
     console.log(`[fetch-news] Capped to ${itemsToProcess.length} items (${newItems.length} found)`);
 
     // Insert or ignore new items based on their url
@@ -122,11 +134,11 @@ async function handler(request: NextRequest) {
         console.log(`[fetch-news] Sending batch of ${articles.length} to Claude for scoring`);
 
         const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 2048,
+          model: "claude-3-haiku-20240307", // Used Haiku instead of Sonnet for much faster processing within timeout
+          max_tokens: 1500,
           system: VIRAL_SCORING_SYSTEM_PROMPT,
           messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
-        });
+        }, { timeout: 8000 }); // 8 saniye timeout AI çağrısı için
 
         const rawScoreText = response.content[0].type === "text" ? response.content[0].text : "";
         console.log(`[fetch-news] Claude raw scoring response:`, rawScoreText.substring(0, 500));
@@ -190,13 +202,13 @@ async function handler(request: NextRequest) {
           }));
 
           const translateResponse = await anthropic.messages.create({
-            model: "claude-sonnet-4-6",
-            max_tokens: 2048,
+            model: "claude-3-haiku-20240307", // Haiku is faster for hobby limits
+            max_tokens: 1500,
             system: AUTO_TRANSLATE_SYSTEM_PROMPT,
             messages: [
               { role: "user", content: buildAutoTranslateUserPrompt(articles) },
             ],
-          });
+          }, { timeout: 8000 }); // 8 saniye timeout AI çağrısı için
 
           const rawTranslateText =
             translateResponse.content[0].type === "text"

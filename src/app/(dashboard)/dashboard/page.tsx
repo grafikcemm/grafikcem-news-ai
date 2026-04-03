@@ -10,6 +10,7 @@ import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Line, LineChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface NewsItem {
   id: string;
@@ -34,68 +35,73 @@ interface RecommendedDraft {
 
 interface Stats {
   todayNews: number;
+  todayNewsDelta: number;
   avgScore: number;
+  avgScoreDelta: number;
   pendingDrafts: number;
+  pendingDraftsDelta: number;
+  weeklyTrend?: { day: string; date: string; score: number }[];
 }
 
-function OptimalTimesCard() {
-  const [data, setData] = useState<{ hours: Record<number, number>; best_hours: number[]; message: string; is_estimated: boolean } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/analysis/optimal-times")
-      .then((r) => r.json())
-      .then((d) => setData(d))
-      .catch(() => {});
-  }, []);
-
-  const now = new Date().getHours();
-  const isGoodTime = data?.best_hours?.includes(now);
-
+function ViralTrendCard({ data }: { data: Stats["weeklyTrend"] }) {
   return (
     <Card className="border-0 shadow-sm bg-white">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="text-base font-semibold text-slate-900">En İyi Paylaşım Saatleri</CardTitle>
-          {data && (
-            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isGoodTime ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-              {isGoodTime ? `✓ Şu an iyi saat (${now}:00)` : `Şu an: ${now}:00`}
-            </span>
-          )}
+          <CardTitle className="text-base font-semibold text-slate-900">Haftalık Viral Trendi</CardTitle>
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600">
+            Son 7 Gün
+          </span>
         </div>
       </CardHeader>
       <CardContent>
         {!data ? (
-          <Skeleton className="h-12 w-full" />
+          <Skeleton className="h-40 w-full" />
+        ) : data.length === 0 ? (
+          <div className="h-40 flex items-center justify-center text-slate-400 text-sm">Yeterli veri yok</div>
         ) : (
-          <>
-            <div className="flex items-end gap-0.5 h-12">
-              {Array.from({ length: 24 }, (_, h) => {
-                const val = data.hours?.[h] ?? 0;
-                const isBest = data.best_hours?.includes(h);
-                const isCurrent = h === now;
-                return (
-                  <div key={h} className="flex-1 flex flex-col items-center gap-0.5" title={`${h}:00 — ${val}%`}>
-                    <div
-                      className={`w-full rounded-sm transition-all ${isCurrent ? "bg-blue-500" : isBest ? "bg-violet-400" : "bg-slate-200"}`}
-                      style={{ height: `${Math.max(4, val)}%` }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-              <span>0:00</span><span>6:00</span><span>12:00</span><span>18:00</span><span>23:00</span>
-            </div>
-            <div className="flex items-center gap-4 mt-3 flex-wrap">
-              <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                <span className="w-3 h-2 rounded-sm bg-violet-400 inline-block" /> En iyi saatler:{" "}
-                {data.best_hours?.map((h) => `${h}:00`).join(", ")}
-              </div>
-              {data.is_estimated && (
-                <span className="text-[10px] text-slate-400 italic">Türk X kitlesi ortalaması</span>
-              )}
-            </div>
-          </>
+          <div className="h-48 w-full mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="day" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fontSize: 11, fill: "#64748b" }}
+                  domain={[0, 100]}
+                />
+                <RechartsTooltip 
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload;
+                      return (
+                        <div className="bg-slate-900 text-white text-xs py-1.5 px-3 rounded-md shadow-xl border border-slate-700">
+                          <span className="font-semibold">{d.date}</span>
+                          <div className="mt-1 text-[#C8F135]">Ort. Skor: {Math.round(d.score)}</div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="score" 
+                  stroke="#6366f1" 
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#6366f1", strokeWidth: 2, stroke: "#fff" }}
+                  activeDot={{ r: 6, fill: "#C8F135", stroke: "#000" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -131,24 +137,25 @@ export default function DashboardPage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const yesterday = yesterdayDate.toISOString();
+      const dayBefore = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
       // Parallel fetch all stats
-      const [newsToday, avgResult, pendingResult, topResult, recentResult, recommendedResult] =
-        await Promise.all([
-          supabase
-            .from("news_items")
-            .select("id", { count: "exact", head: true })
-            .gte("fetched_at", yesterday),
-          supabase
-            .from("news_items")
-            .select("viral_score")
-            .gte("fetched_at", yesterday)
-            .gt("viral_score", 0),
-          supabase
-            .from("tweet_drafts")
-            .select("id", { count: "exact", head: true })
-            .eq("status", "pending"),
+      const [
+        newsToday, newsYesterdayData,
+        avgResult, avgResultYesterday,
+        pendingResult, pendingResultYesterday,
+        topResult, recentResult, recommendedResult,
+        weeklyTrendResult
+      ] = await Promise.all([
+          supabase.from("news_items").select("id", { count: "exact", head: true }).gte("fetched_at", yesterday),
+          supabase.from("news_items").select("id", { count: "exact", head: true }).gte("fetched_at", dayBefore).lt("fetched_at", yesterday),
+          supabase.from("news_items").select("viral_score").gte("fetched_at", yesterday).gt("viral_score", 0),
+          supabase.from("news_items").select("viral_score").gte("fetched_at", dayBefore).lt("fetched_at", yesterday).gt("viral_score", 0),
+          supabase.from("tweet_drafts").select("id", { count: "exact", head: true }).eq("status", "pending").gte("created_at", yesterday),
+          supabase.from("tweet_drafts").select("id", { count: "exact", head: true }).eq("status", "pending").gte("created_at", dayBefore).lt("created_at", yesterday),
           supabase
             .from("news_items")
             .select("*, sources(name)")
@@ -167,18 +174,70 @@ export default function DashboardPage() {
             .eq("is_recommended", true)
             .eq("status", "pending")
             .order("ai_score", { ascending: false }),
+          supabase
+            .from("news_items")
+            .select("fetched_at, viral_score")
+            .gte("fetched_at", sevenDaysAgo)
+            .gt("viral_score", 0)
         ]);
 
       const scores = avgResult.data || [];
-      const avg =
-        scores.length > 0
-          ? Math.round(scores.reduce((sum, s) => sum + (s.viral_score || 0), 0) / scores.length)
-          : 0;
+      const avg = scores.length > 0 ? Math.round(scores.reduce((sum, s) => sum + (s.viral_score || 0), 0) / scores.length) : 0;
+      
+      const scoresY = avgResultYesterday.data || [];
+      const avgY = scoresY.length > 0 ? Math.round(scoresY.reduce((sum, s) => sum + (s.viral_score || 0), 0) / scoresY.length) : 0;
+
+      const newsCount = newsToday.count || 0;
+      const newsCountY = newsYesterdayData.count || 0;
+      
+      const pendingCount = pendingResult.count || 0;
+      const pendingCountY = pendingResultYesterday.count || 0;
+
+      // Group weekly trend
+      const dailyMap: Record<string, { sum: number; count: number; dateStr: string }> = {};
+      const formatter = new Intl.DateTimeFormat("tr-TR", { weekday: "short" });
+      const fullFormatter = new Intl.DateTimeFormat("tr-TR", { day: "numeric", month: "short" });
+      
+      const weeklyData = weeklyTrendResult.data || [];
+      weeklyData.forEach((item) => {
+        const d = new Date(item.fetched_at);
+        const dayKey = d.toISOString().split("T")[0]; // YYYY-MM-DD
+        if (!dailyMap[dayKey]) {
+          dailyMap[dayKey] = { sum: 0, count: 0, dateStr: fullFormatter.format(d) };
+        }
+        dailyMap[dayKey].sum += item.viral_score;
+        dailyMap[dayKey].count += 1;
+      });
+
+      // Pad missing days for last 7 days
+      const trendArray = [];
+      for(let i=6; i>=0; i--) {
+        const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+        const dayKey = d.toISOString().split("T")[0];
+        const dayName = formatter.format(d);
+        if (dailyMap[dayKey]) {
+          trendArray.push({
+            day: dayName,
+            date: dailyMap[dayKey].dateStr,
+            score: dailyMap[dayKey].sum / dailyMap[dayKey].count
+          });
+        } else {
+          trendArray.push({
+            day: dayName,
+            date: fullFormatter.format(d),
+            score: 0
+          });
+        }
+      }
 
       setStats({
-        todayNews: newsToday.count || 0,
+        todayNews: newsCount,
+        todayNewsDelta: newsCount - newsCountY,
         avgScore: avg,
-        pendingDrafts: pendingResult.count || 0,
+        avgScoreDelta: avg - avgY,
+        pendingDrafts: pendingCount,
+        pendingDraftsDelta: pendingCount - pendingCountY,
+        weeklyTrend: trendArray
       });
 
       if (topResult.data) setTopNews(topResult.data as NewsItem);
@@ -199,26 +258,32 @@ export default function DashboardPage() {
     {
       title: "Bugün Çekilen Haberler",
       value: stats?.todayNews ?? 0,
+      delta: stats?.todayNewsDelta ?? 0,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8"/><path d="M15 18h-5"/><path d="M10 6h8v4h-8V6Z"/></svg>
       ),
       gradient: "from-blue-500 to-blue-600",
+      deltaDesc: "düne göre"
     },
     {
       title: "Viral Skor Ortalaması",
       value: stats?.avgScore ?? 0,
+      delta: stats?.avgScoreDelta ?? 0,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><rect width="20" height="5" x="2" y="7" rx="1"/></svg>
       ),
       gradient: "from-violet-500 to-purple-600",
+      deltaDesc: "düne göre"
     },
     {
       title: "Bekleyen Taslaklar",
       value: stats?.pendingDrafts ?? 0,
+      delta: stats?.pendingDraftsDelta ?? 0,
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
       ),
       gradient: "from-amber-500 to-orange-500",
+      deltaDesc: "düne göre yeni"
     },
   ];
 
@@ -247,7 +312,17 @@ export default function DashboardPage() {
                       {card.icon}
                     </div>
                   </div>
-                  <p className="text-3xl font-bold text-slate-900">{card.value}</p>
+                  <div className="flex items-end gap-3">
+                    <p className="text-3xl font-bold text-slate-900">{card.value}</p>
+                    {(card.delta !== undefined && card.delta !== 0) && (
+                      <div className={`flex items-center gap-1 text-xs font-semibold mb-1 ${card.delta > 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                        {card.delta > 0 ? "↑" : "↓"} {card.delta > 0 ? "+" : ""}{card.delta}
+                      </div>
+                    )}
+                  </div>
+                  {card.deltaDesc && (
+                    <p className="text-[10px] text-slate-400 mt-1">{card.deltaDesc}</p>
+                  )}
                 </>
               )}
             </CardContent>
@@ -374,8 +449,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Optimal Posting Times */}
-      <OptimalTimesCard />
+      {/* Viral Trend Chart */}
+      <ViralTrendCard data={stats?.weeklyTrend} />
 
       {/* Recent News */}
       <Card className="border-0 shadow-sm bg-white">

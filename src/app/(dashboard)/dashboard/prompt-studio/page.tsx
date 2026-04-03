@@ -5,10 +5,19 @@ import { toast } from "sonner";
 import type { Mode, Variation, HistoryEntry, ModeConfig } from "@/lib/prompt-studio/types";
 import { MODES_CONFIG } from "@/lib/prompt-studio/modes.config";
 
-const HISTORY_KEY = "prompt_studio_history";
-const MAX_HISTORY = 5;
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { supabase } from "@/lib/supabase";
 
-function VariationCard({ variation, onCopy }: { variation: Variation; onCopy: (text: string) => void }) {
+const HISTORY_KEY = "prompt_studio_history";
+const MAX_HISTORY = 20;
+
+function VariationCard({ variation, onCopy, onSave }: { variation: Variation; onCopy: (text: string) => void; onSave: (text: string) => void }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -43,16 +52,29 @@ function VariationCard({ variation, onCopy }: { variation: Variation; onCopy: (t
         )}
       </div>
 
-      <button
-        onClick={handleCopy}
-        className={`mt-1 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
-          copied
-            ? "bg-[#C8F135]/20 text-[#C8F135] border border-[#C8F135]/40"
-            : "bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/40 hover:border-slate-500"
-        }`}
-      >
-        {copied ? "✅ Kopyalandı!" : "📋 Kopyala"}
-      </button>
+      <div className="flex gap-2 mt-1">
+        <button
+          onClick={handleCopy}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
+            copied
+              ? "bg-[#C8F135]/20 text-[#C8F135] border border-[#C8F135]/40"
+              : "bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/40 hover:border-slate-500"
+          }`}
+        >
+          {copied ? "✅ Kopyalandı!" : "📋 Kopyala"}
+        </button>
+        <button
+          onClick={() => {
+            const fullText = variation.negative_prompt
+              ? `${variation.prompt}\n\n${variation.negative_prompt}`
+              : variation.prompt;
+            onSave(fullText);
+          }}
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold bg-white/5 text-white hover:bg-white/10 transition-colors border border-white/10"
+        >
+          Kütüphaneye Kaydet
+        </button>
+      </div>
     </div>
   );
 }
@@ -87,10 +109,16 @@ function ModeButton({ config, active, onClick }: { config: ModeConfig; active: b
 
 export default function PromptStudioPage() {
   const [selectedMode, setSelectedMode] = useState<Mode>("image_video");
+  const [selectedAiModel, setSelectedAiModel] = useState("Genel");
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [variations, setVariations] = useState<Variation[] | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [saveText, setSaveText] = useState("");
+  const [saveData, setSaveData] = useState({ title: "", titleTr: "", category: "Midjourney", rating: 8 });
+  const [saving, setSaving] = useState(false);
+  
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -160,6 +188,32 @@ export default function PromptStudioPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleSaveToLibrary = async () => {
+    if (!saveData.titleTr) return toast.error("Türkçe başlık zorunludur.");
+    setSaving(true);
+    try {
+      const { error } = await supabase.from("prompts").insert({
+        // Assuming unique id is generated or let DB default
+        title_original: saveData.title || saveData.titleTr,
+        title_tr: saveData.titleTr,
+        description_tr: "Prompt Studio'dan eklendi",
+        category: saveData.category,
+        quality_score: saveData.rating,
+        prompt_text: saveText, // using prompt_text as guessed from structure
+        use_count: 0,
+      });
+
+      if (error) throw error;
+      toast.success("Kütüphaneye kaydedildi!");
+      setSaveModalOpen(false);
+      setSaveData({ title: "", titleTr: "", category: "Midjourney", rating: 8 });
+    } catch {
+      toast.error("Kaydetme başarısız oldu.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const activeMode = MODES_CONFIG.find((m) => m.id === selectedMode)!;
 
   return (
@@ -191,6 +245,20 @@ export default function PromptStudioPage() {
 
         {/* Input */}
         <div className="space-y-3">
+          
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-medium text-slate-300">Hangi model için?</span>
+            <select
+              value={selectedAiModel}
+              onChange={(e) => setSelectedAiModel(e.target.value)}
+              className="bg-slate-900 border border-slate-700/60 rounded-md text-sm text-slate-200 px-3 py-1 focus:outline-none focus:border-[#C8F135]/40"
+            >
+              {["Genel", "Midjourney", "Sora", "Kling", "Stable Diffusion", "Ideogram"].map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="relative">
             <textarea
               ref={textareaRef}
@@ -240,7 +308,15 @@ export default function PromptStudioPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {variations.map((v, i) => (
-                <VariationCard key={i} variation={v} onCopy={handleCopy} />
+                <VariationCard 
+                  key={i} 
+                  variation={v} 
+                  onCopy={handleCopy} 
+                  onSave={(t) => {
+                    setSaveText(t);
+                    setSaveModalOpen(true);
+                  }}
+                />
               ))}
             </div>
           </div>
@@ -254,6 +330,23 @@ export default function PromptStudioPage() {
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Üretimler</span>
               <div className="h-px flex-1 bg-slate-800" />
             </div>
+            
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="Geçmişte ara..."
+                className="w-full bg-slate-900 border border-slate-700/60 text-sm text-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:border-[#C8F135]/40"
+                onChange={(e) => {
+                  const q = e.target.value.toLowerCase();
+                  if (!q) {
+                    try { setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) || "[]")); } catch {}
+                  } else {
+                    setHistory(prev => prev.filter((entry) => entry.userInput.toLowerCase().includes(q)));
+                  }
+                }}
+              />
+            </div>
+
             <div className="space-y-2">
               {history.map((entry) => {
                 const modeConf = MODES_CONFIG.find((m) => m.id === entry.mode);
@@ -284,6 +377,73 @@ export default function PromptStudioPage() {
           </div>
         )}
       </div>
+
+      <Dialog open={saveModalOpen} onOpenChange={setSaveModalOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-slate-200">
+          <DialogHeader>
+            <DialogTitle>Kütüphaneye Kaydet</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">Türkçe Başlık</label>
+              <input
+                type="text"
+                value={saveData.titleTr}
+                onChange={(e) => setSaveData({ ...saveData, titleTr: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
+                placeholder="Örn: Sinematik Portre"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">İngilizce / Orjinal Başlık (Opsiyonel)</label>
+              <input
+                type="text"
+                value={saveData.title}
+                onChange={(e) => setSaveData({ ...saveData, title: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">Kategori</label>
+              <select
+                value={saveData.category}
+                onChange={(e) => setSaveData({ ...saveData, category: e.target.value })}
+                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
+              >
+                {["Midjourney", "Sora", "Genel", "Kling", "Tasarım"].map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">Puan: {saveData.rating}</label>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                value={saveData.rating}
+                onChange={(e) => setSaveData({ ...saveData, rating: parseInt(e.target.value) })}
+                className="w-full"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setSaveModalOpen(false)}
+              className="px-4 py-2 rounded-md text-sm text-slate-400 hover:text-white"
+            >
+              İptal
+            </button>
+            <button
+              onClick={handleSaveToLibrary}
+              disabled={saving}
+              className="px-4 py-2 rounded-md text-sm bg-[#C8F135] text-slate-900 font-semibold hover:bg-opacity-90"
+            >
+              {saving ? "Kaydediliyor..." : "Kaydet"}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

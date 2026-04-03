@@ -1,23 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Validates API requests from dashboard UI (via cookie) or external callers (via x-api-key).
- * In development (no DASHBOARD_API_SECRET set), all requests pass.
+ * Validates API requests. Since the application password is removed,
+ * dashboard UI requests are always allowed.
  */
-export function validateApiRequest(req: NextRequest): boolean {
-  const secret = process.env.DASHBOARD_API_SECRET;
-  if (!secret) return true; // dev mode — skip auth
-
-  // Accept x-api-key header (for direct/external API access)
-  const apiKey = req.headers.get("x-api-key");
-  if (apiKey === secret) return true;
-
-  // Accept gc_auth cookie (for dashboard client-side calls from logged-in users)
-  const cookie = req.cookies.get("gc_auth");
-  const dashPass = process.env.DASHBOARD_PASSWORD;
-  if (dashPass && cookie?.value === dashPass) return true;
-
-  return false;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function validateApiRequest(_req: NextRequest): boolean {
+  return true;
 }
 
 /**

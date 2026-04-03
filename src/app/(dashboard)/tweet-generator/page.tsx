@@ -61,6 +61,10 @@ function TweetGeneratorContent() {
   const [generating, setGenerating] = useState(false);
   const [newsId, setNewsId] = useState(newsIdParam || "");
   const [selectedFormat, setSelectedFormat] = useState<string>("standard");
+  const [abMode, setAbMode] = useState(false);
+  const [tone, setTone] = useState<string>("");
+  const [language, setLanguage] = useState<string>("tr");
+  const [showOptions, setShowOptions] = useState(false);
 
   useEffect(() => {
     if (newsIdParam) {
@@ -102,7 +106,7 @@ function TweetGeneratorContent() {
       const res = await fetch("/api/tweet/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ news_id: newsId, format: selectedFormat }),
+        body: JSON.stringify({ news_id: newsId, format: selectedFormat, abMode, tone, language }),
       });
       const data = await res.json();
       if (res.ok && data.options) {
@@ -230,28 +234,91 @@ function TweetGeneratorContent() {
 
               <Separator />
 
+              <div className="flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setShowOptions(!showOptions)}
+                  className="text-xs font-semibold text-blue-500 flex items-center gap-1"
+                >
+                  {showOptions ? "Gelişmiş Seçenekleri Gizle" : "Gelişmiş Seçenekler"}
+                </button>
+              </div>
+
+              {showOptions && (
+                <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-700">A/B Testi Üret</span>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" checked={abMode} onChange={() => setAbMode(!abMode)} className="sr-only peer" />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-slate-700">Dil Seçimi</span>
+                    <div className="flex gap-2">
+                      {["tr", "en", "bilingual"].map((l) => (
+                        <button
+                          key={l}
+                          onClick={() => setLanguage(l)}
+                          className={`flex-1 py-1 rounded text-xs font-medium border ${
+                            language === l ? "bg-slate-900 text-white" : "text-slate-600 bg-white hover:bg-slate-50"
+                          }`}
+                        >
+                          {l.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-sm font-medium text-slate-700">Ton / Tarz</span>
+                    <select
+                      value={tone}
+                      onChange={(e) => setTone(e.target.value)}
+                      className="w-full text-sm rounded-md border-slate-200 p-2 outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Otomatik (Haber türüne göre)</option>
+                      <option value="Ciddi ve Analitik">Ciddi ve Analitik</option>
+                      <option value="Eğlenceli ve Heyecanlı">Eğlenceli ve Heyecanlı</option>
+                      <option value="Hikayesel (Storytelling)">Hikayesel</option>
+                      <option value="Provokatif / Tartışma Çıkarıcı">Provokatif / Tartışma</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 rounded-lg p-2">
                 <span>{FORMATS.find((f) => f.id === selectedFormat)?.icon}</span>
                 <span>Format: <strong>{FORMATS.find((f) => f.id === selectedFormat)?.label}</strong></span>
               </div>
 
-              <Button
-                onClick={handleGenerate}
-                disabled={generating || !newsId}
-                className="w-full bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600 text-white h-11"
-              >
-                {generating ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
-                      <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
-                    </svg>
-                    AI Üretiyor...
-                  </span>
-                ) : (
-                  `${FORMATS.find((f) => f.id === selectedFormat)?.label || "Tweet"} Üret`
+              <div className="space-y-2">
+                <Button
+                  onClick={handleGenerate}
+                  disabled={generating || !newsId}
+                  className={`w-full h-11 text-white ${
+                    !newsId
+                      ? "bg-slate-300 cursor-not-allowed opacity-100 hover:bg-slate-300"
+                      : "bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600"
+                  }`}
+                >
+                  {generating ? (
+                    <span className="flex items-center gap-2">
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
+                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
+                      </svg>
+                      AI Üretiyor...
+                    </span>
+                  ) : (
+                    `${FORMATS.find((f) => f.id === selectedFormat)?.label || "Tweet"} Üret`
+                  )}
+                </Button>
+                {!newsId && (
+                  <p className="text-xs text-center text-red-500 font-medium">
+                    Lütfen Haber Havuzu&apos;ndan bir haber seçin
+                  </p>
                 )}
-              </Button>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -335,7 +402,7 @@ function TweetGeneratorContent() {
                   )}
 
                   {/* Tweet content */}
-                  <div className="bg-slate-50 rounded-xl p-4 mb-4">
+                  <div className="bg-slate-50 rounded-xl p-4 mb-4 relative">
                     <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
                       {draft.content}
                     </p>
@@ -352,6 +419,17 @@ function TweetGeneratorContent() {
                         </div>
                       )}
                   </div>
+                  
+                  {/* Hashtag Suggestions Extract Option */}
+                  {draft.content.includes("#") && (
+                    <div className="flex flex-wrap gap-1 mb-4">
+                      {Array.from(new Set(draft.content.match(/#[\wçğıöşüÇĞİÖŞÜ]+/g) || [])).map(tag => (
+                        <span key={tag} className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full cursor-pointer hover:bg-blue-100">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Actions */}
                   <div className="flex items-center gap-2 flex-wrap">

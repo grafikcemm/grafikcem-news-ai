@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import promptsMetaRaw from '@/data/prompts_meta.json';
 import promptsTextsRaw from '@/data/prompts_texts.json';
 import { PromptMeta, PromptTexts, SortOption, QualityFilter } from '@/lib/prompt-library/types';
 import { CATEGORY_CONFIG, ALL_CATEGORIES } from '@/lib/prompt-library/categories';
 import PromptCard from '@/components/prompt-library/PromptCard';
 import PromptModal from '@/components/prompt-library/PromptModal';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 const promptsMeta = promptsMetaRaw as PromptMeta[];
 const promptsTexts = promptsTextsRaw as PromptTexts;
@@ -21,6 +24,41 @@ export default function PromptLibraryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedPrompt, setSelectedPrompt] = useState<PromptMeta | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  
+  const [dbPrompts, setDbPrompts] = useState<PromptMeta[]>([]);
+  const [dbTexts, setDbTexts] = useState<PromptTexts>({});
+  
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [customPrompt, setCustomPrompt] = useState({ title: '', titleTr: '', body: '', category: 'Genel', rating: 5 });
+
+  useEffect(() => {
+    supabase.from('prompts').select('*').then(({ data }) => {
+      if (data) {
+        const metas: PromptMeta[] = [];
+        const texts: PromptTexts = {};
+        data.forEach((p) => {
+          metas.push({
+            id: p.id,
+            title_tr: p.title_tr || p.title_original || p.id,
+            title_original: p.title_original || '',
+            description_tr: p.description_tr || '',
+            use_case_tr: p.use_case_tr || 'Genel',
+            author: "User",
+            category: p.category || 'Genel',
+            tags: [],
+            quality_score: p.quality_score || 5,
+            votes: p.use_count || 0,
+          });
+          texts[p.id] = p.prompt_text || p.content || '';
+        });
+        setDbPrompts(metas);
+        setDbTexts(texts);
+      }
+    });
+  }, []);
+
+  const allPromptsMeta = useMemo(() => [...promptsMeta, ...dbPrompts], [dbPrompts]);
+  const allPromptsTexts = useMemo(() => ({ ...promptsTexts, ...dbTexts }), [dbTexts]);
 
   // Helper to reset page when filters change
   const resetPage = useCallback(() => setCurrentPage(1), []);
@@ -33,7 +71,7 @@ export default function PromptLibraryPage() {
 
   // Filtreleme
   const filteredPrompts = useMemo(() => {
-    let result = [...promptsMeta];
+    let result = [...allPromptsMeta];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -58,7 +96,7 @@ export default function PromptLibraryPage() {
     if (sortOption === 'votes') result.sort((a, b) => b.votes - a.votes);
 
     return result;
-  }, [searchQuery, selectedCategory, qualityFilter, sortOption]);
+  }, [searchQuery, selectedCategory, qualityFilter, sortOption, allPromptsMeta]);
 
   const totalPages = Math.ceil(filteredPrompts.length / ITEMS_PER_PAGE);
   const paginatedPrompts = filteredPrompts.slice(
@@ -68,20 +106,53 @@ export default function PromptLibraryPage() {
 
   // Kopyala fonksiyonu
   const handleCopy = (prompt: PromptMeta) => {
-    const text = promptsTexts[prompt.id] || '';
+    const text = allPromptsTexts[prompt.id] || '';
     navigator.clipboard.writeText(text);
     setCopiedId(prompt.id);
+    // increment usage count via API/DB
+    supabase.rpc('increment_use_count', { row_id: prompt.id }).then();
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleAddCustom = async () => {
+    if (!customPrompt.title || !customPrompt.body) return toast.error("Başlık ve içerik zorunludur");
+    const { data } = await supabase.from('prompts').insert({
+      title_original: customPrompt.title,
+      title_tr: customPrompt.titleTr || customPrompt.title,
+      prompt_text: customPrompt.body,
+      category: customPrompt.category,
+      quality_score: customPrompt.rating
+    }).select().single();
+    
+    if (data) {
+      toast.success("Eklendi");
+      setAddModalOpen(false);
+      setCustomPrompt({ title: '', titleTr: '', body: '', category: 'Genel', rating: 5 });
+      // re-fetch maybe, or just insert optimistic
+      setDbPrompts(prev => [{
+        id: data.id,
+        title_tr: data.title_tr,
+        title_original: data.title_original,
+        description_tr: "Özel",
+        use_case_tr: "Genel",
+        author: "User",
+        category: data.category,
+        tags: [],
+        quality_score: data.quality_score,
+        votes: 0
+      }, ...prev]);
+      setDbTexts(prev => ({ ...prev, [data.id]: data.prompt_text }));
+    }
   };
 
   // Kategori sayıları
   const categoryCounts = useMemo(() => {
-    const counts: Record<string, number> = { 'Tümü': promptsMeta.length };
-    promptsMeta.forEach((p) => {
+    const counts: Record<string, number> = { 'Tümü': allPromptsMeta.length };
+    allPromptsMeta.forEach((p: PromptMeta) => {
       counts[p.category] = (counts[p.category] || 0) + 1;
     });
     return counts;
-  }, []);
+  }, [allPromptsMeta]);
 
   return (
     <>
@@ -93,12 +164,20 @@ export default function PromptLibraryPage() {
               Prompt Kütüphanesi
             </h1>
             <p className="text-[#888] text-sm mt-1">
-              450 kurasyonlu prompt — kopyala, kullan
+              450+ kurasyonlu prompt — kopyala, kullan
             </p>
           </div>
-          <span className="bg-[#C8F135]/10 text-[#C8F135] border border-[#C8F135]/20 px-3 py-1 rounded-full text-sm font-medium">
-            {filteredPrompts.length} prompt
-          </span>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setAddModalOpen(true)}
+              className="bg-[#1A1A1A] hover:bg-[#222] border border-[#333] text-white px-3 py-1.5 rounded-md text-sm font-medium transition-colors"
+            >
+              + Manuel Ekle
+            </button>
+            <span className="bg-[#C8F135]/10 text-[#C8F135] border border-[#C8F135]/20 px-3 py-1.5 rounded-full text-sm font-medium">
+              {filteredPrompts.length} prompt
+            </span>
+          </div>
         </div>
 
         {/* FİLTRE BARI */}
@@ -172,9 +251,9 @@ export default function PromptLibraryPage() {
 
         {/* SONUÇ SAYACI */}
         <p className="text-xs text-[#555]">
-          {filteredPrompts.length === promptsMeta.length
-            ? `${promptsMeta.length} prompt`
-            : `${filteredPrompts.length} sonuç (${promptsMeta.length} prompttan filtrelendi)`}
+          {filteredPrompts.length === allPromptsMeta.length
+            ? `${allPromptsMeta.length} prompt`
+            : `${filteredPrompts.length} sonuç (${allPromptsMeta.length} prompttan filtrelendi)`}
         </p>
 
         {/* GRID */}
@@ -261,11 +340,50 @@ export default function PromptLibraryPage() {
       {/* MODAL */}
       <PromptModal
         prompt={selectedPrompt}
-        promptText={selectedPrompt ? (promptsTexts[selectedPrompt.id] || '') : ''}
+        promptText={selectedPrompt ? (allPromptsTexts[selectedPrompt.id] || '') : ''}
         onClose={() => setSelectedPrompt(null)}
         onCopy={() => selectedPrompt && handleCopy(selectedPrompt)}
         isCopied={copiedId === selectedPrompt?.id}
       />
+      
+      {/* ADD CUSTOM MODAL */}
+      <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
+        <DialogContent className="bg-slate-900 border-slate-700 text-slate-200">
+          <DialogHeader>
+            <DialogTitle>Yeni Prompt Ekle</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">İngilizce Başlık (Zorunlu)</label>
+              <input type="text" value={customPrompt.title} onChange={e => setCustomPrompt({...customPrompt, title: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">Türkçe Başlık (Opsiyonel)</label>
+              <input type="text" value={customPrompt.titleTr} onChange={e => setCustomPrompt({...customPrompt, titleTr: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-slate-400">İçerik (Zorunlu)</label>
+              <textarea value={customPrompt.body} onChange={e => setCustomPrompt({...customPrompt, body: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white h-24" />
+            </div>
+            <div className="flex gap-4">
+              <div className="space-y-2 flex-1">
+                <label className="text-xs font-medium text-slate-400">Kategori</label>
+                <select value={customPrompt.category} onChange={e => setCustomPrompt({...customPrompt, category: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white">
+                  {ALL_CATEGORIES.filter(c => c !== 'Tümü').map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2 flex-1">
+                <label className="text-xs font-medium text-slate-400">Puan: {customPrompt.rating}</label>
+                <input type="range" min="1" max="10" value={customPrompt.rating} onChange={e => setCustomPrompt({...customPrompt, rating: Number(e.target.value)})} className="w-full" />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <button onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">İptal</button>
+            <button onClick={handleAddCustom} className="px-4 py-2 text-sm bg-[#C8F135] text-black font-semibold rounded-md">Kaydet</button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
