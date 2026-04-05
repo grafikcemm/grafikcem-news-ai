@@ -14,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="tr" suppressHydrationWarning={true}>
-      <body className={`${GeistSans.className} antialiased`} suppressHydrationWarning={true}>
+    <html lang="tr" suppressHydrationWarning>
+      <body className={`${GeistSans.className} antialiased`} suppressHydrationWarning>
         {children}
         <Toaster position="top-right" richColors />
       </body>

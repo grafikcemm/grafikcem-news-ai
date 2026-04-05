@@ -1,0 +1,126 @@
+CREATE TABLE IF NOT EXISTS content_items (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  caption TEXT,
+  platform TEXT NOT NULL,
+  format TEXT,
+  status TEXT DEFAULT 'draft',
+  scheduled_date DATE,
+  published_at TIMESTAMPTZ,
+  notes TEXT,
+  hook TEXT,
+  storyboard_id UUID,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS competitors (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  handle TEXT NOT NULL,
+  platform TEXT DEFAULT 'instagram',
+  category TEXT,
+  follower_count INTEGER DEFAULT 0,
+  avg_engagement_rate DECIMAL(5,2) DEFAULT 0,
+  posts_per_week DECIMAL(4,1) DEFAULT 0,
+  last_format TEXT,
+  trend TEXT DEFAULT 'normal',
+  notes TEXT,
+  last_updated DATE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS analytics_entries (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  platform TEXT NOT NULL,
+  week_start DATE NOT NULL,
+  reach INTEGER DEFAULT 0,
+  impressions INTEGER DEFAULT 0,
+  new_followers INTEGER DEFAULT 0,
+  engagement_rate DECIMAL(5,2) DEFAULT 0,
+  best_post_title TEXT,
+  best_post_reach INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS storyboards (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  title TEXT NOT NULL,
+  platform TEXT,
+  format TEXT,
+  hook TEXT,
+  scenes JSONB,
+  shooting_tips JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Seed competitors
+INSERT INTO competitors (handle, category, last_updated) VALUES 
+('@kail.designs', 'Tasarım & Logo', CURRENT_DATE),
+('@uiadrian', 'Tasarım & Logo', CURRENT_DATE),
+('@basit.designs', 'Tasarım & Logo', CURRENT_DATE),
+('@sajon.co', 'Tasarım & Logo', CURRENT_DATE),
+('@designwitharn', 'Tasarım & Logo', CURRENT_DATE),
+('@brandingdesigners', 'Tasarım & Logo', CURRENT_DATE),
+('@welovebranding', 'Tasarım & Logo', CURRENT_DATE),
+('@designspiration', 'Tasarım & Logo', CURRENT_DATE),
+('@zanderwhitehurst', 'Tasarım & Logo', CURRENT_DATE),
+('@anfisign', 'Tasarım & Logo', CURRENT_DATE),
+('@pfrommer_design', 'Tasarım & Logo', CURRENT_DATE),
+('@charleypangus', 'Tasarım & Logo', CURRENT_DATE),
+('@madebyjames_', 'Tasarım & Logo', CURRENT_DATE),
+('@willpaterson', 'Tasarım & Logo', CURRENT_DATE),
+('@logocore', 'Tasarım & Logo', CURRENT_DATE),
+('@learnlogodesign', 'Tasarım & Logo', CURRENT_DATE),
+('@logoinspirations', 'Tasarım & Logo', CURRENT_DATE),
+('@made.by.james', 'Tasarım & Logo', CURRENT_DATE),
+('@stevenbonner', 'Tasarım & Logo', CURRENT_DATE),
+('@dainwalker', 'Tasarım & Logo', CURRENT_DATE),
+
+('@colorhunt.co', 'Tipografi & Renk', CURRENT_DATE),
+('@typographyinspired', 'Tipografi & Renk', CURRENT_DATE),
+('@typegang', 'Tipografi & Renk', CURRENT_DATE),
+('@typewolf', 'Tipografi & Renk', CURRENT_DATE),
+('@fonts', 'Tipografi & Renk', CURRENT_DATE),
+('@colours.cafe', 'Tipografi & Renk', CURRENT_DATE),
+('@goodtype', 'Tipografi & Renk', CURRENT_DATE),
+('@baugasm', 'Tipografi & Renk', CURRENT_DATE),
+
+('@designwithaitools', 'AI & Tasarım Araçları', CURRENT_DATE),
+('@aidesigntools', 'AI & Tasarım Araçları', CURRENT_DATE),
+('@logos.ai', 'AI & Tasarım Araçları', CURRENT_DATE),
+('@ai.design.art', 'AI & Tasarım Araçları', CURRENT_DATE),
+('@prompting.ai', 'AI & Tasarım Araçları', CURRENT_DATE),
+
+('@uxdesignmastery', 'UI/UX & Web', CURRENT_DATE),
+('@designresources_', 'UI/UX & Web', CURRENT_DATE),
+('@ui.sergio', 'UI/UX & Web', CURRENT_DATE),
+('@ux.by.felix', 'UI/UX & Web', CURRENT_DATE),
+('@dailywebdesign', 'UI/UX & Web', CURRENT_DATE),
+('@uiuxsupply', 'UI/UX & Web', CURRENT_DATE),
+('@ui_gradient', 'UI/UX & Web', CURRENT_DATE),
+('@uiuxdailytips', 'UI/UX & Web', CURRENT_DATE),
+('@uitrends', 'UI/UX & Web', CURRENT_DATE),
+('@daily_ui', 'UI/UX & Web', CURRENT_DATE),
+('@ux.collection', 'UI/UX & Web', CURRENT_DATE),
+('@welovewebdesign', 'UI/UX & Web', CURRENT_DATE),
+
+('@graphicdesignblg', 'Eğitim & İçerik', CURRENT_DATE),
+('@creative.boom', 'Eğitim & İçerik', CURRENT_DATE),
+('@chrisdo', 'Eğitim & İçerik', CURRENT_DATE),
+('@thefutur', 'Eğitim & İçerik', CURRENT_DATE),
+('@motiondesign.school', 'Eğitim & İçerik', CURRENT_DATE),
+('@piximperfect', 'Eğitim & İçerik', CURRENT_DATE),
+('@tutvid', 'Eğitim & İçerik', CURRENT_DATE),
+('@thedesignblender', 'Eğitim & İçerik', CURRENT_DATE),
+('@designarf', 'Eğitim & İçerik', CURRENT_DATE),
+
+('@figmadesign', 'Platform & Kaynak', CURRENT_DATE),
+('@canva', 'Platform & Kaynak', CURRENT_DATE),
+('@envato', 'Platform & Kaynak', CURRENT_DATE),
+('@unsplash', 'Platform & Kaynak', CURRENT_DATE),
+('@dribbble', 'Platform & Kaynak', CURRENT_DATE),
+('@designhill', 'Platform & Kaynak', CURRENT_DATE),
+('@graphicdesigncentral', 'Platform & Kaynak', CURRENT_DATE),
+('@fubiz', 'Platform & Kaynak', CURRENT_DATE),
+('@designboom', 'Platform & Kaynak', CURRENT_DATE);

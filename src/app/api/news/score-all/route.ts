@@ -1,27 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import Anthropic from "@anthropic-ai/sdk";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
+import { parseClaudeJSON } from "@/lib/parse-claude";
 
 export const maxDuration = 60; // Max for Vercel Hobby
 
 export async function POST(request: NextRequest) {
   if (!validateCronRequest(request)) return unauthorizedResponse();
 
-  if (!process.env.ANTHROPIC_API_KEY) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
     console.error("[score-all] ANTHROPIC_API_KEY is missing");
     return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
   }
 
   try {
-    // Fetch all unscored items
+    // Fetch unscored items
     const { data: unscoredItems, error: fetchError } = await supabaseAdmin
       .from("news_items")
       .select("id, title, summary, url, published_at")
       .eq("viral_score", 0)
       .order("fetched_at", { ascending: false })
-      .limit(30); // 3 batches of 10 — fits within 60s Vercel limit
+      .limit(30);
 
     if (fetchError) {
       console.error("[score-all] Failed to fetch unscored items:", fetchError);
@@ -32,17 +33,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: "No unscored items found", scored: 0 });
     }
 
-    console.log(`[score-all] Found ${unscoredItems.length} unscored items`);
-
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-
     // Build batches of 10
-    const batches: typeof unscoredItems[] = [];
+    const batches = [];
     for (let i = 0; i < unscoredItems.length; i += 10) {
       batches.push(unscoredItems.slice(i, i + 10));
     }
-
-    console.log(`[score-all] Processing ${batches.length} batch(es)`);
 
     let totalScored = 0;
     let totalFailed = 0;
@@ -51,43 +46,46 @@ export async function POST(request: NextRequest) {
     for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
       const batch = batches[batchIdx];
       try {
-        const articles = batch.map((item) => ({
-          title: item.title,
-          summary: item.summary || "",
-          url: item.url,
-          published_at: item.published_at || "",
-        }));
+        const userPrompt = buildScoringUserPrompt(batch);
 
-        console.log(`[score-all] Batch ${batchIdx + 1}/${batches.length}: sending ${articles.length} items to Claude`);
-
-        const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 2048,
-          system: VIRAL_SCORING_SYSTEM_PROMPT,
-          messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
+        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            max_tokens: 2048,
+            system: VIRAL_SCORING_SYSTEM_PROMPT,
+            messages: [{ role: "user", content: userPrompt }],
+          }),
         });
 
-        const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-        console.log(`[score-all] Batch ${batchIdx + 1} raw response:`, rawText.substring(0, 300));
+        if (!anthropicRes.ok) {
+          const errorText = await anthropicRes.text();
+          console.error(`[score-all] Batch ${batchIdx + 1} Claude Error:`, errorText);
+          throw new Error(`Claude API Error: ${anthropicRes.status}`);
+        }
 
+        const response = await anthropicRes.json();
+        const rawText = response.content[0].type === "text" ? response.content[0].text : "";
         const cleaned = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
         let scores: Array<{ score: number; reason: string; category?: string }>;
         try {
-          const parsed = JSON.parse(cleaned);
-          scores = Array.isArray(parsed) ? parsed : [parsed];
-          console.log(`[score-all] Batch ${batchIdx + 1}: parsed ${scores.length} scores`);
+          const parsed = parseClaudeJSON<any>(cleaned);
+          scores = Array.isArray(parsed) ? parsed : (parsed.scores || [parsed]);
         } catch (parseErr) {
           console.error(`[score-all] Batch ${batchIdx + 1} invalid JSON:`, rawText);
-          console.error(`[score-all] Parse error:`, parseErr);
           totalFailed += batch.length;
           continue;
         }
 
         for (let j = 0; j < Math.min(scores.length, batch.length); j++) {
-          const score = scores[j];
-          if (typeof score?.score !== "number") {
-            console.warn(`[score-all] Score at index ${j} is not a number:`, score);
+          const s = scores[j];
+          if (typeof s?.score !== "number") {
             totalFailed++;
             continue;
           }
@@ -95,14 +93,13 @@ export async function POST(request: NextRequest) {
           const { error: updateErr } = await supabaseAdmin
             .from("news_items")
             .update({
-              viral_score: Math.min(100, Math.max(0, score.score)),
-              viral_reason: score.reason || "",
-              ...(score.category ? { category: score.category } : {}),
+              viral_score: Math.min(100, Math.max(0, s.score)),
+              viral_reason: s.reason || "",
+              ...(s.category ? { category: s.category } : {}),
             })
             .eq("id", batch[j].id);
 
           if (updateErr) {
-            console.error(`[score-all] Failed to update item ${batch[j].id}:`, updateErr);
             totalFailed++;
           } else {
             totalScored++;
@@ -115,8 +112,6 @@ export async function POST(request: NextRequest) {
         totalFailed += batch.length;
       }
     }
-
-    console.log(`[score-all] Done. Scored: ${totalScored}, Failed: ${totalFailed}`);
 
     return NextResponse.json({
       message: "Score-all complete",

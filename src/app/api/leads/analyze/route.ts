@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
-});
+import { parseClaudeJSON } from "@/lib/parse-claude";
 
 export async function POST(req: Request) {
   try {
-    const { leadId } = await req.json();
+    const body = await req.json();
+    const { leadId } = body as { leadId: string };
 
     if (!leadId) {
       return NextResponse.json({ error: "leadId is required" }, { status: 400 });
     }
 
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
+    }
+    
     // 1. Fetch Lead
     const { data: lead, error: fetchError } = await supabaseAdmin
       .from("leads")
@@ -58,13 +60,28 @@ LEAD BİLGİLERİ:
 }
 `;
 
-    const response = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307", // use haiku for fast & cheap robust generation
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: promptText }],
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: "user", content: promptText }],
+      }),
     });
 
+    if (!anthropicRes.ok) {
+      const errorText = await anthropicRes.text();
+      console.error("Claude API Error Status:", anthropicRes.status, errorText);
+      throw new Error(`Claude API Error: ${anthropicRes.status}`);
+    }
+
+    const response = await anthropicRes.json();
     let rawOutput = response.content[0].type === 'text' ? response.content[0].text : "";
     rawOutput = rawOutput.trim();
     if (rawOutput.startsWith("```json")) {
@@ -73,7 +90,7 @@ LEAD BİLGİLERİ:
       rawOutput = rawOutput.replace(/```/g, "").trim();
     }
 
-    const parsedJson = JSON.parse(rawOutput);
+    const parsedJson = parseClaudeJSON<any>(rawOutput);
 
     // 3. Update Supabase
     const { data: updatedLead, error: updateError } = await supabaseAdmin

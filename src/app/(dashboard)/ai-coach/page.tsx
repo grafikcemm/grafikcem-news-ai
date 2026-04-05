@@ -71,9 +71,15 @@ export default function AICoachPage() {
           return updated;
         });
       }
-    } catch {
-      toast.error("Bir hata oluştu");
-      setMessages((prev) => prev.slice(0, -1));
+    } catch (err) {
+      toast.error("Bağlantı veya akış sırasında bir hata oluştu.");
+      setMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last && last.role === "assistant" && last.content.trim() === "") {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
     } finally {
       setStreaming(false);
     }

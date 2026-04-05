@@ -62,6 +62,8 @@ const categories = [
   { value: "automation", label: "Otomasyon" },
   { value: "dev_tools", label: "Dev Tools" },
   { value: "turkish", label: "Türkçe" },
+  { value: "turkish_eco", label: "🇹🇷 Türk Ekosistem" },
+  { value: "tool_update", label: "🔧 Araç Güncellemeleri" },
 ];
 
 function ScoreBadge({ score }: { score: number }) {
@@ -112,6 +114,10 @@ export default function NewsPoolPage() {
 
       if (activeCategory === "unread") {
         query = query.eq("is_read", false);
+      } else if (activeCategory === "turkish_eco") {
+        query = query.eq("custom_tag", "turkish_eco");
+      } else if (activeCategory === "tool_update") {
+        query = query.eq("custom_tag", "tool_update");
       } else if (activeCategory !== "all") {
         query = query.eq("category", activeCategory);
       }
@@ -332,7 +338,13 @@ export default function NewsPoolPage() {
       ) : filtered.length === 0 ? (
         <Card className="border-0 shadow-sm">
           <CardContent className="p-12 text-center text-slate-400">
-            Haber bulunamadı
+            {activeCategory === "turkish_eco" ? (
+               <>Henüz Türk ekosistem haberi yok<br/><span className="text-xs mt-2 block">Türkiye'den startup ve teknoloji haberleri buraya düşecek.</span></>
+            ) : activeCategory === "tool_update" ? (
+               <>Henüz araç güncellemesi haberi yok</>
+            ) : (
+               <>Haber bulunamadı</>
+            )}
           </CardContent>
         </Card>
       ) : (

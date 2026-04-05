@@ -1,0 +1,231 @@
+"use client";
+
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+export default function StoryboardPage() {
+  // Hook State
+  const [hookTopic, setHookTopic] = useState("");
+  const [hookPlatform, setHookPlatform] = useState("@grafikcem");
+  const [hookFormat, setHookFormat] = useState("Reel");
+  const [hookTone, setHookTone] = useState("Eğitici");
+  const [hooks, setHooks] = useState<any[]>([]);
+  const [loadingHook, setLoadingHook] = useState(false);
+
+  // Storyboard State
+  const [storyIdea, setStoryIdea] = useState("");
+  const [storyFormat, setStoryFormat] = useState("Reel 15sn");
+  const [storyLocation, setStoryLocation] = useState("İç mekan");
+  const [storyboard, setStoryboard] = useState<any>(null);
+  const [loadingStory, setLoadingStory] = useState(false);
+
+  const generateHooks = async () => {
+    if (!hookTopic) return;
+    setLoadingHook(true);
+    try {
+      const res = await fetch("/api/storyboard/hook", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topic: hookTopic, platform: hookPlatform, format: hookFormat, tone: hookTone })
+      });
+      const data = await res.json();
+      if (data.hooks) setHooks(data.hooks);
+    } catch (e) {
+      console.error(e);
+      alert("Hata oluştu.");
+    } finally {
+      setLoadingHook(false);
+    }
+  };
+
+  const generateStoryboard = async () => {
+    if (!storyIdea) return;
+    setLoadingStory(true);
+    try {
+      const res = await fetch("/api/storyboard/scenes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idea: storyIdea, format: storyFormat, location: storyLocation })
+      });
+      const data = await res.json();
+      if (data) setStoryboard(data);
+    } catch (e) {
+      console.error(e);
+      alert("Hata oluştu.");
+    } finally {
+      setLoadingStory(false);
+    }
+  };
+
+  const saveHook = async (hookTxt: string) => {
+    await supabase.from("content_items").insert([{
+      title: "Yeni Fikir",
+      platform: hookPlatform,
+      format: hookFormat,
+      hook: hookTxt,
+      status: "draft"
+    }]);
+    alert("Takvime eklendi!");
+  };
+
+  const saveStoryboard = async () => {
+    if (!storyboard) return;
+    await supabase.from("storyboards").insert([{
+      title: storyboard.title || "Yeni Storyboard",
+      platform: "TBD",
+      format: storyFormat,
+      scenes: storyboard.scenes,
+      shooting_tips: storyboard.general_tips
+    }]);
+    alert("Storyboard kaydedildi!");
+  };
+
+  return (
+    <div className="p-4 lg:p-8 max-w-7xl mx-auto">
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Storyboard Studio</h1>
+        <p className="text-[var(--text-muted)] text-sm mt-1">İçerikleriniz için viral hooklar ve detaylı çekim planları oluşturun.</p>
+      </div>
+
+      <Tabs defaultValue="hook" className="mt-8">
+        <TabsList className="bg-[var(--bg-elevated)] border-[var(--border)] border h-11 p-1">
+          <TabsTrigger value="hook" className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-[var(--accent)] data-[state=active]:shadow-xl">Hook Oluşturucu</TabsTrigger>
+          <TabsTrigger value="storyboard" className="data-[state=active]:bg-[#1e1e1e] data-[state=active]:text-[var(--accent)] data-[state=active]:shadow-xl">Storyboard Oluşturucu</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="hook" className="mt-6 flex flex-col md:flex-row gap-8">
+          <div className="w-full md:w-[350px] space-y-4 shrink-0 bg-[var(--bg-card)] border border-[var(--border)] p-5 rounded-xl">
+            <h3 className="font-semibold text-[var(--text-primary)] mb-4">Hook Parametreleri</h3>
+            <Textarea placeholder="İçerik konusu..." value={hookTopic} onChange={e => setHookTopic(e.target.value)} className="bg-[var(--bg-elevated)] border-[var(--border)] min-h-[100px] text-white" />
+            <Select value={hookPlatform} onValueChange={(v) => setHookPlatform(v ?? '')}>
+              <SelectTrigger className="bg-[var(--bg-elevated)] border-[var(--border)]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['@grafikcem', '@maskulenkod', 'LinkedIn'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={hookFormat} onValueChange={(v) => setHookFormat(v ?? '')}>
+              <SelectTrigger className="bg-[var(--bg-elevated)] border-[var(--border)]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['Reel', 'Carousel', 'Story', 'Post'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={hookTone} onValueChange={(v) => setHookTone(v ?? '')}>
+              <SelectTrigger className="bg-[var(--bg-elevated)] border-[var(--border)]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {['Eğitici', 'Provokasyon', 'Hikaye', 'İstatistik', 'Soru'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={generateHooks} disabled={loadingHook} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white mt-2">
+              {loadingHook ? "Üretiliyor..." : "Hook Üret"}
+            </Button>
+          </div>
+
+          <div className="flex-1 space-y-4">
+             {hooks.length === 0 && !loadingHook && (
+               <div className="h-full min-h-[300px] border border-dashed border-[var(--border)] rounded-xl flex items-center justify-center text-[var(--text-muted)] text-sm">Üretilen hooklar burada görünecek.</div>
+             )}
+             {hooks.map((h, i) => (
+               <Card key={i} className="bg-[var(--bg-card)] border-[var(--border)]">
+                 <CardContent className="p-5 flex flex-col items-start gap-3">
+                   <Badge className="bg-[var(--bg-elevated)] text-[var(--accent)] hover:bg-[var(--bg-elevated)]">{h.type}</Badge>
+                   <p className="text-xl font-bold text-white italic">"{h.text}"</p>
+                   <p className="text-sm text-[var(--text-secondary)]">💡 Neden işe yarar: {h.why}</p>
+                   <div className="flex gap-2 mt-2 w-full justify-end">
+                     <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(h.text)} className="bg-[var(--bg-elevated)] border-[var(--border)] hover:text-white">Kopyala</Button>
+                     <Button size="sm" onClick={() => saveHook(h.text)} className="bg-[var(--accent)] text-white">Takvime Ekle</Button>
+                   </div>
+                 </CardContent>
+               </Card>
+             ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="storyboard" className="mt-6 flex flex-col gap-8">
+           <div className="bg-[var(--bg-card)] border border-[var(--border)] p-5 rounded-xl flex flex-col md:flex-row gap-4">
+            <Textarea placeholder="İçerik fikri..." value={storyIdea} onChange={e => setStoryIdea(e.target.value)} className="bg-[var(--bg-elevated)] border-[var(--border)] md:w-1/2 min-h-[100px] text-white" />
+            <div className="flex flex-col gap-4 flex-1">
+              <Select value={storyFormat} onValueChange={(v) => setStoryFormat(v ?? '')}>
+                <SelectTrigger className="bg-[var(--bg-elevated)] border-[var(--border)]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {['Reel 15sn', 'Reel 30sn', 'Reel 60sn', 'Carousel'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={storyLocation} onValueChange={(v) => setStoryLocation(v ?? '')}>
+                <SelectTrigger className="bg-[var(--bg-elevated)] border-[var(--border)]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {['İç mekan', 'Dış mekan', 'Masa başı', 'Stüdyo'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Button onClick={generateStoryboard} disabled={loadingStory} className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white h-full max-h-10 mt-auto">
+                {loadingStory ? "Oluşturuluyor..." : "Storyboard Oluştur"}
+              </Button>
+            </div>
+           </div>
+
+           {storyboard && (
+             <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">{storyboard.title}</h3>
+                    <p className="text-[var(--text-muted)] text-xs mt-1">Toplam Süre: {storyboard.total_duration}</p>
+                  </div>
+                  <Button onClick={saveStoryboard} className="bg-[var(--success)] text-[var(--bg-primary)] font-bold">Storyboard'u Kaydet</Button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {storyboard.scenes?.map((scene: any, i: number) => (
+                    <Card key={i} className="bg-[var(--bg-elevated)] border-[var(--border)]">
+                      <CardContent className="p-4">
+                        <div className="flex justify-between items-center mb-3">
+                          <span className="font-bold text-[var(--accent)]">Sahne {scene.scene_number}</span>
+                          <span className="text-xs bg-[#1a1a1a] px-2 py-0.5 rounded text-[var(--text-secondary)]">{scene.duration}</span>
+                        </div>
+                        <p className="text-sm font-semibold text-white mb-4 line-clamp-3 leading-snug">{scene.description}</p>
+                        <div className="space-y-1.5 text-xs text-[var(--text-muted)]">
+                          <p><strong className="text-[var(--text-secondary)]">Açı:</strong> {scene.angle}</p>
+                          <p><strong className="text-[var(--text-secondary)]">Hareket:</strong> {scene.movement}</p>
+                          <p><strong className="text-[var(--text-secondary)]">Işık:</strong> {scene.lighting}</p>
+                        </div>
+                        <div className="mt-4 p-2 bg-[var(--accent)]/10 text-[var(--accent)] rounded text-xs">
+                          📱 {scene.iphone_tip}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {storyboard.general_tips && (
+                  <Card className="bg-[var(--bg-elevated)] border-[var(--border)] mt-4">
+                     <CardContent className="p-5 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                        <div>
+                          <strong className="text-[var(--accent)] block mb-1">🎤 Ses ve Mikrofon</strong>
+                          <p className="text-[var(--text-secondary)]">{storyboard.general_tips.microphone_note}</p>
+                        </div>
+                        <div>
+                          <strong className="text-[var(--accent)] block mb-1">📷 Stabilizasyon</strong>
+                          <p className="text-[var(--text-secondary)]">{storyboard.general_tips.stabilization}</p>
+                        </div>
+                        <div>
+                          <strong className="text-[var(--accent)] block mb-1">⚙️ Ayarlar</strong>
+                          <p className="text-[var(--text-secondary)]">{storyboard.general_tips.settings}</p>
+                        </div>
+                        <div>
+                          <strong className="text-[var(--accent)] block mb-1">✂️ Kurgu (Editing)</strong>
+                          <p className="text-[var(--text-secondary)]">{storyboard.general_tips.editing_note}</p>
+                        </div>
+                     </CardContent>
+                  </Card>
+                )}
+             </div>
+           )}
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

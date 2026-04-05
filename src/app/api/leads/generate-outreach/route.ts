@@ -1,19 +1,23 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import Anthropic from "@anthropic-ai/sdk";
+import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || "",
-});
+export async function POST(req: NextRequest) {
+  if (!validateApiRequest(req)) return unauthorizedResponse();
 
-export async function POST(req: Request) {
   try {
-    const { leadId, format, language } = await req.json();
+    const body = await req.json();
+    const { leadId, format, language } = body as { leadId: string; format: string; language: string };
 
     if (!leadId || !format || !language) {
-      return NextResponse.json({ error: "Eksik parametreler" }, { status: 400 });
+      return NextResponse.json({ error: "Eksik parametreler (leadId, format, language gerekli)" }, { status: 400 });
     }
 
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
+    }
+    
     // 1. Fetch Lead
     const { data: lead, error: fetchError } = await supabaseAdmin
       .from("leads")
@@ -57,13 +61,28 @@ KURALLAR:
 3. SADECE mesaj metnini döndür, hiçbir markdown veya onaylama cümlesi yazma. (Eğer format email ise Subject: ... kısmı en üstte olmalı).
 `;
 
-    const response = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
-      max_tokens: 1500,
-      system: systemPrompt,
-      messages: [{ role: "user", content: promptText }],
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5",
+        max_tokens: 1500,
+        system: systemPrompt,
+        messages: [{ role: "user", content: promptText }],
+      }),
     });
 
+    if (!anthropicRes.ok) {
+      const errorText = await anthropicRes.text();
+      console.error("Claude API Error Status:", anthropicRes.status, errorText);
+      throw new Error(`Claude API Error: ${anthropicRes.status}`);
+    }
+
+    const response = await anthropicRes.json();
     let generatedText = response.content[0].type === 'text' ? response.content[0].text : "";
     generatedText = generatedText.trim();
 

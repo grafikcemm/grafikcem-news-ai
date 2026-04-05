@@ -39,99 +39,68 @@ export async function POST(req: Request) {
     for (const q of queries) {
       if (addedCount >= limit) break;
 
-      const placesRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.nationalPhoneNumber,places.websiteUri',
-        },
-        body: JSON.stringify({
-          textQuery: q.query,
-          languageCode: 'tr',
-          regionCode: 'TR',
-          maxResultCount: 20,
-        }),
-      });
+      console.log(`Bölge taranıyor: ${q.query}`);
+
+      const placesRes = await fetch(
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q.query)}&key=${GOOGLE_MAPS_API_KEY}&language=tr&region=tr`
+      );
 
       const placesData = await placesRes.json();
+      console.log('Places API yanıtı (count):', placesData.results?.length || 0);
       
-      // Step 1: Log API response
-      console.log('--- Places API Search Log ---');
-      console.log('Query:', q.query);
-      console.log('Results count:', placesData.places?.length || 0);
-      if (placesData.error) {
-        console.log('Status / Error Message:', placesData.error.status, placesData.error.message);
-      }
-      
-      const placesList = placesData.places || [];
+      const placesList = placesData.results || [];
       if (placesList.length === 0) continue;
 
       for (const place of placesList) {
         if (addedCount >= limit) break;
 
-        const placeId = place.id;
+        const placeId = place.place_id;
         if (!placeId) continue;
 
-        // Step 3: Duplicate Check with maybeSingle
-        const { data: existing, error: existingError } = await supabaseAdmin
+        // Duplicate Check
+        const { data: existing } = await supabaseAdmin
           .from("leads")
           .select("id")
           .eq("google_maps_place_id", placeId)
           .maybeSingle();
 
         if (existing) {
-          console.log('Duplicate skipped:', place.displayName?.text);
+          console.log('Zaten var, atlanıyor:', place.name);
           continue;
         }
 
-        // Fetch details from new API
-        const detailsRes = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
-          headers: {
-            'X-Goog-Api-Key': GOOGLE_MAPS_API_KEY,
-            'X-Goog-FieldMask': 'displayName,formattedAddress,nationalPhoneNumber,websiteUri',
-          },
-        });
+        // Fetch Details for website and phone
+        const detailsRes = await fetch(
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_phone_number,website,formatted_address&key=${GOOGLE_MAPS_API_KEY}&language=tr`
+        );
         const detailsData = await detailsRes.json();
+        const d = detailsData.result || {};
 
-        if (detailsData.error) {
-           console.log("Place Details Error:", detailsData.error.message);
-           continue;
-        }
-
-        const d = detailsData;
-        const has_website = !!d.websiteUri;
+        const has_website = !!d.website;
         const potential_score = has_website ? 40 : 75;
 
-        // Try to parse district roughly from formattedAddress (e.g. "Atatürk Cd., 34000 Beşiktaş/İstanbul")
-        let districtStr = "";
-        let cityStr = city || "";
-        if (d.formattedAddress) {
-           const parts = d.formattedAddress.split('/');
-           if (parts.length > 1) {
-              const beforeSlash = parts[0].trim().split(" ");
-              districtStr = beforeSlash[beforeSlash.length - 1]; // last word before slash is usually district in TR address format
-              if (!cityStr) {
-                 const afterSlash = parts[1].trim().split(" ")[0]; // word after slash is usually city
-                 cityStr = afterSlash.replace(',', '');
-              }
-           }
+        // Parsing city from formatted_address if missing
+        let cityStr = city || "Bilinmeyen Şehir";
+        if (!city && place.formatted_address) {
+            const parts = place.formatted_address.split('/');
+            if (parts.length > 1) {
+                cityStr = parts[parts.length - 1].trim().split(" ")[0].replace(',', '');
+            }
         }
 
         const newLead = {
-          business_name: d.displayName?.text || place.displayName?.text || "Bilinmiyor",
+          business_name: place.name || "Bilinmiyor",
           sector: q.sector,
           city: cityStr,
-          district: districtStr || null,
-          website_url: d.websiteUri || null,
-          contact_phone: d.nationalPhoneNumber || null,
+          website_url: d.website || null,
+          contact_phone: d.formatted_phone_number || null,
           google_maps_place_id: placeId,
           has_website,
           potential_score,
           status: "discovered",
+          updated_at: new Date().toISOString()
         };
 
-        // Step 5: Insert Error Log
         const { data: inserted, error: insertError } = await supabaseAdmin
           .from("leads")
           .insert(newLead)
@@ -139,13 +108,14 @@ export async function POST(req: Request) {
           .single();
 
         if (insertError) {
-          console.error('Insert error:', insertError.message, insertError.details);
+          console.error('Insert error:', insertError.message);
           continue;
         }
         
         if (inserted) {
           addedCount++;
           addedLeads.push(inserted);
+          console.log('Yeni lead eklendi:', newLead.business_name);
         }
       }
     }

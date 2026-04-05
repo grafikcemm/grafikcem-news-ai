@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import Anthropic from "@anthropic-ai/sdk";
 import { GRAFIKCEM_SYSTEM, buildGrafikcemUserPrompt } from "@/lib/prompts/grafikcem.prompt";
 import { MASKULENKOD_SYSTEM, buildMaskulenkodUserPrompt, getNextCategory } from "@/lib/prompts/maskulenkod.prompt";
 import { LINKEDIN_SYSTEM, buildLinkedInUserPrompt } from "@/lib/prompts/linkedin.prompt";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+import { parseClaudeJSON } from "@/lib/parse-claude";
 
 export const maxDuration = 30;
 
-function getSourceName(sources: unknown): string | undefined {
+function getSourceName(sources: any): string | undefined {
   if (!sources) return undefined;
   if (Array.isArray(sources)) return (sources[0] as { name?: string })?.name;
   return (sources as { name?: string })?.name;
@@ -26,7 +26,11 @@ export async function POST(
     return NextResponse.json({ error: "Invalid channel" }, { status: 400 });
   }
 
-  const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
+  }
+
   const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
   try {
@@ -39,7 +43,9 @@ export async function POST(
         .order("viral_score", { ascending: false })
         .limit(20);
 
-      const unusedNews = news?.find((n) => !n.used_by?.includes(channelId));
+      const items = news || [];
+      const unusedNews = items.find((n) => !n.used_by?.includes(channelId));
+      
       if (!unusedNews) {
         return NextResponse.json({ error: "No unused news in last 24h. Fetch news first." }, { status: 422 });
       }
@@ -60,19 +66,34 @@ export async function POST(
             category: unusedNews.category,
           });
 
-      const raw = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: channelId === "linkedin" ? 1024 : 512,
-        system,
-        messages: [{ role: "user", content: userPrompt }],
+      const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 1024,
+          system: system,
+          messages: [{ role: "user", content: userPrompt }],
+        }),
       });
 
-      const text = (raw.content[0].type === "text" ? raw.content[0].text : "")
-        .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      if (!anthropicRes.ok) {
+        const errorText = await anthropicRes.text();
+        console.error("Claude API Error Status:", anthropicRes.status, errorText);
+        throw new Error(`Claude API Error: ${anthropicRes.status}`);
+      }
+
+      const response = await anthropicRes.json();
+      const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+      const text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
       let parsed: { content: string; pattern_used?: string; linkedin_format?: string };
       try {
-        parsed = JSON.parse(text);
+        parsed = parseClaudeJSON<any>(text);
       } catch {
         console.error(`[channels/${channelId}/generate] Invalid JSON:`, text.slice(0, 300));
         return NextResponse.json({ error: "AI returned invalid response" }, { status: 502 });
@@ -122,19 +143,34 @@ export async function POST(
         ? `${topNews.title} — ${topNews.summary?.substring(0, 150)}`
         : undefined;
 
-      const raw = await anthropic.messages.create({
-        model: "claude-sonnet-4-6",
-        max_tokens: 512,
-        system: MASKULENKOD_SYSTEM,
-        messages: [{ role: "user", content: buildMaskulenkodUserPrompt(category, inspiration) }],
+      const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-5",
+          max_tokens: 512,
+          system: MASKULENKOD_SYSTEM,
+          messages: [{ role: "user", content: buildMaskulenkodUserPrompt(category, inspiration) }],
+        }),
       });
 
-      const text = (raw.content[0].type === "text" ? raw.content[0].text : "")
-        .replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+      if (!anthropicRes.ok) {
+        const errorText = await anthropicRes.text();
+        console.error("Claude API Error Status:", anthropicRes.status, errorText);
+        throw new Error(`Claude API Error: ${anthropicRes.status}`);
+      }
+
+      const response = await anthropicRes.json();
+      const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+      const text = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
 
       let parsed: { content: string };
       try {
-        parsed = JSON.parse(text);
+        parsed = parseClaudeJSON<any>(text);
       } catch {
         console.error(`[channels/maskulenkod/generate] Invalid JSON:`, text.slice(0, 300));
         return NextResponse.json({ error: "AI returned invalid response" }, { status: 502 });
@@ -154,8 +190,8 @@ export async function POST(
 
       return NextResponse.json({ content: record });
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error(`[channels/${channelId}/generate] error:`, err);
-    return NextResponse.json({ error: "Generation failed" }, { status: 500 });
+    return NextResponse.json({ error: "Generation failed: " + (err.message || "") }, { status: 500 });
   }
 }

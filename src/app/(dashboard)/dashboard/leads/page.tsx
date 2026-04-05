@@ -295,10 +295,13 @@ export default function LeadsPage() {
                   <Calendar className="w-4 h-4" />
                   <span className="text-[10px] font-medium">Plana Ekle</span>
                 </button>
-                <Link href={`/dashboard/leads/crm`} className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 hover:text-orange-600 transition">
+                <button 
+                  onClick={() => toast.success("Müşteri ile iletişime geçildi.")}
+                  className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 hover:text-orange-600 transition"
+                >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-[10px] font-medium">Kullandım</span>
-                </Link>
+                  <span className="text-[10px] font-medium">Tamamlandı</span>
+                </button>
               </div>
             </div>
           ))}

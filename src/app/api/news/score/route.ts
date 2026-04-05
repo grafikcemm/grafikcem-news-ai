@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import Anthropic from "@anthropic-ai/sdk";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+import { parseClaudeJSON } from "@/lib/parse-claude";
 
 const MAX_NEWS_IDS = 30;
 
@@ -20,16 +20,19 @@ export async function POST(request: NextRequest) {
     const limitedIds = news_ids.slice(0, MAX_NEWS_IDS);
 
     // Fetch news items
-    const { data: items, error } = await supabaseAdmin
+    const { data: items, error: fetchError } = await supabaseAdmin
       .from("news_items")
       .select("id, title, summary, url, published_at")
       .in("id", limitedIds);
 
-    if (error || !items || items.length === 0) {
+    if (fetchError || !items || items.length === 0) {
       return NextResponse.json({ error: "No matching news items found" }, { status: 404 });
     }
 
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
+    }
 
     // Batch score (max 10 per call)
     const batches = [];
@@ -37,48 +40,59 @@ export async function POST(request: NextRequest) {
       batches.push(items.slice(i, i + 10));
     }
 
-    let scored = 0;
+    let scoredCount = 0;
 
     for (const batch of batches) {
       try {
-        const articles = batch.map((item) => ({
-          title: item.title,
-          summary: item.summary || "",
-          url: item.url,
-          published_at: item.published_at || "",
-        }));
+        const userPrompt = buildScoringUserPrompt(batch);
 
-        const response = await anthropic.messages.create({
-          model: "claude-sonnet-4-6",
-          max_tokens: 2048,
-          system: VIRAL_SCORING_SYSTEM_PROMPT,
-          messages: [{ role: "user", content: buildScoringUserPrompt(articles) }],
+        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-5",
+            max_tokens: 2048,
+            system: VIRAL_SCORING_SYSTEM_PROMPT,
+            messages: [{ role: "user", content: userPrompt }],
+          }),
         });
 
+        if (!anthropicRes.ok) {
+          const errorText = await anthropicRes.text();
+          console.error("Claude API Error Status:", anthropicRes.status, errorText);
+          continue;
+        }
+
+        const response = await anthropicRes.json();
         const rawText = response.content[0].type === "text" ? response.content[0].text : "";
         const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
 
         let scores: Array<{ score: number; reason: string; category?: string }>;
         try {
-          const parsed = JSON.parse(text);
-          scores = Array.isArray(parsed) ? parsed : [parsed];
+          const parsed = parseClaudeJSON<any>(text);
+          // If parsed is a single object { "scores": [...] }, extract it
+          scores = Array.isArray(parsed) ? parsed : (parsed.scores || [parsed]);
         } catch {
           console.error("Claude returned invalid JSON for scoring:", rawText);
           continue;
         }
 
         for (let j = 0; j < Math.min(scores.length, batch.length); j++) {
-          const score = scores[j];
-          if (typeof score?.score === "number") {
+          const s = scores[j];
+          if (typeof s?.score === "number") {
             await supabaseAdmin
               .from("news_items")
               .update({
-                viral_score: Math.min(100, Math.max(0, score.score)),
-                viral_reason: score.reason || "",
-                ...(score.category ? { category: score.category } : {}),
+                viral_score: Math.min(100, Math.max(0, s.score)),
+                viral_reason: s.reason || "",
+                ...(s.category ? { category: s.category } : {}),
               })
               .eq("id", batch[j].id);
-            scored++;
+            scoredCount++;
           }
         }
       } catch (err) {
@@ -89,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       message: "Scoring complete",
-      scored,
+      scored: scoredCount,
       requested: news_ids.length,
       processed: limitedIds.length,
     });
