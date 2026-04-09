@@ -98,24 +98,24 @@ export default function ContentPlanPage() {
   const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
 
   return (
-    <div className="p-4 lg:p-8 space-y-8 max-w-7xl mx-auto">
+    <div className="p-4 lg:p-8 space-y-8 max-w-7xl mx-auto min-h-screen bg-[var(--surface-base)]">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[var(--text-primary)]">Haftalık İçerik Planı</h1>
           {plan?.week_theme && <p className="text-[var(--accent)] text-sm mt-1 font-semibold">Tema: {plan.week_theme}</p>}
         </div>
         <div className="flex gap-2">
-          {plan && <Button variant="outline" onClick={addAllToCalendar} className="bg-[var(--bg-elevated)] border-[var(--border)] text-white hover:bg-[var(--bg-card)]">Tümünü Takvime Ekle</Button>}
-          <Button onClick={handleGenerate} disabled={loading} className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white">
+          {plan && <Button variant="outline" onClick={addAllToCalendar} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] rounded-[var(--radius-md)]">Tümünü Takvime Ekle</Button>}
+          <Button onClick={handleGenerate} disabled={loading} className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-[var(--radius-md)]">
             {loading ? "AI Plan Üretiyor..." : "AI Plan Üret"}
           </Button>
         </div>
       </div>
 
       {!plan && !loading && (
-        <Card className="bg-[var(--bg-card)] border-[var(--border)]">
-          <CardContent className="h-64 flex flex-col items-center justify-center text-[var(--text-muted)] p-8 text-center">
-             <div className="text-4xl mb-4">🤖</div>
+        <Card className="bg-[var(--surface-base)] border-[var(--border-subtle)] rounded-[var(--radius-lg)]">
+          <CardContent className="h-64 flex flex-col items-center justify-center text-[var(--text-secondary)] p-8 text-center">
+             <div className="text-4xl mb-4 text-[var(--text-tertiary)] opacity-60">🤖</div>
              <p>AI'ın sizin için rakip trendlerine, haber viralitelerine ve son metriklerinize bakarak haftalık içerik planı üretmesini sağlayın.</p>
           </CardContent>
         </Card>
@@ -123,7 +123,7 @@ export default function ContentPlanPage() {
 
       {loading && (
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          {[1,2,3,4,5].map(i => <Card key={i} className="h-[500px] bg-[var(--bg-card)] border-[var(--border)] animate-pulse" />)}
+          {[1,2,3,4,5].map(i => <Card key={i} className="h-[500px] bg-[var(--surface-raised)] border-[var(--border-subtle)] animate-pulse rounded-[var(--radius-lg)]" />)}
         </div>
       )}
 
@@ -133,32 +133,32 @@ export default function ContentPlanPage() {
             const dayContents = plan.contents.filter(c => c.day === dayName);
             return (
               <div key={dayName} className="space-y-4">
-                 <div className="bg-[var(--bg-elevated)] p-3 rounded-lg border border-[var(--border)] text-center font-bold text-white shadow-sm">{dayName}</div>
+                 <div className="bg-[var(--surface-overlay)] p-3 rounded-[var(--radius-md)] border border-[var(--border-subtle)] text-center font-bold text-[var(--text-primary)] shadow-sm">{dayName}</div>
                  {dayContents.map((c, i) => (
-                   <Card key={i} className="bg-[var(--bg-card)] border-[var(--border)] hover:border-[var(--text-muted)] transition-all">
+                   <Card key={i} className="bg-[var(--surface-raised)] border border-[var(--border-subtle)] hover:border-[var(--border-default)] transition-all rounded-[var(--radius-lg)]">
                      <CardContent className="p-4 flex flex-col h-full relative">
                         <div className="flex justify-between items-start mb-3 gap-2">
-                           <Badge className="bg-[var(--bg-elevated)] text-[var(--text-secondary)] font-normal border-[var(--border)]">{c.best_time}</Badge>
+                           <Badge className="bg-[var(--surface-base)] text-[var(--text-secondary)] font-normal border border-[var(--border-default)]">{c.best_time}</Badge>
                            <Badge className={`font-normal border-0 text-white shadow-xs ${c.platform === '@grafikcem' ? 'bg-[#E879A0]' : c.platform === '@maskulenkod' ? 'bg-[#60A5FA]' : 'bg-[#34D399]'}`}>{c.platform}</Badge>
                         </div>
-                        <Badge variant="outline" className="text-[10px] w-fit mb-2 border-[var(--border)] text-[var(--text-secondary)]">{c.format}</Badge>
-                        <h4 className="font-bold text-white text-sm mb-2">{c.title}</h4>
-                        <p className="text-xs text-[var(--text-muted)] italic leading-relaxed mb-4">"{c.hook}"</p>
+                        <Badge variant="outline" className="text-[10px] w-fit mb-2 border-[var(--border-default)] text-[var(--text-secondary)]">{c.format}</Badge>
+                        <h4 className="font-bold text-[var(--text-primary)] text-sm mb-2">{c.title}</h4>
+                        <p className="text-xs text-[var(--text-secondary)] italic leading-relaxed mb-4">"{c.hook}"</p>
                         
-                        <div className="bg-[#1a1a1a] p-2 rounded text-[10px] text-[var(--text-secondary)] mb-4">
-                          <strong className="text-[var(--text-muted)] block mb-0.5">Neden?</strong>
+                        <div className="bg-[var(--surface-base)] p-3 rounded-[var(--radius-md)] text-[11px] text-[var(--text-secondary)] mb-4 border border-[var(--border-subtle)]">
+                          <strong className="text-[var(--text-tertiary)] block mb-1">Neden?</strong>
                           {c.why}
                         </div>
 
                         <div className="mt-auto grid grid-cols-2 gap-2">
-                           <Button size="sm" onClick={() => addSingleToCalendar(c)} className="w-full text-[10px] bg-[var(--bg-elevated)] hover:bg-[#2a2a2a] text-white h-7">Takvime Ekle</Button>
-                           <Button size="sm" onClick={() => handleStoryboard(c)} className="w-full text-[10px] bg-transparent border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white h-7 shadow-xs">Storyboard</Button>
+                           <Button size="sm" onClick={() => addSingleToCalendar(c)} className="w-full text-[10px] bg-[var(--surface-overlay)] hover:bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)] h-7 rounded-[var(--radius-md)]">Takvime Ekle</Button>
+                           <Button size="sm" onClick={() => handleStoryboard(c)} className="w-full text-[10px] bg-transparent border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white h-7 rounded-[var(--radius-md)]">Storyboard</Button>
                         </div>
                      </CardContent>
                    </Card>
                  ))}
                  {dayContents.length === 0 && (
-                   <div className="h-24 border border-dashed border-[var(--border)] rounded-xl flex items-center justify-center text-[10px] text-[var(--text-muted)]">Boş</div>
+                   <div className="h-24 border border-dashed border-[var(--border-subtle)] rounded-[var(--radius-lg)] flex items-center justify-center text-[10px] text-[var(--text-tertiary)] bg-[var(--surface-base)]">Boş</div>
                  )}
               </div>
             )
