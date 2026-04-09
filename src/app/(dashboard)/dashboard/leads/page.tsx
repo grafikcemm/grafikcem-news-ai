@@ -17,15 +17,48 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { StatusChip } from "@/components/ui/status-chip";
+import { ScoreBadge } from "@/components/ui/score-badge";
+
+interface Lead {
+  id: string;
+  business_name: string;
+  sector: string;
+  status: string;
+  potential_score: number;
+  city: string;
+  district: string;
+  has_website: boolean;
+  recommended_services: string[];
+  estimated_price_min?: number;
+  estimated_price_max?: number;
+  created_at: string;
+}
+
+const statusMap: Record<string, "draft" | "active" | "done" | "pending"> = {
+  discovered: "active",
+  researched: "pending",
+  contacted: "pending",
+  pitched: "pending",
+  won: "done",
+  lost: "draft",
+};
+
+const statusLabels: Record<string, string> = {
+  discovered: "Keşfedildi",
+  researched: "Araştırıldı",
+  contacted: "İletişime Geçildi",
+  pitched: "Teklif Gönderildi",
+  won: "Kazanıldı",
+  lost: "Kaybedildi"
+};
 
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<any[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const [filterStatus, setFilterStatus] = useState("Tümü");
-  const [filterSector, setFilterSector] = useState("Tümü");
-  const [sortOption, setSortOption] = useState("Skora Göre ↓");
-
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [scanSectors, setScanSectors] = useState<string[]>([]);
   const [scanCity, setScanCity] = useState("");
@@ -33,7 +66,6 @@ export default function LeadsPage() {
   const [isScanning, setIsScanning] = useState(false);
   
   const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
-  const [analyzeProgress, setAnalyzeProgress] = useState({ done: 0, total: 0 });
 
   const loadLeads = async () => {
     setLoading(true);
@@ -100,258 +132,190 @@ export default function LeadsPage() {
     }
     
     setIsAnalyzingAll(true);
-    setAnalyzeProgress({ done: 0, total: discoveredLeads.length });
+    let count = 0;
+    toast.info("Analiz işlemi arka planda başlatıldı...");
     
     for (let i = 0; i < discoveredLeads.length; i++) {
-        const lead = discoveredLeads[i];
-        const success = await analyzeSingleLead(lead.id);
-        if (success) {
-            setAnalyzeProgress(p => ({ ...p, done: p.done + 1 }));
-        }
+        const success = await analyzeSingleLead(discoveredLeads[i].id);
+        if (success) count++;
         // sleep 500ms
         await new Promise(r => setTimeout(r, 500));
     }
-    toast.success("Tüm analizler tamamlandı!");
+    toast.success(`Tüm analizler tamamlandı! (${count}/${discoveredLeads.length})`);
     setIsAnalyzingAll(false);
   };
 
-  const sectorColors: Record<string, string> = {
-    guzellik: "bg-pink-100 text-pink-700 border-pink-200 dark:bg-pink-900/30 dark:text-pink-300",
-    moda: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300",
-    emlak: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300",
-    spor: "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300",
-    egitim: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300",
-  };
-  
-  const statusLabels: Record<string, string> = {
-    discovered: "Keşfedildi",
-    researched: "Araştırıldı",
-    contacted: "İletişime Geçildi",
-    pitched: "Teklif Gönderildi",
-    won: "Kazanıldı",
-    lost: "Kaybedildi"
+  const getLeadsByStatus = (statuses: string[]) => {
+    return leads.filter(l => statuses.includes(l.status)).sort((a,b) => b.potential_score - a.potential_score);
   };
 
-  const filteredLeads = leads.filter((l) => {
-    if (filterStatus !== "Tümü" && statusLabels[l.status] !== filterStatus) return false;
-    if (filterSector !== "Tümü" && l.sector !== filterSector) return false;
-    return true;
-  }).sort((a, b) => {
-    if (sortOption === "Skora Göre ↓") return (b.potential_score || 0) - (a.potential_score || 0);
-    if (sortOption === "En Yeni") return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    if (sortOption === "Şehre Göre") return (a.city || "").localeCompare(b.city || "");
-    return 0;
-  });
+  const columns = [
+    { title: "Keşfedilenler", statuses: ["discovered"] },
+    { title: "Araştırılıyor", statuses: ["researched"] },
+    { title: "Görüşme Aşaması", statuses: ["contacted", "pitched"] },
+    { title: "Sonuçlanan", statuses: ["won", "lost"] },
+  ];
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
+    <div className="flex flex-col h-[calc(100vh)] bg-[var(--surface-sunken)]">
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      <div className="p-[32px] lg:px-[40px] border-b border-[var(--border-subtle)] bg-[var(--surface-default)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shrink-0">
         <div>
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400">
-            Lead Havuzu
-          </h1>
-          <p className="text-slate-500 mt-1 flex items-center gap-2">
-            Müşteri avı radarına giren potansiyel işletmeler.
-            {isAnalyzingAll && (
-               <span className="text-emerald-500 font-medium ml-2 animate-pulse flex items-center gap-1">
-                 <RefreshCcw className="w-4 h-4 animate-spin"/> {analyzeProgress.done} / {analyzeProgress.total} analiz ediliyor...
-               </span>
-            )}
+          <h1 className="text-display mb-1">Müşteri Radarı</h1>
+          <p className="text-small">
+            Sektör taramalarını yönet, analiz et ve potansiyelleri kapat.
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button 
+        <div className="flex flex-wrap items-center gap-[12px]">
+          <Button 
+            variant="secondary"
             onClick={handleAnalyzeAll}
-            disabled={isAnalyzingAll}
-            className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition"
+            disabled={isAnalyzingAll || loading}
           >
-            <Zap className="w-4 h-4" /> Tümünü Analiz Et
-          </button>
-          <button 
+            <Zap className="w-[14px] h-[14px] mr-[8px]" /> Tümünü Analiz Et
+          </Button>
+          <Button 
+            variant="default"
             onClick={() => setScanModalOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition"
+            disabled={loading}
           >
-            <Search className="w-4 h-4" /> Yeni Tarama Başlat
-          </button>
+            <Search className="w-[14px] h-[14px] mr-[8px]" /> Tarama Başlat
+          </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 mb-6 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-2">
-          {["Tümü", "Keşfedildi", "Araştırıldı", "İletişime Geçildi", "Teklif Gönderildi", "Kazanıldı", "Kaybedildi"].map(st => (
-            <button 
-              key={st}
-              onClick={() => setFilterStatus(st)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${filterStatus === st ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700 dark:text-slate-300'}`}
-            >
-              {st}
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-4">
-           <select 
-             value={filterSector} 
-             onChange={e => setFilterSector(e.target.value)}
-             className="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 dark:bg-slate-900 dark:border-slate-700"
-           >
-             <option value="Tümü">Tüm Sektörler</option>
-             <option value="guzellik">Güzellik & Kuaför</option>
-             <option value="moda">Butik & Moda</option>
-             <option value="emlak">Emlak</option>
-             <option value="spor">Spor & Fitness</option>
-             <option value="egitim">Eğitim & Kurs</option>
-           </select>
-           <select 
-             value={sortOption} 
-             onChange={e => setSortOption(e.target.value)}
-             className="text-sm bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 dark:bg-slate-900 dark:border-slate-700"
-           >
-             <option>Skora Göre ↓</option>
-             <option>En Yeni</option>
-             <option>Şehre Göre</option>
-           </select>
-        </div>
-      </div>
-
-      {/* Grid */}
-      {loading ? (
-        <div className="flex justify-center py-20"><RefreshCcw className="w-8 h-8 animate-spin text-slate-400" /></div>
-      ) : filteredLeads.length === 0 ? (
-        <div className="text-center py-20 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 border-dashed">
-          <p className="text-slate-500 mb-4">Henüz kriterlere uygun lead yok.</p>
-          <button onClick={() => setScanModalOpen(true)} className="text-blue-600 font-medium hover:underline">
-            Yeni Tarama Başlat
-          </button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredLeads.map(lead => (
-            <div key={lead.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-xs hover:shadow-md transition">
-              <div className="flex justify-between items-start mb-3">
-                <div className={`px-2.5 py-1 text-[10px] uppercase tracking-wider font-bold rounded-md border ${sectorColors[lead.sector] || 'bg-slate-100 text-slate-600'}`}>
-                  {lead.sector}
-                </div>
-                <div className="flex gap-2">
-                   {lead.has_website ? <Globe className="w-5 h-5 text-emerald-500" /> : <Globe className="w-5 h-5 text-red-400 opacity-50" />}
-                   <Instagram className="w-5 h-5 text-slate-300" />
-                </div>
-              </div>
-              
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white line-clamp-1" title={lead.business_name}>
-                {lead.business_name}
-              </h3>
-              
-              <div className="flex items-center gap-4 mt-2 text-sm text-slate-500 mb-4">
-                <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {(lead.city || '') + (lead.district ? ' / '+lead.district : '')}</span>
-              </div>
-
-              <div className="bg-slate-50 dark:bg-slate-900 p-3 rounded-lg mb-4 flex items-center justify-between border border-slate-100 dark:border-slate-700/50">
-                 <div>
-                   <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">Potansiyel Skor</p>
-                   <div className="flex items-end gap-2">
-                     <span className={`text-2xl font-black ${lead.potential_score >= 71 ? 'text-emerald-500' : lead.potential_score >= 41 ? 'text-amber-500' : 'text-red-500'}`}>
-                       {lead.potential_score || 0}
+      {/* Kanban Board */}
+      <div className="flex-1 overflow-x-auto overflow-y-hidden p-[24px] lg:p-[40px] w-full">
+         <div className="flex h-full gap-[24px] min-w-max pb-4">
+            {columns.map(col => {
+              const colLeads = getLeadsByStatus(col.statuses);
+              return (
+                <div key={col.title} className="flex flex-col w-[340px] shrink-0 h-full max-h-full">
+                  <div className="flex justify-between items-center mb-[16px] px-[8px]">
+                     <h3 className="text-heading text-[15px]">{col.title}</h3>
+                     <span className="text-[12px] font-bold text-[var(--text-tertiary)] bg-[var(--surface-raised)] border border-[var(--border-subtle)] px-[8px] py-[2px] rounded-full">
+                       {colLeads.length}
                      </span>
-                     <span className="text-xs text-slate-400 mb-1">/ 100</span>
-                   </div>
-                 </div>
-                 <div className="text-right">
-                   <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-1">Durum</p>
-                   <span className="inline-flex items-center px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-md">
-                     {statusLabels[lead.status] || lead.status}
-                   </span>
-                 </div>
-              </div>
-
-              {lead.recommended_services && lead.recommended_services.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex flex-wrap gap-1.5">
-                    {lead.recommended_services.map((s: string) => (
-                      <span key={s} className="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 text-xs rounded border border-indigo-100 dark:border-indigo-800">
-                        {s.replace('_', ' ')}
-                      </span>
-                    ))}
                   </div>
-                  {lead.estimated_price_min && (
-                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 font-medium">
-                        Tahmini: {lead.estimated_price_min.toLocaleString('tr-TR')} ₺ - {lead.estimated_price_max.toLocaleString('tr-TR')} ₺
-                      </p>
-                  )}
-                </div>
-              )}
+                  
+                  <div className="flex-1 overflow-y-auto pr-[8px] space-y-[12px] scrollbar-thin pb-32">
+                     {loading ? (
+                        [...Array(3)].map((_, i) => (
+                           <Card key={i} className="animate-pulse h-[150px] bg-[var(--surface-default)]" />
+                        ))
+                     ) : colLeads.length === 0 ? (
+                        <div className="p-6 text-center text-small text-[var(--text-tertiary)] border-2 border-dashed border-[var(--border-subtle)] rounded-[var(--radius-lg)]">
+                          Bu aşamada lead bulunmuyor.
+                        </div>
+                     ) : colLeads.map(lead => (
+                        <Card key={lead.id} className="transition-all duration-200 hover:-translate-y-[2px] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)]">
+                          <CardContent className="p-[16px]">
+                             {/* Üst Bilgi Satırı */}
+                             <div className="flex justify-between items-start mb-[12px]">
+                                <StatusChip status={statusMap[lead.status] || "draft"} label={statusLabels[lead.status] || lead.status} />
+                                <div className="flex items-center gap-2">
+                                  {lead.has_website ? <Globe className="w-[14px] h-[14px] text-[var(--status-success)]" /> : <Globe className="w-[14px] h-[14px] text-[var(--text-tertiary)] opacity-50" />}
+                                  <Instagram className="w-[14px] h-[14px] text-[var(--text-tertiary)]" />
+                                </div>
+                             </div>
 
-              <div className="grid grid-cols-4 gap-2 border-t border-slate-100 dark:border-slate-700/50 pt-4 mt-auto">
-                <button onClick={() => {toast.promise(analyzeSingleLead(lead.id), {loading: 'Analiz ediliyor...', success: 'Tamamlandı!', error: 'Hata'})}} className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 hover:text-blue-600 transition">
-                  <Play className="w-4 h-4" />
-                  <span className="text-[10px] font-medium">Analiz Et</span>
-                </button>
-                <Link href={`/dashboard/leads/outreach?leadId=${lead.id}`} className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 hover:text-emerald-600 transition">
-                  <Mail className="w-4 h-4" />
-                  <span className="text-[10px] font-medium">Mesaj Yaz</span>
-                </Link>
-                <button className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 hover:text-purple-600 transition">
-                  <Calendar className="w-4 h-4" />
-                  <span className="text-[10px] font-medium">Plana Ekle</span>
-                </button>
-                <button 
-                  onClick={() => toast.success("Müşteri ile iletişime geçildi.")}
-                  className="flex flex-col items-center justify-center gap-1 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-500 hover:text-orange-600 transition"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-[10px] font-medium">Tamamlandı</span>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                             {/* Firma Adı */}
+                             <h4 className="text-body font-semibold text-[var(--text-primary)] leading-snug tracking-tight mb-[8px] line-clamp-1">
+                               {lead.business_name}
+                             </h4>
+
+                             {/* Yer & Sektör */}
+                             <div className="flex items-center gap-[6px] text-[11px] text-[var(--text-tertiary)] mb-[16px] font-medium uppercase tracking-wider">
+                                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {(lead.city || '') + (lead.district ? ' / '+lead.district : '')}</span>
+                                <span>•</span>
+                                <span>{lead.sector}</span>
+                             </div>
+
+                             {/* Finansal & Skor */}
+                             <div className="bg-[var(--surface-sunken)] p-[12px] rounded-[var(--radius-md)] flex items-center justify-between border border-[var(--border-subtle)] mb-[16px]">
+                                <div>
+                                   <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">Potansiyel</p>
+                                   <div className="flex items-end gap-1">
+                                      <ScoreBadge score={lead.potential_score || 0} />
+                                   </div>
+                                </div>
+                                <div className="text-right">
+                                   <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">Tahmini Bütçe</p>
+                                   <p className="text-[13px] font-[600] text-[var(--text-secondary)]">
+                                     {lead.estimated_price_min ? `₺${(lead.estimated_price_min / 1000).toFixed(0)}k+` : '-'}
+                                   </p>
+                                </div>
+                             </div>
+
+                             {/* Aksiyon Butonları (Grid) */}
+                             <div className="grid grid-cols-4 gap-[8px] border-t border-[var(--border-subtle)] justify-items-center pt-[16px]">
+                                <button onClick={() => {toast.promise(analyzeSingleLead(lead.id), {loading: 'Analiz ediliyor...', success: 'Tamamlandı!', error: 'Hata'})}} className="p-2 rounded-[var(--radius-md)] text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] transition-colors" title="Analiz Et">
+                                   <Play className="w-[16px] h-[16px]" />
+                                </button>
+                                <Link href={`/dashboard/leads/outreach?leadId=${lead.id}`} className="p-2 rounded-[var(--radius-md)] text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] transition-colors" title="Mesaj Gönder">
+                                   <Mail className="w-[16px] h-[16px]" />
+                                </Link>
+                                <button className="p-2 rounded-[var(--radius-md)] text-[var(--text-tertiary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)] transition-colors" title="Takvime Ekle">
+                                   <Calendar className="w-[16px] h-[16px]" />
+                                </button>
+                                <button onClick={() => toast.success("Başarıyla sonuçlandı.")} className="p-2 rounded-[var(--radius-md)] text-[var(--text-tertiary)] hover:bg-[var(--status-success)]/10 hover:text-[var(--status-success)] transition-colors" title="Kazanıldı İşaretle">
+                                   <CheckCircle2 className="w-[16px] h-[16px]" />
+                                </button>
+                             </div>
+                          </CardContent>
+                        </Card>
+                     ))}
+                  </div>
+                </div>
+              );
+            })}
+         </div>
+      </div>
 
       {/* Scan Modal */}
       {scanModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
-           <div className="bg-white dark:bg-slate-900 rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-700">
-              <div className="flex justify-between items-center mb-5">
-                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Yeni Tarama Başlat</h3>
-                <button onClick={() => setScanModalOpen(false)} className="text-slate-400 hover:text-slate-600"><XCircle className="w-6 h-6"/></button>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-[16px]">
+           <Card className="max-w-[440px] w-full p-[24px]">
+              <div className="flex justify-between items-center mb-[24px]">
+                <h3 className="text-heading text-[18px]">Yeni Tarama Başlat</h3>
+                <button onClick={() => setScanModalOpen(false)} className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"><XCircle className="w-[20px] h-[20px]"/></button>
               </div>
               
-              <div className="space-y-4">
+              <div className="space-y-[20px]">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Sektörler</label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <label className="block text-label mb-[10px]">Sektörler</label>
+                  <div className="grid grid-cols-2 gap-[8px]">
                     {["guzellik", "moda", "emlak", "spor", "egitim"].map(sec => (
-                       <label key={sec} className="flex items-center gap-2 text-sm bg-slate-50 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer">
+                       <label key={sec} className="flex items-center gap-[8px] text-[13px] bg-[var(--surface-sunken)] p-[12px] rounded-[var(--radius-md)] border border-[var(--border-subtle)] cursor-pointer hover:border-[var(--border-default)] transition-colors">
                          <input type="checkbox" checked={scanSectors.includes(sec)} onChange={(e) => {
                            if(e.target.checked) setScanSectors([...scanSectors, sec]);
                            else setScanSectors(scanSectors.filter(s => s !== sec));
-                         }} className="rounded text-blue-600" />
-                         {sec}
+                         }} className="rounded-[4px] border-[var(--border-strong)] accent-[var(--accent)]" />
+                         <span className="font-medium text-[var(--text-secondary)]">{sec}</span>
                        </label>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Şehir (Opsiyonel)</label>
-                  <input type="text" value={scanCity} onChange={(e) => setScanCity(e.target.value)} placeholder="Örn: İstanbul" className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-label mb-[8px]">Şehir (Opsiyonel)</label>
+                  <input type="text" value={scanCity} onChange={(e) => setScanCity(e.target.value)} placeholder="Örn: İstanbul" className="w-full bg-[var(--surface-sunken)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] px-[14px] py-[10px] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors placeholder:text-[var(--text-tertiary)]" />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Maksimum Lead Sayısı</label>
-                  <input type="number" min={1} max={100} value={scanLimit} onChange={(e) => setScanLimit(parseInt(e.target.value))} className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500" />
+                  <label className="block text-label mb-[8px]">Maksimum Sonuç</label>
+                  <input type="number" min={1} max={100} value={scanLimit} onChange={(e) => setScanLimit(parseInt(e.target.value))} className="w-full bg-[var(--surface-sunken)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] px-[14px] py-[10px] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent)] transition-colors" />
                 </div>
               </div>
 
-              <div className="mt-8 flex justify-end gap-3">
-                 <button onClick={() => setScanModalOpen(false)} className="px-4 py-2 font-medium text-slate-600 hover:bg-slate-100 rounded-lg text-sm">İptal</button>
-                 <button onClick={handleScan} disabled={isScanning} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium flex items-center gap-2">
-                   {isScanning ? <RefreshCcw className="w-4 h-4 animate-spin"/> : <Search className="w-4 h-4"/>} 
+              <div className="mt-[32px] flex justify-end gap-[12px]">
+                 <Button variant="ghost" onClick={() => setScanModalOpen(false)}>İptal</Button>
+                 <Button onClick={handleScan} disabled={isScanning}>
+                   {isScanning ? <RefreshCcw className="w-[14px] h-[14px] mr-2 animate-spin"/> : null} 
                    {isScanning ? "Taranıyor..." : "Taramayı Başlat"}
-                 </button>
+                 </Button>
               </div>
-           </div>
+           </Card>
         </div>
       )}
     </div>

@@ -15,7 +15,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
     }
     
-    const systemPrompt = "Sen iPhone 16 Pro Max ile profesyonel sosyal medya içerikleri çeken bir sinematografi uzmanısın. Mikrofon kullanılmıyor, ses sonradan ekleniyor.";
+    const systemPrompt = `Sen GrafikCem (@grafikcem) için içerik üretiyorsun.
+GrafikCem'in içerik stili:
+- MİKROFON YOK: Tüm reels'ler sessiz veya müzik overlay ile çekilir, seslendirme yoktur. Metin overlay veya caption ile anlatım yapılır.
+- DESK SETUP ODAKLI: Masa üstü, ekran, klavye, araçlar çoğunlukla frame'de görünür
+- FİLMMAKER ESTETİĞİ: Sinematik, slow motion, macro çekimler, dramatic lighting, depth of field
+- KAYNAK GÖSTERMELİ: Reel izleyiciyi ekranda tutar, sonunda kaynak/araç gösterir
+- HAYVAN VİZYELİ: Carousel'lerde güçlü hayvan görselleri kullanılır (kartal, aslan, leopar, at, baykuş gibi)
+- RENK PALETİ: Koyu arka plan (siyah/bordo), kırmızı accent, beyaz tipografi
+- TİPOGRAFİ: Serif bold (başlık) + script italic (alt başlık) kombinasyonu
+- iPhone 16 Pro Max ile çekilir, Sinema modu, 4K`;
+
     const userPrompt = `İçerik: ${idea}, Format: ${format}, Yer: ${location}. 6 sahnelik detaylı storyboard oluştur. SADECE JSON döndür:
 {
   "title": "string",
@@ -25,14 +35,16 @@ export async function POST(request: NextRequest) {
       "scene_number": 1,
       "duration": "string",
       "description": "string",
-      "angle": "string",
-      "movement": "string",
+      "angle": "string (örn: Low angle / Macro / Overhead vb.)",
+      "movement": "string (örn: Sabit / Yavaş zoom / Pan vb.)",
       "lighting": "string",
-      "iphone_tip": "string"
+      "text_overlay": "string (ses olmadığı için ekrandaki metin)",
+      "music_suggestion": "string (mood: dark cinematic / epic / minimal techno / lo-fi)",
+      "iphone_tip": "string (iPhone 16 Pro Max teknik notu)"
     }
   ],
   "general_tips": {
-    "microphone_note": "string",
+    "microphone_note": "Seslendirme yok, overlay metin kullanılacak",
     "stabilization": "string",
     "settings": "string",
     "editing_note": "string"

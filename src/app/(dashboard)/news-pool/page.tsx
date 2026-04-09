@@ -2,24 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-  SheetFooter,
-} from "@/components/ui/sheet";
+import { ScoreBadge } from "@/components/ui/score-badge";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { FileTextIcon, HelpCircleIcon } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface NewsItem {
   id: string;
@@ -62,25 +54,9 @@ const categories = [
   { value: "automation", label: "Otomasyon" },
   { value: "dev_tools", label: "Dev Tools" },
   { value: "turkish", label: "Türkçe" },
-  { value: "turkish_eco", label: "🇹🇷 Türk Ekosistem" },
-  { value: "tool_update", label: "🔧 Araç Güncellemeleri" },
+  { value: "turkish_eco", label: "Türk Ekosistem" },
+  { value: "tool_update", label: "Araç Güncellemeleri" },
 ];
-
-function ScoreBadge({ score }: { score: number }) {
-  const color =
-    score >= 80
-      ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
-      : score >= 60
-      ? "bg-amber-500/15 text-amber-700 border-amber-500/30"
-      : "bg-slate-100 text-slate-500 border-slate-200";
-  return (
-    <span
-      className={`inline-flex items-center justify-center w-10 h-10 rounded-xl text-sm font-bold border ${color} shrink-0`}
-    >
-      {score}
-    </span>
-  );
-}
 
 export default function NewsPoolPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -89,10 +65,7 @@ export default function NewsPoolPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSource, setActiveSource] = useState<string>("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [loadingBulk, setLoadingBulk] = useState(false);
   
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
   const [articleLoading, setArticleLoading] = useState(false);
@@ -108,8 +81,7 @@ export default function NewsPoolPage() {
       let query = supabase
         .from("news_items")
         .select("*, sources(name)")
-        .order("viral_score", { ascending: false, nullsFirst: false })
-        .order("fetched_at", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(50);
 
       if (activeCategory === "unread") {
@@ -136,9 +108,8 @@ export default function NewsPoolPage() {
   async function handleGenerate(newsId: string) {
     setGeneratingId(newsId);
     
-    // Mark as read optimistically
     setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
-    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then();
+    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then(() => {}, () => {});
 
     try {
       const res = await fetch("/api/tweet/generate", {
@@ -160,37 +131,13 @@ export default function NewsPoolPage() {
     }
   }
 
-  async function handleBulkGenerate() {
-    if (selectedIds.size === 0) return;
-    setLoadingBulk(true);
-    let count = 0;
-    for (const id of Array.from(selectedIds)) {
-      setNews(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-      supabase.from("news_items").update({ is_read: true }).eq("id", id).then();
-      try {
-        const res = await fetch("/api/tweet/generate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ news_id: id }),
-        });
-        if (res.ok) count++;
-      } catch {}
-    }
-    setLoadingBulk(false);
-    toast.success(`${count} adet haber için tweet üretildi!`);
-    setSelectedIds(new Set());
-    // Opt: router.push('/tweet-generator');
-  }
-
   async function handleOpenArticle(newsId: string) {
     setSelectedNewsId(newsId);
-    setSheetOpen(true);
     setArticleData(null);
     setArticleLoading(true);
 
-    // Mark as read optimistically
     setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
-    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then();
+    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then(() => {}, () => {});
 
     try {
       const res = await fetch("/api/news/article", {
@@ -227,377 +174,200 @@ export default function NewsPoolPage() {
 
   const uniqueSources = Array.from(new Set(news.map(n => n.sources?.name).filter(Boolean))) as string[];
 
-  const toggleSelection = (id: string) => {
-    setSelectedIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (selectedIds.size === filtered.length && filtered.length > 0) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(filtered.map(f => f.id)));
-    }
-  };
-
   return (
-    <div className="p-4 lg:p-8 space-y-6 pb-24">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">Haber Havuzu</h1>
-        <p className="text-slate-500 text-sm mt-1">
-          Tüm haberler viral skorlarına göre sıralanmış
-        </p>
-      </div>
-
-      {/* Filter tabs */}
-      <div className="flex flex-wrap gap-2">
-        {categories.map((cat) => (
-          <button
-            key={cat.value}
-            onClick={() => setActiveCategory(cat.value)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeCategory === cat.value
-                ? "bg-slate-900 text-white shadow-md"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
-            }`}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-sm font-medium text-slate-500">Kaynaklar:</span>
-        <button
-          onClick={() => setActiveSource("all")}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-            activeSource === "all" ? "bg-slate-200 text-slate-800" : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
-          }`}
-        >
-          Hepsi
-        </button>
-        {uniqueSources.map(src => (
-          <button
-            key={src}
-            onClick={() => setActiveSource(src)}
-            className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-              activeSource === src ? "bg-blue-100 text-blue-700 border border-blue-200" : "bg-slate-50 text-slate-500 border border-slate-200 hover:bg-slate-100"
-            }`}
-          >
-            {src}
-          </button>
-        ))}
-      </div>
-
-      {/* Search & Bulk Select */}
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="outline" 
-          onClick={toggleAll}
-          className="shrink-0 w-11 h-11 border-slate-200 p-0 flex items-center justify-center bg-white"
-        >
-           {selectedIds.size === filtered.length && filtered.length > 0 ? "☑️" : "☑"}
-        </Button>
-        <div className="relative flex-1">
-          <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-          xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="11" cy="11" r="8" />
-          <path d="m21 21-4.3-4.3" />
-        </svg>
-        <Input
-          placeholder="Haberlerde ara..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 bg-white border-slate-200 h-11"
-        />
-        </div>
-      </div>
-
-      {/* News list — vertical, full-width cards */}
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(8)].map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : filtered.length === 0 ? (
-        <Card className="border-0 shadow-sm">
-          <CardContent className="p-12 text-center text-slate-400">
-            {activeCategory === "turkish_eco" ? (
-               <>Henüz Türk ekosistem haberi yok<br/><span className="text-xs mt-2 block">Türkiye'den startup ve teknoloji haberleri buraya düşecek.</span></>
-            ) : activeCategory === "tool_update" ? (
-               <>Henüz araç güncellemesi haberi yok</>
-            ) : (
-               <>Haber bulunamadı</>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map((item) => (
-            <Card
-              key={item.id}
-              className={`border-0 shadow-sm transition-shadow ${
-                item.viral_score === 0 || !item.viral_score
-                  ? "bg-slate-50 opacity-60 hover:opacity-100"
-                  : selectedIds.has(item.id) 
-                    ? "bg-blue-50 border border-blue-200" 
-                    : "bg-white hover:shadow-md"
-              }`}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <input 
-                  type="checkbox" 
-                  checked={selectedIds.has(item.id)} 
-                  onChange={() => toggleSelection(item.id)}
-                  className="w-4 h-4 shrink-0 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                />
-                <ScoreBadge score={item.viral_score || 0} />
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => handleOpenArticle(item.id)}
-                >
-                  <div className="flex items-start gap-2">
-                    {!item.is_read && (
-                      <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                    )}
-                    <h3 className={`text-sm line-clamp-1 flex-1 ${item.is_read ? "font-medium text-slate-700" : "font-bold text-slate-900"}`}>
-                      {item.title_tr || item.title}
-                    </h3>
-                    {(item.viral_score === 0 || !item.viral_score) && (
-                      <span className="text-[10px] font-medium bg-slate-200 text-slate-500 px-1.5 py-0.5 rounded shrink-0">
-                        Düşük Potansiyel
-                      </span>
-                    )}
-                    {item.is_used && (
-                      <span className="text-[10px] font-medium bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded shrink-0">
-                        Kullanıldı
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-slate-400">{item.sources?.name}</span>
-                    <span className="text-slate-300">&bull;</span>
-                    <span className="text-xs text-slate-400">
-                      {formatDistanceToNow(new Date(item.fetched_at), {
-                        addSuffix: true,
-                        locale: tr,
-                      })}
-                    </span>
-                    {item.viral_reason && (
-                      <>
-                        <span className="text-slate-300 hidden sm:inline">&bull;</span>
-                        <span className="text-xs text-violet-500 italic hidden sm:inline">
-                          {item.viral_reason}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleGenerate(item.id);
-                  }}
-                  disabled={generatingId === item.id}
-                  className="bg-blue-500 hover:bg-blue-600 text-white shrink-0 h-11 min-w-[100px]"
-                >
-                  {generatingId === item.id ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
-                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
-                      </svg>
-                      Üretiliyor
-                    </span>
-                  ) : (
-                    "Tweet Üret"
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Article Reader Sheet */}
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent
-          side="right"
-          className="data-[side=right]:sm:max-w-xl data-[side=right]:lg:max-w-2xl overflow-y-auto"
-        >
-          {articleLoading ? (
-            <div className="p-6 space-y-4">
-              <Skeleton className="h-8 w-3/4" />
-              <Skeleton className="h-4 w-1/2" />
-              <Separator />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-4/5" />
-            </div>
-          ) : articleData ? (
-            <>
-              <SheetHeader className="pr-8">
-                <SheetTitle className="text-lg font-bold text-slate-900 leading-tight">
-                  {articleData.title_tr}
-                </SheetTitle>
-                {articleData.title_original && articleData.title_original !== articleData.title_tr && (
-                  <SheetDescription className="text-xs text-slate-400 italic mt-1">
-                    {articleData.title_original}
-                  </SheetDescription>
-                )}
-                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                  <Badge variant="secondary" className="text-xs">
-                    {articleData.source_name}
-                  </Badge>
-                  {articleData.fetched_at && (
-                    <span className="text-xs text-slate-400">
-                      {formatDistanceToNow(new Date(articleData.fetched_at), {
-                        addSuffix: true,
-                        locale: tr,
-                      })}
-                    </span>
-                  )}
-                  <Badge
-                    className={`text-xs ${
-                      articleData.viral_score >= 80
-                        ? "bg-emerald-100 text-emerald-700"
-                        : articleData.viral_score >= 60
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-slate-100 text-slate-500"
+    <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh)] bg-[var(--surface-default)]">
+      {/* SOL: LİSTE MODÜLÜ */}
+      <div className="w-full lg:w-[45%] flex flex-col h-full lg:h-[calc(100vh)] border-r border-[var(--border-subtle)] bg-[var(--surface-default)]">
+        
+        {/* Header Alanı */}
+        <div className="p-[20px] pb-3 border-b border-[var(--border-subtle)] shrink-0">
+           <h1 className="text-display mb-1">Haber Havuzu</h1>
+           <p className="text-small">Trend haberleri araştır, özetle ve üretime dönüştür.</p>
+           
+           {/* Ara, Filtrele */}
+           <div className="mt-[20px] space-y-[16px]">
+              <Input
+                placeholder="Haberlerde ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="bg-[var(--surface-sunken)] border-[var(--border-subtle)]"
+              />
+              <div className="flex flex-wrap gap-[8px]">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.value}
+                    onClick={() => setActiveCategory(cat.value)}
+                    className={`px-[12px] py-[6px] rounded-[var(--radius-md)] text-[12px] font-medium transition-all duration-120 ${
+                      activeCategory === cat.value
+                        ? "bg-[var(--text-primary)] text-[var(--surface-default)]"
+                        : "bg-[var(--surface-raised)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                     }`}
                   >
-                    Viral: {articleData.viral_score}
-                  </Badge>
-                </div>
-              </SheetHeader>
-
-              <Separator className="my-2" />
-
-              <div className="px-4 py-2 space-y-4 flex-1">
-                {articleData.full_summary_tr ? (
-                  articleData.full_summary_tr.split("\n\n").map((paragraph, i) => (
-                    <p key={i} className="text-sm text-slate-700 leading-relaxed">
-                      {paragraph}
-                    </p>
-                  ))
-                ) : (
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    {articleData.summary || "Özet mevcut değil."}
-                  </p>
-                )}
+                    {cat.label}
+                  </button>
+                ))}
               </div>
-
-              <SheetFooter className="border-t border-slate-100 gap-2">
-                <a
-                  href={articleData.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full"
-                >
-                  <Button
-                    variant="outline"
-                    className="w-full h-11"
+              <div className="flex flex-wrap gap-[8px] items-center">
+                 <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Kaynak:</span>
+                 <button
+                    onClick={() => setActiveSource("all")}
+                    className={`px-[10px] py-[4px] rounded-[var(--radius-sm)] text-[11px] font-medium transition-all ${
+                      activeSource === "all" ? "bg-[var(--accent-subtle)] text-[var(--accent)]" : "bg-[var(--surface-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)]"
+                    }`}
                   >
-                    Orijinal Makaleyi Aç
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="ml-2"
+                    Hepsi
+                  </button>
+                  {uniqueSources.map(src => (
+                    <button
+                      key={src}
+                      onClick={() => setActiveSource(src)}
+                      className={`px-[10px] py-[4px] rounded-[var(--radius-sm)] text-[11px] font-medium transition-all ${
+                         activeSource === src ? "bg-[var(--accent-subtle)] text-[var(--accent)]" : "bg-[var(--surface-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)]"
+                      }`}
                     >
-                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      <polyline points="15 3 21 3 21 9" />
-                      <line x1="10" x2="21" y1="14" y2="3" />
-                    </svg>
-                  </Button>
-                </a>
-                <Button
-                  onClick={() => {
-                    setSheetOpen(false);
-                    if (selectedNewsId) handleGenerate(selectedNewsId);
-                  }}
-                  className="w-full bg-blue-500 hover:bg-blue-600 text-white h-11"
-                >
-                  Tweet Üret
-                </Button>
-              </SheetFooter>
-            </>
-          ) : (
-            <div className="p-12 text-center text-slate-400">
-              <p>Makale yüklenemedi</p>
-            </div>
-          )}
-        </SheetContent>
-      </Sheet>
-
-      {/* Bulk Action Bar */}
-      {selectedIds.size > 0 && (
-        <div className="fixed bottom-0 inset-x-0 h-20 bg-white border-t border-slate-200 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 transform transition-transform animate-in slide-in-from-bottom">
-          <div className="h-full flex items-center justify-between px-6 lg:ml-64 max-w-5xl mx-auto">
-            <div className="flex items-center gap-4">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold">
-                {selectedIds.size}
+                      {src}
+                    </button>
+                  ))}
               </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-900">Haber seçildi</p>
-                <p className="text-xs text-slate-500">Toplu işlem yapabilirsiniz</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedIds(new Set())}
-                className="border-slate-200"
-              >
-                Vazgeç
-              </Button>
-              <Button 
-                onClick={handleBulkGenerate}
-                disabled={loadingBulk}
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-500/20 px-8"
-              >
-                {loadingBulk ? (
-                  <span className="flex items-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
-                      <path fill="currentColor" d="M4 12a8 8 0 018-8v8z" className="opacity-75" />
-                    </svg>
-                    Üretiliyor...
-                  </span>
-                ) : (
-                  `Toplu Tweet Üret (${selectedIds.size})`
-                )}
-              </Button>
-            </div>
-          </div>
+           </div>
         </div>
-      )}
+
+        {/* Liste Alanı */}
+        <div className="flex-1 overflow-y-auto w-full scrollbar-thin">
+           {loading ? (
+             <div className="p-[20px] space-y-[12px]">
+               {[...Array(6)].map((_, i) => (
+                 <Skeleton key={i} className="h-[70px] w-full bg-[var(--surface-raised)] rounded-[var(--radius-md)]" />
+               ))}
+             </div>
+           ) : filtered.length === 0 ? (
+              <div className="p-12 text-center text-[var(--text-tertiary)] text-[13px]">Haber bulunamadı</div>
+           ) : (
+             <div className="flex flex-col divide-y divide-[var(--border-subtle)]">
+               {filtered.map(item => {
+                 const isSelected = selectedNewsId === item.id;
+                 return (
+                   <div 
+                     key={item.id} 
+                     onClick={() => handleOpenArticle(item.id)}
+                     className={`flex gap-[12px] p-[16px] cursor-pointer transition-colors duration-120 ${isSelected ? "bg-[var(--surface-overlay)]" : "hover:bg-[var(--surface-overlay)]"}`}
+                   >
+                     <div className="pt-1 w-2 flex justify-center">
+                        {!item.is_read && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0 shadow-[0_0_8px_var(--accent)] mt-1" />}
+                     </div>
+                     <div className="flex-1 min-w-0 flex flex-col justify-between pr-2">
+                        <h3 className={`text-[14px] leading-snug line-clamp-2 ${item.is_read ? 'text-[var(--text-secondary)] font-normal' : 'text-[var(--text-primary)] font-medium'}`}>
+                          {item.title_tr || item.title}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-2">
+                           <span className="text-[11px] text-[var(--text-tertiary)]">{item.sources?.name}</span>
+                           <span className="text-[11px] text-[var(--border-strong)]">•</span>
+                           <span className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-wider">{formatDistanceToNow(new Date(item.fetched_at), { addSuffix: true, locale: tr })}</span>
+                           {item.is_used && (
+                             <>
+                               <span className="text-[11px] text-[var(--border-strong)]">•</span>
+                               <span className="text-[10px] bg-[var(--surface-raised)] text-[var(--text-secondary)] px-1 rounded">Kullanıldı</span>
+                             </>
+                           )}
+                        </div>
+                     </div>
+                     <div className="flex flex-col items-end justify-between shrink-0 pl-2">
+                        <ScoreBadge score={item.viral_score} />
+                     </div>
+                   </div>
+                 );
+               })}
+             </div>
+           )}
+        </div>
+      </div>
+
+      {/* SAĞ: OKUMA MODÜLÜ */}
+      <div className="w-full lg:w-[55%] flex flex-col h-[600px] lg:h-[calc(100vh)] bg-[var(--surface-sunken)] p-[24px] lg:p-[40px] overflow-y-auto scrollbar-thin">
+         {!selectedNewsId ? (
+            <div className="m-auto w-full max-w-sm">
+                <EmptyState 
+                  icon={<HelpCircleIcon size={32} />}
+                  title="Bir Haber Seçin"
+                  description="Haberi özetlemek ve tweet formatında içerik üretmek için sol taraftan bir haber seçin."
+                />
+            </div>
+         ) : articleLoading ? (
+            <div className="space-y-[24px] max-w-3xl animate-pulse">
+               <Skeleton className="w-[100px] h-6 bg-[var(--surface-raised)] rounded" />
+               <Skeleton className="w-full h-12 bg-[var(--surface-raised)] rounded" />
+               <Skeleton className="w-3/4 h-12 bg-[var(--surface-raised)] rounded" />
+               <div className="pt-[40px] space-y-[12px]">
+                 <Skeleton className="w-full h-4 bg-[var(--surface-raised)] rounded" />
+                 <Skeleton className="w-full h-4 bg-[var(--surface-raised)] rounded" />
+                 <Skeleton className="w-[85%] h-4 bg-[var(--surface-raised)] rounded" />
+                 <Skeleton className="w-full h-4 bg-[var(--surface-raised)] rounded mt-4" />
+                 <Skeleton className="w-[90%] h-4 bg-[var(--surface-raised)] rounded" />
+               </div>
+            </div>
+         ) : articleData ? (
+            <div className="flex flex-col flex-1 max-w-3xl m-auto w-full justify-start h-full pt-4">
+               {/* Metadata */}
+               <div className="flex flex-wrap items-center gap-[12px] mb-[20px]">
+                  <span className="text-[12px] font-medium text-[var(--text-primary)] px-[10px] py-[4px] bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)]">
+                     {articleData.source_name}
+                  </span>
+                  <ScoreBadge score={articleData.viral_score} />
+                  <span className="text-[12px] text-[var(--text-tertiary)] tracking-wide uppercase px-2">
+                     {articleData.fetched_at && formatDistanceToNow(new Date(articleData.fetched_at), { addSuffix: true, locale: tr })}
+                  </span>
+               </div>
+
+               {/* Başlık */}
+               <h1 className="text-[28px] lg:text-[32px] font-bold text-[var(--text-primary)] leading-[1.1] tracking-tight mb-[16px]">
+                 {articleData.title_tr}
+               </h1>
+               {articleData.title_original && articleData.title_original !== articleData.title_tr && (
+                 <p className="text-[14px] text-[var(--text-tertiary)] italic mb-[32px] font-[450] leading-snug">
+                   "{articleData.title_original}"
+                 </p>
+               )}
+
+               <hr className="border-[var(--border-subtle)] mb-[32px]" />
+
+               {/* Metin */}
+               <div className="flex-1 space-y-[20px]">
+                 {articleData.full_summary_tr ? (
+                    articleData.full_summary_tr.split("\n\n").map((paragraph, i) => (
+                      <p key={i} className="text-body text-[15px] lg:text-[16px] leading-[1.7] text-[var(--text-secondary)]">
+                        {paragraph}
+                      </p>
+                    ))
+                  ) : (
+                    <p className="text-body text-[15px] lg:text-[16px] leading-[1.7] text-[var(--text-secondary)]">
+                      {articleData.summary || "Özet mevcut değil."}
+                    </p>
+                  )}
+               </div>
+
+               {/* Aksiyon Bar */}
+               <div className="sticky bottom-0 mt-[40px] pt-[20px] pb-[20px] bg-gradient-to-t from-[var(--surface-sunken)] to-transparent flex gap-4">
+                  <Button 
+                    variant="default" 
+                    size="lg" 
+                    className="flex-1 h-[48px] text-[15px] shadow-lg shadow-[var(--accent)]/10"
+                    onClick={() => handleGenerate(selectedNewsId)}
+                    disabled={generatingId === selectedNewsId}
+                  >
+                     {generatingId === selectedNewsId ? "Üretiliyor..." : "Tweet Üret"}
+                  </Button>
+                  <a href={articleData.url} target="_blank" rel="noopener noreferrer" className="flex-1 max-w-[200px]">
+                     <Button variant="secondary" size="lg" className="w-full h-[48px] text-[15px]">Orijinal Kaynak ↗</Button>
+                  </a>
+               </div>
+            </div>
+         ) : (
+            <div className="p-12 text-center text-[var(--text-tertiary)]">
+               Makale yüklenemedi.
+            </div>
+         )}
+      </div>
+
     </div>
   );
 }

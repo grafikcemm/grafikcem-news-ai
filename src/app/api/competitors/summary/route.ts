@@ -13,10 +13,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
     }
     
-    const systemPrompt = "Sen bir sosyal medya stratejistisin.";
+    const systemPrompt = `Aşağıdaki Instagram hesaplarını GrafikCem (@grafikcem) perspektifinden analiz eden bir stratejistsin.
+GrafikCem; koyu temalı carousel setleri (hayvan görselleri, serif+script tipografi, kırmızı/siyah palet), mikrofonsuz sinematik reels (desk setup, filmmaker estetiği, kaynak göstericisi) ve AI tasarım araçları içerikleri üretiyor.`;
     const competitorsStr = competitors.map((c: any) => `${c.handle} (${c.trend}) - Format: ${c.last_format} - Not: ${c.notes}`).join('\n');
     
-    const userPrompt = `Aşağıda sektördeki güncel rakip verileri bulunmaktadır:\n${competitorsStr}\n\nBu verilere göre: Bu hafta hangi rakipler öne çıktı, hangi formatlar trend, biz ne yapmalıyız şeklinde bir özet üret. Kısa, net ve stratejik olsun.`;
+    const userPrompt = `Rakip listesi:
+${competitorsStr}
+
+Her hesap için:
+- İçerik formatı ve stili
+- Hangi konular en çok etkileşim alıyor
+- Carousel veya reels hangisini tercih ediyor
+- GrafikCem bu hesaptan ne öğrenebilir
+
+Son olarak:
+- Bu hafta GrafikCem için 3 içerik fikri öner
+- Rakiplerin kaçırdığı 2 fırsat alanı belirle`;
 
     const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",

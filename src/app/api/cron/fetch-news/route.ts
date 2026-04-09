@@ -62,8 +62,31 @@ async function handler(request: NextRequest) {
     // 3. Parse each RSS feed
     const feedPromises = sourcesToProcess.map(async (source) => {
       try {
-        const feed = await parser.parseURL(source.rss_url);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        
+        let xmlData;
+        try {
+          const res = await fetch(source.rss_url, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+          xmlData = await res.text();
+        } catch (fetchErr: any) {
+          clearTimeout(timeoutId);
+          console.error(`✗ ${source.name}: ${fetchErr.message || 'Fetch failed'}`);
+          return; // Skip and continue for this source
+        }
+
+        let feed;
+        try {
+          feed = await parser.parseString(xmlData);
+        } catch (parseErr: any) {
+          console.error(`✗ ${source.name}: XML Parse failed - ${parseErr.message || 'Parse error'}`);
+          return; // Skip and continue for this source
+        }
+
         const items = feed.items.slice(0, 20); // Max 20 per source
+        let addedCount = 0;
 
         for (const item of items) {
           if (!item.link || !item.title) continue;
@@ -96,12 +119,15 @@ async function handler(request: NextRequest) {
               published_at: item.pubDate || item.isoDate || null,
               custom_tag
             });
+            addedCount++;
           } else if (custom_tag && existing.custom_tag !== custom_tag) {
              await supabaseAdmin.from("news_items").update({ custom_tag }).eq("id", existing.id);
           }
         }
-      } catch (err) {
-        console.error(`RSS fetch failed for ${source.name}:`, err);
+        
+        console.log(`✓ ${source.name}: ${addedCount} haber`);
+      } catch (err: any) {
+        console.error(`✗ ${source.name}: Unexpected error - ${err.message || String(err)}`);
       }
     });
 

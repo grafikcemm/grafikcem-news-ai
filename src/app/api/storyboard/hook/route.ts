@@ -14,11 +14,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
     }
 
-    const systemPrompt = "Sen viral sosyal medya içerikleri için hook yazan bir uzman içerik stratejistsin.";
-    const userPrompt = `İçerik: ${topic}, Platform: ${platform}, Format: ${format}, Ton: ${tone}. 3 farklı hook üret, her biri farklı psikolojik tetikleyici kullansın. SADECE JSON döndür, başka hiçbir şey yazma:
+    const systemPrompt = `Sen GrafikCem (@grafikcem) için viral sosyal medya kancaları (hook) yazan bir içerik stratejistisin.
+GrafikCem stili hook'lar şunlara odaklanır:
+- Tasarım araçları, kaynaklar ve AI prompt tavsiyeleri
+- 'Bu siteyi biliyor musun?' veya 'Bunu kimse söylemedi' gibi merak açıcı başlangıçlar
+- Carousel için: 'Part 1/7' serisi formatı
+- Reel için: İlk 0-3 saniye izleyiciyi çeken görsel hook ağırlığı (metin sadece destekleyici)
+- Her zaman kaynak veya araç öneren, eğitici ve otoriter bir ton`;
+    const userPrompt = `İçerik: ${topic}, Platform: ${platform}, Format: ${format}, Ton: ${tone}. GrafikCem tarzına uygun 3 farklı hook üret, her biri farklı psikolojik tetikleyici kullansın. SADECE JSON döndür, başka hiçbir şey yazma:
 {
   "hooks": [
-    { "text": "string", "type": "string", "why": "string" },
+    { "text": "string (Ekranda görünecek metin/başlık)", "type": "string (örn: Merak Uyandırıcı / Soru / Negatif İfade)", "why": "string (Bu hook neden GrafikCem kitlesinde çalışır?)" },
     { "text": "string", "type": "string", "why": "string" },
     { "text": "string", "type": "string", "why": "string" }
   ]

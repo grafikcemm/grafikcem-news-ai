@@ -4,54 +4,44 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { formatDistanceToNow, startOfWeek, endOfWeek, startOfMonth } from "date-fns";
+import { ScoreBadge } from "@/components/ui/score-badge";
+import { StatusChip } from "@/components/ui/status-chip";
+import { EmptyState } from "@/components/ui/empty-state";
+import { startOfWeek, endOfWeek } from "date-fns";
 import { tr } from "date-fns/locale";
 import Link from "next/link";
-import { Line, LineChart, ResponsiveContainer, YAxis } from "recharts";
+import { FileTextIcon, UsersIcon, CalendarIcon } from "lucide-react";
 
 interface NewsItem { id: string; title: string; summary: string; viral_score: number; fetched_at: string; sources?: { name: string }[] | { name: string } | null; }
 interface ContentItem { id: string; title: string; platform: string; format: string; status: string; scheduled_date: string; }
-interface Competitor { id: string; handle: string; last_format: string; trend: string; last_updated: string; }
-interface ChannelStat { platform: string; color: string; count: number; delta: number; trend: any[]; }
 interface FocusTask { id: string; title: string; priority: number; frequency: string; is_completed: boolean; completed_at: string | null; }
+interface Lead { id: string; company_name: string; sector: string; score: number; status: string; assigned_day?: string; }
+interface TweetDraft { id: string; text?: string; content?: string; platform?: string; status: string; }
 
 function getGreeting() {
   const hour = new Date().getHours();
-  if (hour < 12) return "İyi sabahlar";
-  if (hour < 18) return "İyi öğleden sonralar";
+  if (hour < 12) return "Günaydın";
+  if (hour < 18) return "İyi günler";
   return "İyi akşamlar";
 }
 
-function MiniSparkline({ data, color }: { data: any[]; color: string }) {
-  if (!data || data.length === 0) return <div className="h-10 opacity-30 mt-2 flex items-center text-[10px]">Veri yok</div>;
-  return (
-    <div className="h-10 mt-2 w-full">
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data}>
-          <YAxis domain={['min', 'max']} hide />
-          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={false} />
-        </LineChart>
-      </ResponsiveContainer>
-    </div>
-  );
+function getFormattedDate() {
+  return new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
 }
 
 export default function DashboardPage() {
   const [greeting] = useState(getGreeting());
   const [loading, setLoading] = useState(true);
   
-  const [news, setNews] = useState<NewsItem[]>([]);
-  const [pipeline, setPipeline] = useState<Record<string, number>>({});
-  const [upcoming, setUpcoming] = useState<ContentItem[]>([]);
-  const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [focusTasks, setFocusTasks] = useState<FocusTask[]>([]);
-  const [channels, setChannels] = useState<ChannelStat[]>([
-    { platform: "@grafikcem", color: "#E879A0", count: 0, delta: 0, trend: [] },
-    { platform: "@maskulenkod", color: "#60A5FA", count: 0, delta: 0, trend: [] },
-    { platform: "LinkedIn", color: "#34D399", count: 0, delta: 0, trend: [] },
-  ]);
+  const [opportunityNews, setOpportunityNews] = useState<NewsItem | null>(null);
+  const [todayLead, setTodayLead] = useState<Lead | null>(null);
+  
+  const [contentQueue, setContentQueue] = useState<TweetDraft[]>([]);
+  const [leadQueue, setLeadQueue] = useState<Lead[]>([]);
+  const [thisWeek, setThisWeek] = useState<ContentItem[]>([]);
+  
+  const [trendingNews, setTrendingNews] = useState<NewsItem[]>([]);
 
   useEffect(() => {
     fetchDashboard();
@@ -60,68 +50,78 @@ export default function DashboardPage() {
   async function fetchDashboard() {
     setLoading(true);
     try {
-      // Focus Tasks with Reset Logic
-      let { data: tempTasks } = await supabase.from("focus_tasks").select("*");
-      if (tempTasks) {
-         const now = new Date();
-         const sWeek = startOfWeek(now, { weekStartsOn: 1 });
-         const sMonth = startOfMonth(now);
-         const toResetIds: string[] = [];
+      // 1. Focus Tasks (priority = 1)
+      const { data: tasks } = await supabase.from("focus_tasks")
+        .select("*")
+        .eq("priority", 1)
+        .eq("frequency", "daily")
+        .order("is_completed", { ascending: true })
+        .limit(3);
+      if (tasks) setFocusTasks(tasks as FocusTask[]);
 
-         tempTasks.forEach((t: any) => {
-           if (!t.is_completed || !t.completed_at) return;
-           const compAt = new Date(t.completed_at);
-           if (t.frequency === 'weekly' && compAt < sWeek) toResetIds.push(t.id);
-           if (t.frequency === 'monthly' && compAt < sMonth) toResetIds.push(t.id);
-         });
+      // 2. Opportunity News (Max 1)
+      const { data: opNews } = await supabase.from("news_items")
+        .select("id, title, summary, viral_score, fetched_at, sources(name)")
+        .order("viral_score", { ascending: false })
+        .limit(1);
+      if (opNews && opNews.length > 0) setOpportunityNews(opNews[0] as unknown as NewsItem);
 
-         if (toResetIds.length > 0) {
-            await supabase.from("focus_tasks")
-               .update({ is_completed: false, completed_at: null })
-               .in("id", toResetIds);
-            const refetch = await supabase.from("focus_tasks").select("*");
-            tempTasks = refetch.data;
-         }
-         setFocusTasks(tempTasks as FocusTask[]);
-      }
+      // 3. Today's Lead
+      const todayIso = new Date().toISOString().split('T')[0];
+      const { data: tLead } = await supabase.from("leads")
+        .select("*")
+        .eq("assigned_day", todayIso)
+        .limit(1);
+      if (tLead && tLead.length > 0) setTodayLead(tLead[0] as Lead);
 
-      // 1. News
-      const { data: newsData } = await supabase.from("news_items").select("id, title, summary, viral_score, fetched_at, sources(name)").gte("viral_score", 60).order("viral_score", { ascending: false }).limit(6);
-      if (newsData) setNews(newsData as unknown as NewsItem[]);
+      // 4. Content Queue (drafts pending)
+      const { data: drafts } = await supabase.from("tweet_drafts")
+        .select("*")
+        .eq("status", "pending")
+        .limit(4);
+      if (drafts) setContentQueue(drafts as TweetDraft[]);
 
-      // 2. Content Pipeline (Counts by status)
-      const { data: pipelineData } = await supabase.from("content_items").select("status");
-      if (pipelineData) {
-        const counts: Record<string, number> = { 'draft': 0, 'hazırlanıyor': 0, 'hazır': 0, 'zamanlandı': 0, 'yayınlandı': 0 };
-        pipelineData.forEach(p => {
-          const s = (p.status || 'draft').toLowerCase();
-          if (counts[s] !== undefined) counts[s]++;
-          else counts['draft']++;
-        });
-        setPipeline(counts);
-      }
+      // 5. Lead Queue (discovered or researched)
+      const { data: lQueue } = await supabase.from("leads")
+        .select("*")
+        .in("status", ["discovered", "researched"])
+        .order("score", { ascending: false })
+        .limit(4);
+      if (lQueue) setLeadQueue(lQueue as Lead[]);
 
-      // 3. Upcoming (This week)
+      // 6. This week contents
       const now = new Date();
       const sOfWeek = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
       const eOfWeek = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
-      const { data: upData } = await supabase.from("content_items").select("*").gte("scheduled_date", sOfWeek).lte("scheduled_date", eOfWeek).order("scheduled_date", { ascending: true }).limit(4);
-      if (upData) setUpcoming(upData as ContentItem[]);
+      const { data: upData } = await supabase.from("content_items")
+        .select("*")
+        .gte("scheduled_date", sOfWeek)
+        .lte("scheduled_date", eOfWeek)
+        .order("scheduled_date", { ascending: true })
+        .limit(4);
+      if (upData) setThisWeek(upData as ContentItem[]);
 
-      // 4. Competitors
-      const { data: compData } = await supabase.from("competitors").select("*").order("last_updated", { ascending: false }).limit(3);
-      if (compData) setCompetitors(compData as Competitor[]);
+      // 7. Trending News
+      const { data: tNewsData } = await supabase.from("news_items")
+        .select("id, title, summary, viral_score, fetched_at, sources(name)")
+        .gte("viral_score", 50)
+        .order("created_at", { ascending: false })
+        .limit(6);
+        
+      if (tNewsData && tNewsData.length > 0) {
+        setTrendingNews(tNewsData as unknown as NewsItem[]);
+      } else {
+        // Fallback for sorting if created_at fails
+        const { data: fbNewsData } = await supabase.from("news_items")
+          .select("id, title, summary, viral_score, fetched_at, sources(name)")
+          .gte("viral_score", 50)
+          .order("viral_score", { ascending: false })
+          .limit(6);
+        if (fbNewsData) setTrendingNews(fbNewsData as unknown as NewsItem[]);
+      }
 
-      // 5. Channel Drafts Simulation
-      const { data: drafts } = await supabase.from("tweet_drafts").select("created_at");
-      const totalDrafts = drafts?.length || 0;
-      setChannels([
-        { platform: "@grafikcem", color: "#E879A0", count: Math.ceil(totalDrafts * 0.5), delta: 3, trend: Array.from({length: 7}, () => ({ value: Math.floor(Math.random()*10) })) },
-        { platform: "@maskulenkod", color: "#60A5FA", count: Math.ceil(totalDrafts * 0.3), delta: -1, trend: Array.from({length: 7}, () => ({ value: Math.floor(Math.random()*10) })) },
-        { platform: "LinkedIn", color: "#34D399", count: Math.ceil(totalDrafts * 0.2), delta: 2, trend: Array.from({length: 7}, () => ({ value: Math.floor(Math.random()*10) })) },
-      ]);
     } catch (e) {
-      console.error(e);
+      console.error("Dashboard fetch error:", e);
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,6 @@ export default function DashboardPage() {
     const newVal = !task.is_completed;
     const dateVal = newVal ? new Date().toISOString() : null;
     
-    // Optimistic UI Update
     setFocusTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: newVal, completed_at: dateVal } : t));
 
     await supabase.from("focus_tasks")
@@ -139,245 +138,200 @@ export default function DashboardPage() {
        .eq("id", task.id);
   };
 
-  const tasksDaily = focusTasks.filter(t => t.frequency === 'daily').sort((a,b) => Number(a.is_completed) - Number(b.is_completed));
-  const tasksWeekly = focusTasks.filter(t => t.frequency === 'weekly').sort((a,b) => Number(a.is_completed) - Number(b.is_completed));
-  const tasksMonthly = focusTasks.filter(t => t.frequency === 'monthly').sort((a,b) => Number(a.is_completed) - Number(b.is_completed));
-
-  const totalCompleted = focusTasks.filter(t => t.is_completed).length;
-
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto">
-      {/* 1. Üst Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="flex flex-col w-full max-w-[1200px] mx-auto px-[40px] py-[32px] gap-[32px]">
+      
+      {/* 5.1 Üst Bar — Daily Command Center */}
+      <div className="flex flex-row justify-between items-end w-full">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">{greeting}, Ali Cem</h1>
-          <p className="text-[var(--text-muted)] text-sm mt-1">Content OS'unuz hazır</p>
+          <p className="text-small mb-1">{greeting}, Ali Cem.</p>
+          <h1 className="text-display">{getFormattedDate()}</h1>
         </div>
-        <div className="flex items-center gap-3">
-          {upcoming.length > 0 && (
-             <Badge className="bg-[#fbbf24]/10 text-[#fbbf24] hover:bg-[#fbbf24]/20 border-0 flex items-center gap-1.5 h-9 px-3">
-               <span className="w-2 h-2 rounded-full bg-[#fbbf24] animate-pulse" />
-               Yaklaşan {upcoming.length} İçerik
-             </Badge>
-          )}
-          <Button className="bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] font-medium">Yeni Konu Ekle</Button>
+        <div className="flex items-center gap-4">
+          <Button variant="default">+ İçerik Ekle</Button>
         </div>
       </div>
 
-      {/* 2. Kanal Metrik Kartları */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {loading ? [...Array(3)].map((_, i) => <Skeleton key={i} className="h-32 bg-[var(--bg-card)] rounded-xl" />) : channels.map((ch, i) => (
-          <Card key={i} className="bg-[var(--bg-card)] border-[var(--border)] shadow-sm">
-            <CardContent className="p-5">
-              <div className="flex justify-between items-start">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-sm" style={{ backgroundColor: ch.color }}>{ch.platform[1] || 'L'}</div>
-                  <span className="font-semibold text-[var(--text-primary)] text-sm">{ch.platform}</span>
-                </div>
-                <div className={`text-xs font-semibold px-2 py-0.5 rounded-full ${ch.delta >= 0 ? "bg-[#4ade80]/10 text-[#4ade80]" : "bg-[#f87171]/10 text-[#f87171]"}`}>
-                  {ch.delta >= 0 ? "+" : ""}{ch.delta}
-                </div>
-              </div>
-              <div className="mt-4 flex items-end justify-between">
-                <div>
-                  <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider mb-1">Toplam Taslak</p>
-                  <p className="text-3xl font-bold text-[var(--text-primary)]">{ch.count}</p>
-                </div>
-                <div className="w-24">
-                  <MiniSparkline data={ch.trend} color={ch.color} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* 5.2 Focus Strip */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-[16px]">
+        {/* Kolon 1: Bugünün Önceliği */}
+        <Card className="h-[200px]">
+           <div className="flex flex-col h-full pl-4 border-l-2 border-[var(--status-danger)]">
+             <div className="text-label mb-3 mt-1">Bugün</div>
+             {loading ? <div className="animate-pulse flex-1 bg-[var(--surface-overlay)] rounded-md opacity-20" /> : focusTasks.length === 0 ? (
+               <div className="flex-1 flex items-center justify-center text-small">Görev yok</div>
+             ) : (
+               <div className="flex flex-col gap-2 flex-1 overflow-hidden">
+                 {focusTasks.map(t => (
+                   <label key={t.id} className={`flex items-start gap-2 group cursor-pointer ${t.is_completed ? 'opacity-50 line-through' : ''}`}>
+                     <input type="checkbox" checked={t.is_completed} onChange={() => toggleTask(t)} className="mt-1 w-4 h-4 rounded-[4px] border-[var(--border-default)] accent-[var(--accent)]" />
+                     <span className="text-body text-[13px] leading-snug line-clamp-2">{t.title}</span>
+                   </label>
+                 ))}
+               </div>
+             )}
+           </div>
+        </Card>
 
-      {/* 3. İki Kolon Layout - Odağ & Yaklaşanlar */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        
-        {/* Sol 7: Bugünün Odağı */}
-        <div className="lg:col-span-7">
-          <Card className="bg-[var(--bg-card)] border-[var(--border)] h-full">
-            <div className="p-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--bg-elevated)]/50 rounded-t-xl">
-               <h3 className="text-sm font-bold text-[var(--text-primary)]">🎯 Bugünün Odağı <span className="text-[var(--text-muted)] ml-2 font-normal">{new Date().toLocaleDateString('tr-TR')}</span></h3>
-               <span className="text-xs text-[var(--text-secondary)] font-medium">{totalCompleted} / {focusTasks.length}</span>
-            </div>
-            <CardContent className="p-0">
-               {loading ? (
-                   <div className="p-5 space-y-3">
-                     {[1,2,3].map(i=><Skeleton key={i} className="h-10 bg-[var(--bg-elevated)]" />)}
-                   </div>
-               ) : focusTasks.length === 0 ? (
-                  <div className="p-8 text-center text-[var(--text-muted)] text-sm flex flex-col items-center">
-                    <span className="text-2xl mb-2">🚀</span>
-                    Henüz görev yok<br/>
-                    <Link href="/dashboard/settings" className="mt-2 text-[var(--accent)] hover:underline">Odağını Belirle →</Link>
-                  </div>
-               ) : (
-                  <div className="divide-y divide-[var(--border)]">
-                    {/* BÖLÜM A - Kırmızı */}
-                    {tasksDaily.length > 0 && (
-                      <div className="p-4 border-l-2 border-l-[#f87171]">
-                        <p className="text-[10px] font-bold text-[#f87171] uppercase tracking-wider mb-2">Bugün</p>
-                        <div className="space-y-1">
-                           {tasksDaily.map(t => (
-                             <label key={t.id} className={`flex items-center gap-3 p-2 hover:bg-[var(--bg-elevated)] rounded cursor-pointer transition-all ${t.is_completed ? 'opacity-40 line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
-                               <input type="checkbox" checked={t.is_completed} onChange={() => toggleTask(t)} className="w-4 h-4 rounded border-[var(--border)] accent-[#f87171]" />
-                               <span className="text-sm">{t.title}</span>
-                             </label>
-                           ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* BÖLÜM B - Sarı */}
-                    {tasksWeekly.length > 0 && (
-                      <div className="p-4 border-l-2 border-l-[#fbbf24]">
-                        <p className="text-[10px] font-bold text-[#fbbf24] uppercase tracking-wider mb-2">Bu Hafta</p>
-                        <div className="space-y-1">
-                           {tasksWeekly.map(t => (
-                             <label key={t.id} className={`flex items-center gap-3 p-2 hover:bg-[var(--bg-elevated)] rounded cursor-pointer transition-all ${t.is_completed ? 'opacity-40 line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
-                               <input type="checkbox" checked={t.is_completed} onChange={() => toggleTask(t)} className="w-4 h-4 rounded border-[var(--border)] accent-[#fbbf24]" />
-                               <span className="text-sm">{t.title}</span>
-                             </label>
-                           ))}
-                        </div>
-                      </div>
-                    )}
-                    {/* BÖLÜM C - Mavi */}
-                    {tasksMonthly.length > 0 && (
-                      <div className="p-4 border-l-2 border-l-[#60a5fa]">
-                        <p className="text-[10px] font-bold text-[#60a5fa] uppercase tracking-wider mb-2">Bu Ay</p>
-                        <div className="space-y-1">
-                           {tasksMonthly.map(t => (
-                             <label key={t.id} className={`flex items-center gap-3 p-2 hover:bg-[var(--bg-elevated)] rounded cursor-pointer transition-all ${t.is_completed ? 'opacity-40 line-through text-[var(--text-muted)]' : 'text-[var(--text-primary)]'}`}>
-                               <input type="checkbox" checked={t.is_completed} onChange={() => toggleTask(t)} className="w-4 h-4 rounded border-[var(--border)] accent-[#60a5fa]" />
-                               <span className="text-sm">{t.title}</span>
-                             </label>
-                           ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-               )}
-            </CardContent>
-          </Card>
-        </div>
+        {/* Kolon 2: İçerik Fırsatı */}
+        <Card className="h-[200px]">
+           <div className="flex flex-col h-full pl-4 border-l-2 border-[var(--accent)]">
+             <div className="text-label mb-3 mt-1">İçerik</div>
+             {loading ? <div className="animate-pulse flex-1 bg-[var(--surface-overlay)] rounded-md opacity-20" /> : !opportunityNews ? (
+               <div className="flex-1 flex items-center justify-center text-small">Haber yok</div>
+             ) : (
+               <div className="flex flex-col justify-between flex-1">
+                 <div>
+                    <h3 className="text-heading text-[15px] line-clamp-2 mb-2">{opportunityNews.title}</h3>
+                    <ScoreBadge score={opportunityNews.viral_score} />
+                 </div>
+                 <div className="flex gap-2">
+                   <Button variant="secondary" size="sm">X'e Dönüştür &rarr;</Button>
+                   <Button variant="ghost" size="sm">LinkedIn &rarr;</Button>
+                 </div>
+               </div>
+             )}
+           </div>
+        </Card>
 
-        {/* Sağ 5: Yaklaşan İçerikler */}
-        <div className="lg:col-span-5">
-          <Card className="bg-[var(--bg-card)] border-[var(--border)] h-full">
-            <CardContent className="p-5 flex flex-col h-full">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-sm font-semibold text-[var(--text-primary)]">Yaklaşan İçerikler</h3>
-                <Link href="/dashboard/content-calendar" className="text-[10px] text-[var(--accent)] font-medium hover:underline">Takvim →</Link>
-              </div>
-              {loading ? <Skeleton className="h-32 bg-[var(--bg-elevated)]" /> : upcoming.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-[var(--text-muted)] text-sm">
-                   Hiç planlanmış içerik yok
-                   <Link href="/dashboard/content-calendar" className="mt-2 text-[var(--accent)] hover:underline">Planla →</Link>
-                </div>
-              ) : (
-                <div className="space-y-3 flex-1">
-                  {upcoming.map(item => (
-                    <div key={item.id} className="flex gap-3 p-2.5 rounded-lg border border-[var(--bg-elevated)] hover:bg-[var(--bg-elevated)] transition-colors">
-                      <div className="w-10 h-10 bg-[var(--bg-elevated)] border border-[var(--border)] rounded flex flex-col items-center justify-center shrink-0">
-                        <span className="text-[9px] text-[var(--text-muted)] leading-none">{new Date(item.scheduled_date).toLocaleDateString('tr-TR', { month: 'short' })}</span>
-                        <span className="text-sm font-bold text-[var(--text-primary)] leading-none mt-1">{new Date(item.scheduled_date).getDate()}</span>
-                      </div>
-                      <div className="overflow-hidden">
-                        <p className="text-[10px] text-[var(--text-secondary)] font-medium mb-0.5">{item.platform} • {item.format}</p>
-                        <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{item.title}</p>
-                      </div>
+        {/* Kolon 3: Bugünün Lead'i */}
+        <Card className="h-[200px]">
+           <div className="flex flex-col h-full pl-4 border-l-2 border-[var(--status-info)]">
+             <div className="text-label mb-3 mt-1">Ulaşım</div>
+             {loading ? <div className="animate-pulse flex-1 bg-[var(--surface-overlay)] rounded-md opacity-20" /> : !todayLead ? (
+               <div className="flex-1 flex flex-col items-center justify-center text-center">
+                  <div className="text-small mb-3">Tarama başlatılmamış. Türkiye genelinde sektör tara.</div>
+                  <Button variant="ghost" size="sm">Sektör Tara &rarr;</Button>
+               </div>
+             ) : (
+               <div className="flex flex-col justify-between flex-1">
+                 <div>
+                    <div className="flex items-center gap-2 mb-1">
+                       <StatusChip status="pending" label={todayLead.sector} />
+                       <ScoreBadge score={todayLead.score} />
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    <h3 className="text-heading text-[15px] line-clamp-2">{todayLead.company_name}</h3>
+                 </div>
+                 <div className="flex gap-2">
+                   <Button variant="secondary" size="sm">DM Yaz &rarr;</Button>
+                 </div>
+               </div>
+             )}
+           </div>
+        </Card>
+      </div>
+
+      {/* 5.3 Work Queues */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-[16px]">
+        {/* İçerik Sırası */}
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-baseline">
+            <h2 className="text-heading">İçerik Sırası</h2>
+            <Link href="/dashboard/content-calendar" className="text-small hover:text-[var(--text-primary)]">Tümü &rarr;</Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {loading ? <div className="animate-pulse h-[40px] bg-[var(--surface-raised)] rounded-[var(--radius-md)] opacity-20" /> : contentQueue.length === 0 ? (
+               <Card className="p-4 items-center flex-row justify-between">
+                 <span className="text-small">İçerik havuzu boş</span>
+                 <Link href="/dashboard/news-pool" className="text-[13px] text-[var(--accent)] font-medium">Haber Havuzu &rarr;</Link>
+               </Card>
+            ) : contentQueue.map(item => (
+              <div key={item.id} className="flex items-center justify-between p-3 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] hover:border-[var(--border-default)] transition-colors">
+                 <div className="flex items-center gap-2 overflow-hidden mr-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0" />
+                    <span className="text-body text-[13px] truncate">{item.content || item.text || "İçerik"}</span>
+                 </div>
+                 <Button variant="ghost" size="sm" className="h-7 px-2 shrink-0">Kopyala</Button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Lead Sırası */}
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-baseline">
+            <h2 className="text-heading">Lead Sırası</h2>
+            <Link href="/dashboard/leads" className="text-small hover:text-[var(--text-primary)]">Tümü &rarr;</Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {loading ? <div className="animate-pulse h-[40px] bg-[var(--surface-raised)] rounded-[var(--radius-md)] opacity-20" /> : leadQueue.length === 0 ? (
+               <Card className="p-4 items-center flex-row justify-between">
+                 <span className="text-small">Lead havuzu boş</span>
+                 <Link href="/dashboard/leads" className="text-[13px] text-[var(--accent)] font-medium">Sektör Tara &rarr;</Link>
+               </Card>
+            ) : leadQueue.map(item => (
+              <div key={item.id} className="flex items-center justify-between p-3 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] hover:border-[var(--border-default)] transition-colors">
+                 <div className="flex items-center gap-2 overflow-hidden mr-2">
+                    <StatusChip status="draft" label={item.sector} className="shrink-0" />
+                    <span className="text-body text-[13px] font-medium truncate">{item.company_name}</span>
+                 </div>
+                 <ScoreBadge score={item.score} className="shrink-0" />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Bu Hafta */}
+        <div className="flex flex-col gap-3">
+          <div className="flex justify-between items-baseline">
+            <h2 className="text-heading">Bu Hafta</h2>
+            <Link href="/dashboard/content-plan" className="text-small hover:text-[var(--text-primary)]">Tarihler &rarr;</Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {loading ? <div className="animate-pulse h-[40px] bg-[var(--surface-raised)] rounded-[var(--radius-md)] opacity-20" /> : thisWeek.length === 0 ? (
+               <Card className="p-4 items-center flex-row justify-between">
+                 <span className="text-small">Takvim boş</span>
+                 <Link href="/dashboard/content-plan" className="text-[13px] text-[var(--accent)] font-medium">Plan Oluştur &rarr;</Link>
+               </Card>
+            ) : thisWeek.map(item => {
+              const d = new Date(item.scheduled_date);
+              const dayStr = d.toLocaleDateString('tr-TR', { weekday: 'short' });
+              return (
+              <div key={item.id} className="flex items-center gap-3 p-3 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-md)] hover:border-[var(--border-default)] transition-colors">
+                 <div className="w-[32px] text-center shrink-0 border-r border-[var(--border-default)] pr-3">
+                    <span className="block text-[10px] text-[var(--text-tertiary)] uppercase leading-none">{dayStr}</span>
+                    <span className="block text-[14px] font-bold text-[var(--text-primary)] mt-0.5 leading-none">{d.getDate()}</span>
+                 </div>
+                 <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="text-body text-[13px] truncate">{item.title}</span>
+                 </div>
+              </div>
+            )})}
+          </div>
         </div>
       </div>
 
-      {/* 4. İki Kolon Layout - Pipeline & Intel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-         {/* Sol 7: Pipeline */}
-         <div className="lg:col-span-7">
-            <Card className="bg-[var(--bg-card)] border-[var(--border)] h-full">
-               <CardContent className="p-5">
-                 <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Content Pipeline</h3>
-                 {loading ? <Skeleton className="h-20 bg-[var(--bg-elevated)]" /> : (
-                   <div className="flex items-center justify-between text-center gap-2">
-                       {[
-                         { l: 'Taslak', k: 'draft' },
-                         { l: 'Hazırlanıyor', k: 'hazırlanıyor' },
-                         { l: 'Hazır', k: 'hazır' },
-                         { l: 'Zamanlandı', k: 'zamanlandı' },
-                         { l: 'Yayınlandı', k: 'yayınlandı' }
-                       ].map(st => (
-                         <div key={st.k} className="flex-1 bg-[var(--bg-elevated)] border border-[var(--border)] p-3 rounded-lg">
-                            <span className="block text-2xl font-bold text-[var(--text-primary)] mb-1">{pipeline[st.k] || 0}</span>
-                            <span className="block text-[10px] text-[var(--text-muted)] uppercase tracking-wider">{st.l}</span>
-                         </div>
-                       ))}
-                   </div>
-                 )}
-               </CardContent>
-            </Card>
-         </div>
-
-         {/* Sağ 5: Competitor Intel */}
-         <div className="lg:col-span-5">
-            <Card className="bg-[var(--bg-card)] border-[var(--border)] h-full">
-               <CardContent className="p-5">
-                  <div className="flex justify-between items-center mb-4">
-                     <h3 className="text-sm font-semibold text-[var(--text-primary)]">Rakip Intel</h3>
-                     <Link href="/dashboard/competitors" className="text-[10px] text-[var(--accent)] font-medium hover:underline">Tümünü Gör →</Link>
-                  </div>
-                  {loading ? <Skeleton className="h-20 bg-[var(--bg-elevated)]" /> : competitors.length === 0 ? (
-                     <div className="text-[var(--text-muted)] text-sm text-center">Henüz rakip eklenmemiş.</div>
-                  ) : (
-                     <div className="space-y-2">
-                        {competitors.map(comp => (
-                          <div key={comp.id} className="flex justify-between items-center p-2 rounded-lg bg-[var(--bg-elevated)] hover:bg-[#2a2a2a] transition-colors border border-[var(--border)]">
-                             <div>
-                               <p className="text-sm font-semibold text-[var(--text-primary)]">{comp.handle}</p>
-                               <p className="text-[10px] text-[var(--text-secondary)]">Son Format: {comp.last_format || "Bilinmiyor"}</p>
-                             </div>
-                             {comp.trend === 'yukseliyor' && <Badge className="bg-[#f87171]/20 text-[#f87171] border-0 text-[10px] px-2 py-0.5 font-bold">↗ Hot</Badge>}
-                          </div>
-                        ))}
-                     </div>
-                  )}
-               </CardContent>
-            </Card>
-         </div>
+      {/* 5.4 Alt Bölüm — Son Haberler */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-2">
+           <h2 className="text-heading">Gündem</h2>
+           <Link href="/dashboard/news-pool" className="text-small hover:text-[var(--text-primary)] font-medium">Haber Havuzu &rarr;</Link>
+        </div>
+        
+        {loading ? <div className="animate-pulse h-[200px] bg-[var(--surface-raised)] rounded-[var(--radius-md)] opacity-20" /> : trendingNews.length === 0 ? (
+           <EmptyState 
+             icon={<FileTextIcon />}
+             title="Henüz Kayıt Yok"
+             description="Cron job çalışınca trend haberler burada listelenecek."
+           />
+        ) : (
+           <div className="flex flex-col gap-1">
+             {trendingNews.map(item => (
+               <div key={item.id} className="flex items-center justify-between gap-4 p-3 rounded-[var(--radius-md)] hover:bg-[var(--surface-overlay)] transition-colors group">
+                 <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <span className="text-small shrink-0 w-[120px] truncate">{Array.isArray(item.sources) ? item.sources[0]?.name : item.sources?.name || 'Haber'}</span>
+                    <span className="text-body text-[14px] text-[var(--text-primary)] truncate flex-1">{item.title}</span>
+                 </div>
+                 <div className="flex items-center gap-4 shrink-0 px-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
+                    <ScoreBadge score={item.viral_score} />
+                    <Button variant="secondary" size="sm" className="hidden sm:inline-flex h-7 px-3">X'e Dönüştür</Button>
+                 </div>
+               </div>
+             ))}
+           </div>
+        )}
       </div>
 
-      {/* 5. Son Haberler (max 6) */}
-      <Card className="bg-[var(--bg-card)] border-[var(--border)]">
-        <CardContent className="p-5">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Trending Gündem (Viral &gt; 60)</h3>
-            {loading ? <div className="space-y-3">{[1,2,3].map(i=><Skeleton key={i} className="h-12 bg-[var(--bg-elevated)]" />)}</div> : news.length === 0 ? (
-               <div className="text-[var(--text-muted)] text-sm text-center p-4">Trending haber bulunamadı.</div>
-            ) : (
-              <>
-               <div className="divide-y divide-[var(--border)]">
-                  {news.map((item) => (
-                     <div key={item.id} className="py-3 flex gap-4 hover:bg-[var(--bg-elevated)]/50 transition-colors px-2 -mx-2 rounded-md items-center">
-                       <Badge className={`shrink-0 ${item.viral_score >= 80 ? 'bg-[#4ade80]/20 text-[#4ade80]' : 'bg-[#fbbf24]/20 text-[#fbbf24]'} border-0 font-bold`}>{item.viral_score}</Badge>
-                       <div className="flex-1 min-w-0">
-                         <p className="text-sm font-semibold text-[var(--text-primary)] truncate">{item.title}</p>
-                         <p className="text-xs text-[var(--text-muted)] truncate mt-0.5">{Array.isArray(item.sources) ? item.sources[0]?.name : item.sources?.name} • {formatDistanceToNow(new Date(item.fetched_at), { addSuffix: true, locale: tr })}</p>
-                       </div>
-                     </div>
-                  ))}
-               </div>
-               <div className="mt-4 text-center">
-                  <Link href="/dashboard/news-pool" className="text-sm text-[var(--accent)] hover:underline font-medium">Haber Havuzuna Git →</Link>
-               </div>
-              </>
-            )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

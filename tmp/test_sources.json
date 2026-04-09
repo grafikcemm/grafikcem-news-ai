@@ -1,0 +1,163 @@
+[
+  {
+    "name": "TechCrunch AI",
+    "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+    "status": "Success",
+    "items": 20,
+    "error": null
+  },
+  {
+    "name": "Anthropic Blog",
+    "url": "https://www.anthropic.com/news/rss.xml",
+    "status": "Error",
+    "items": 0,
+    "error": "Status code 404"
+  },
+  {
+    "name": "OpenAI Blog",
+    "url": "https://openai.com/blog/rss.xml",
+    "status": "Success",
+    "items": 904,
+    "error": null
+  },
+  {
+    "name": "Simon Willison",
+    "url": "https://simonwillison.net/atom/everything/",
+    "status": "Success",
+    "items": 30,
+    "error": null
+  },
+  {
+    "name": "Hugging Face Blog",
+    "url": "https://huggingface.co/blog/feed.xml",
+    "status": "Success",
+    "items": 756,
+    "error": null
+  },
+  {
+    "name": "Ben's Bites",
+    "url": "https://www.bensbites.com/feed",
+    "status": "Success",
+    "items": 20,
+    "error": null
+  },
+  {
+    "name": "Figma Blog",
+    "url": "https://www.figma.com/blog/feed/",
+    "status": "Error",
+    "items": 0,
+    "error": "Status code 404"
+  },
+  {
+    "name": "Product Hunt",
+    "url": "https://www.producthunt.com/feed",
+    "status": "Success",
+    "items": 50,
+    "error": null
+  },
+  {
+    "name": "Webrazzi",
+    "url": "https://webrazzi.com/feed/",
+    "status": "Success",
+    "items": 20,
+    "error": null
+  },
+  {
+    "name": "MIT Tech Review AI",
+    "url": "https://www.technologyreview.com/feed/",
+    "status": "Success",
+    "items": 10,
+    "error": null
+  },
+  {
+    "name": "Ars Technica AI",
+    "url": "https://feeds.arstechnica.com/arstechnica/technology-lab",
+    "status": "Success",
+    "items": 20,
+    "error": null
+  },
+  {
+    "name": "VentureBeat AI",
+    "url": "https://venturebeat.com/category/ai/feed/",
+    "status": "Success",
+    "items": 7,
+    "error": null
+  },
+  {
+    "name": "Cursor Blog",
+    "url": "https://cursor.com/blog/rss",
+    "status": "Error",
+    "items": 0,
+    "error": "Status code 404"
+  },
+  {
+    "name": "Lovable Blog",
+    "url": "https://lovable.dev/blog/rss.xml",
+    "status": "Error",
+    "items": 0,
+    "error": "Invalid character in entity name\nLine: 0\nColumn: 12088\nChar: &"
+  },
+  {
+    "name": "Replicate Blog",
+    "url": "https://replicate.com/blog/rss",
+    "status": "Success",
+    "items": 120,
+    "error": null
+  },
+  {
+    "name": "a16z Future",
+    "url": "https://a16z.com/feed/",
+    "status": "Error",
+    "items": 0,
+    "error": "Status code 404"
+  },
+  {
+    "name": "Lenny Newsletter",
+    "url": "https://www.lennysnewsletter.com/feed",
+    "status": "Success",
+    "items": 20,
+    "error": null
+  },
+  {
+    "name": "Every.to",
+    "url": "https://every.to/feed",
+    "status": "Error",
+    "items": 0,
+    "error": "Status code 404"
+  },
+  {
+    "name": "Superhuman AI",
+    "url": "https://www.superhuman.ai/rss",
+    "status": "Error",
+    "items": 0,
+    "error": "Invalid character in entity name\nLine: 107\nColumn: 919\nChar: &"
+  },
+  {
+    "name": "AI Breakfast",
+    "url": "https://aibreakfast.beehiiv.com/feed",
+    "status": "Error",
+    "items": 0,
+    "error": "Status code 404"
+  },
+  {
+    "name": "Latent Space",
+    "url": "https://www.latent.space/feed",
+    "status": "Success",
+    "items": 20,
+    "error": null
+  },
+  {
+    "name": "The Verge AI",
+    "url": "https://www.theverge.com/rss/index.xml",
+    "status": "Success",
+    "items": 10,
+    "error": null
+  },
+  {
+    "name": "n8n Blog",
+    "url": "https://blog.n8n.io/rss/",
+    "status": "Success",
+    "items": 15,
+    "error": null
+  }
+]
