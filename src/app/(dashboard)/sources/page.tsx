@@ -139,12 +139,12 @@ export default function SourcesPage() {
     <div className="p-4 lg:p-8 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Kaynaklar</h1>
-          <p className="text-slate-500 text-sm mt-1">RSS kaynaklarını yönet</p>
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Kaynaklar</h1>
+          <p className="text-[var(--text-tertiary)] text-sm mt-1">RSS kaynaklarını yönet</p>
         </div>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger
-            render={<Button className="bg-slate-900 hover:bg-slate-800 text-white" />}
+            render={<Button className="bg-[var(--surface-raised)] hover:bg-[var(--surface-elevated)] text-white" />}
           >
             + Kaynak Ekle
           </DialogTrigger>
@@ -154,7 +154,7 @@ export default function SourcesPage() {
             </DialogHeader>
             <div className="space-y-4 mt-4">
               <div>
-                <Label className="text-xs font-medium text-slate-600">Kaynak Adı</Label>
+                <Label className="text-xs font-medium text-[var(--text-secondary)]">Kaynak Adı</Label>
                 <Input
                   value={newSource.name}
                   onChange={(e) => setNewSource({ ...newSource, name: e.target.value })}
@@ -163,7 +163,7 @@ export default function SourcesPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-slate-600">RSS URL</Label>
+                <Label className="text-xs font-medium text-[var(--text-secondary)]">RSS URL</Label>
                 <Input
                   value={newSource.rss_url}
                   onChange={(e) => setNewSource({ ...newSource, rss_url: e.target.value })}
@@ -172,7 +172,7 @@ export default function SourcesPage() {
                 />
               </div>
               <div>
-                <Label className="text-xs font-medium text-slate-600">Kategori</Label>
+                <Label className="text-xs font-medium text-[var(--text-secondary)]">Kategori</Label>
                 <Select
                   value={newSource.category}
                   onValueChange={(val) => val && setNewSource({ ...newSource, category: val })}
@@ -198,7 +198,7 @@ export default function SourcesPage() {
       </div>
 
       {/* Sources table */}
-      <Card className="border-0 shadow-sm bg-white overflow-hidden">
+      <Card className="border-0 shadow-sm bg-[var(--surface-card)] overflow-hidden">
         <CardContent className="p-0">
           {loading ? (
             <div className="p-6 space-y-4">
@@ -210,37 +210,37 @@ export default function SourcesPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-100 bg-slate-50/50">
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">
+                  <tr className="border-b border-[var(--border-subtle)] bg-[var(--surface-card)]">
+                    <th className="text-left text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Kaynak
                     </th>
-                    <th className="text-left text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 hidden md:table-cell">
+                    <th className="text-left text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-6 py-3 hidden md:table-cell">
                       Kategori
                     </th>
-                    <th className="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3 hidden sm:table-cell">
+                    <th className="text-center text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-6 py-3 hidden sm:table-cell">
                       Haber
                     </th>
-                    <th className="text-center text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-center text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Aktif
                     </th>
-                    <th className="text-right text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-right text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider px-6 py-3">
                       İşlem
                     </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {sources.map((source) => (
-                    <tr key={source.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={source.id} className="hover:bg-[var(--surface-elevated)] transition-colors">
                       <td className="px-6 py-4">
                         <div>
-                          <p className="text-sm font-medium text-slate-900">{source.name}</p>
-                          <p className="text-xs text-slate-400 truncate max-w-[200px]">
+                          <p className="text-sm font-medium text-[var(--text-primary)]">{source.name}</p>
+                          <p className="text-xs text-[var(--text-tertiary)] truncate max-w-[200px]">
                             {source.rss_url}
                           </p>
                         </div>
                       </td>
                       <td className="px-6 py-4 hidden md:table-cell">
-                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+                        <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--surface-elevated)] px-2.5 py-1 rounded-full">
                           {categoryLabels[source.category] || source.category}
                         </span>
                       </td>

@@ -10,7 +10,7 @@ function Card({
     <div
       data-slot="card"
       className={cn(
-        "group/card flex flex-col bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-lg)] p-[var(--space-5)] transition-colors duration-150 ease-in-out hover:border-[var(--border-default)] data-[selected=true]:border-[var(--accent)] data-[selected=true]:bg-[var(--accent-subtle)] text-[var(--text-primary)]",
+        "group/card flex flex-col bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-[var(--radius-lg)] p-[var(--space-5)] transition-colors duration-150 ease-in-out hover:border-[var(--border-default)] data-[selected=true]:border-[var(--accent)] data-[selected=true]:bg-[var(--accent-subtle)] text-[var(--text-primary)]",
         className
       )}
       {...props}

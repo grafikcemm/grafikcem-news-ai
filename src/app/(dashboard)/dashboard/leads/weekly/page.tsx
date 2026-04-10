@@ -81,15 +81,15 @@ export default function WeeklyPlanPage() {
           <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-linear-to-r from-slate-900 to-slate-500 dark:from-white dark:to-slate-400">
             Haftalık Plan
           </h1>
-          <p className="text-slate-500 mt-1 flex items-center gap-2">
+          <p className="text-[var(--text-tertiary)] mt-1 flex items-center gap-2">
             İletişim kurulacak hedeflerin gün gün dağılımı.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-1">
-             <button onClick={handlePrevWeek} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"><ChevronLeft className="w-5 h-5"/></button>
+          <div className="flex items-center bg-[var(--surface-card)] dark:bg-[var(--surface-elevated)] border border-[var(--border-subtle)] dark:border-[var(--border-subtle)] rounded-lg p-1">
+             <button onClick={handlePrevWeek} className="p-1 hover:bg-[var(--surface-elevated)] hover:bg-[var(--surface-overlay)] rounded"><ChevronLeft className="w-5 h-5"/></button>
              <span className="px-3 text-sm font-semibold">{format(monday, "d MMM", { locale: tr })} - {format(addDays(monday, 4), "d MMM yyyy", { locale: tr })}</span>
-             <button onClick={handleNextWeek} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded"><ChevronRight className="w-5 h-5"/></button>
+             <button onClick={handleNextWeek} className="p-1 hover:bg-[var(--surface-elevated)] hover:bg-[var(--surface-overlay)] rounded"><ChevronRight className="w-5 h-5"/></button>
           </div>
           <button 
             onClick={handleCreatePlan}
@@ -102,7 +102,7 @@ export default function WeeklyPlanPage() {
       </div>
 
       {loading ? (
-         <div className="flex justify-center py-20"><Zap className="w-8 h-8 animate-spin text-slate-400" /></div>
+         <div className="flex justify-center py-20"><Zap className="w-8 h-8 animate-spin text-[var(--text-tertiary)]" /></div>
       ) : (
         <>
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -111,34 +111,34 @@ export default function WeeklyPlanPage() {
               const dayLeads = leads.filter(l => l.assigned_day === dayStr);
               
               return (
-                <div key={dayStr} className="bg-slate-50/50 dark:bg-slate-800/20 rounded-2xl border border-slate-200 dark:border-slate-700/50 p-4 min-h-[400px]">
-                  <h3 className="text-center font-bold text-slate-700 dark:text-slate-300 pb-3 mb-4 border-b border-slate-200 dark:border-slate-700">
+                <div key={dayStr} className="bg-[var(--surface-card)] dark:bg-[var(--surface-card)] rounded-2xl border border-[var(--border-subtle)] dark:border-[var(--border-subtle)]/50 p-4 min-h-[400px]">
+                  <h3 className="text-center font-bold text-slate-700 dark:text-[var(--text-secondary)] pb-3 mb-4 border-b border-[var(--border-subtle)] dark:border-[var(--border-subtle)]">
                     {format(day, "EEEE", { locale: tr })}
-                    <span className="block text-xs font-normal text-slate-400 mt-1">{format(day, "d MMM")}</span>
+                    <span className="block text-xs font-normal text-[var(--text-tertiary)] mt-1">{format(day, "d MMM")}</span>
                   </h3>
 
                   <div className="space-y-4">
                     {dayLeads.map(lead => (
-                      <div key={lead.id} className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl p-4 shadow-xs">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">{lead.sector}</div>
-                        <h4 className="font-bold text-slate-900 dark:text-white mb-2 line-clamp-1" title={lead.business_name}>{lead.business_name}</h4>
+                      <div key={lead.id} className="bg-[var(--surface-card)] dark:bg-[var(--surface-elevated)] border border-[var(--border-subtle)] dark:border-[var(--border-subtle)] rounded-xl p-4 shadow-xs">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">{lead.sector}</div>
+                        <h4 className="font-bold text-[var(--text-primary)] dark:text-white mb-2 line-clamp-1" title={lead.business_name}>{lead.business_name}</h4>
                         <div className="flex justify-between items-center mb-4">
-                           <span className={`text-xs font-semibold px-2 py-1 rounded bg-slate-100 dark:bg-slate-700 ${lead.potential_score >= 70 ? 'text-emerald-500' : 'text-amber-500'}`}>Skor: {lead.potential_score}</span>
+                           <span className={`text-xs font-semibold px-2 py-1 rounded bg-[var(--surface-elevated)] dark:bg-[var(--surface-overlay)] ${lead.potential_score >= 70 ? 'text-emerald-500' : 'text-amber-500'}`}>Skor: {lead.potential_score}</span>
                            <span className="text-[10px] uppercase font-bold text-blue-500">{lead.status}</span>
                         </div>
                         
                         <div className="grid grid-cols-2 gap-2 mt-auto">
-                          <Link href={`/dashboard/leads/outreach?leadId=${lead.id}`} className="flex items-center justify-center gap-1.5 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg text-xs font-semibold transition">
+                          <Link href={`/dashboard/leads/outreach?leadId=${lead.id}`} className="flex items-center justify-center gap-1.5 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 hover:bg-blue-900/50 rounded-lg text-xs font-semibold transition">
                             <Mail className="w-3.5 h-3.5" /> Mesaj
                           </Link>
-                          <button onClick={() => markCompleted(lead.id)} className="flex items-center justify-center gap-1.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-semibold transition">
+                          <button onClick={() => markCompleted(lead.id)} className="flex items-center justify-center gap-1.5 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-[var(--success-subtle)] hover:bg-emerald-900/50 rounded-lg text-xs font-semibold transition">
                             <CheckCircle2 className="w-3.5 h-3.5" /> Bitir
                           </button>
                         </div>
                       </div>
                     ))}
                     {dayLeads.length === 0 && (
-                      <div className="text-center py-8 text-slate-400 text-sm">Hedef Yok</div>
+                      <div className="text-center py-8 text-[var(--text-tertiary)] text-sm">Hedef Yok</div>
                     )}
                   </div>
                 </div>
@@ -146,9 +146,9 @@ export default function WeeklyPlanPage() {
             })}
           </div>
 
-          <div className="mt-8 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 flex justify-between items-center">
-            <span className="text-slate-500">Bu haftaki hedefler: <strong className="text-slate-900 dark:text-white">{leads.length} lead</strong></span>
-            <span className="text-slate-500">İletişim kurulan: <strong className="text-emerald-500">{completedCount} lead</strong></span>
+          <div className="mt-8 bg-[var(--surface-card)] dark:bg-[var(--surface-elevated)] rounded-xl border border-[var(--border-subtle)] dark:border-[var(--border-subtle)] p-4 flex justify-between items-center">
+            <span className="text-[var(--text-tertiary)]">Bu haftaki hedefler: <strong className="text-[var(--text-primary)] dark:text-white">{leads.length} lead</strong></span>
+            <span className="text-[var(--text-tertiary)]">İletişim kurulan: <strong className="text-emerald-500">{completedCount} lead</strong></span>
           </div>
         </>
       )}

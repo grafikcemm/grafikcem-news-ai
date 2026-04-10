@@ -18,7 +18,7 @@ interface StyleProfile {
 
 const CHANNELS: { id: Channel; label: string; dot: string }[] = [
   { id: "grafikcem", label: "@grafikcem", dot: "bg-blue-400" },
-  { id: "maskulenkod", label: "@maskulenkod", dot: "bg-slate-400" },
+  { id: "maskulenkod", label: "@maskulenkod", dot: "bg-[var(--text-tertiary)]" },
   { id: "linkedin", label: "LinkedIn", dot: "bg-indigo-400" },
 ];
 
@@ -59,16 +59,16 @@ function TagInput({
   };
 
   return (
-    <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-slate-700/60 bg-slate-900 min-h-[44px] focus-within:border-slate-500 transition-colors">
+    <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] min-h-[44px] focus-within:border-slate-500 transition-colors">
       {tags.map((tag) => (
         <span
           key={tag}
-          className="flex items-center gap-1 text-xs bg-slate-700 text-slate-200 rounded-full px-2.5 py-1"
+          className="flex items-center gap-1 text-xs bg-[var(--surface-overlay)] text-[var(--text-primary)] rounded-full px-2.5 py-1"
         >
           {tag}
           <button
             onClick={() => onChange(tags.filter((t) => t !== tag))}
-            className="text-slate-400 hover:text-white ml-0.5"
+            className="text-[var(--text-tertiary)] hover:text-white ml-0.5"
           >
             ×
           </button>
@@ -155,27 +155,27 @@ export default function StyleProfilePage() {
     .filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 lg:p-8">
+    <div className="min-h-screen bg-[var(--surface-base)] p-6 lg:p-8">
       <div className="max-w-3xl mx-auto space-y-8">
 
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Stil Profili</h1>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-[var(--text-tertiary)]">
             Her kanalın yazım stilini tanımla — üretimde kullanılır
           </p>
         </div>
 
         {/* Channel Tabs */}
-        <div className="flex gap-1.5 p-1.5 bg-slate-900 border border-slate-700/60 rounded-xl w-fit">
+        <div className="flex gap-1.5 p-1.5 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-xl w-fit">
           {CHANNELS.map((ch) => (
             <button
               key={ch.id}
               onClick={() => setActiveChannel(ch.id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeChannel === ch.id
-                  ? "bg-slate-700 text-white"
-                  : "text-slate-400 hover:text-white"
+                  ? "bg-[var(--surface-overlay)] text-white"
+                  : "text-[var(--text-tertiary)] hover:text-white"
               }`}
             >
               <span className={`w-2 h-2 rounded-full ${ch.dot}`} />
@@ -187,17 +187,17 @@ export default function StyleProfilePage() {
         {loading ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 rounded-xl bg-slate-800/60 animate-pulse" />
+              <div key={i} className="h-32 rounded-xl bg-[var(--surface-card)] animate-pulse" />
             ))}
           </div>
         ) : (
           <div className="space-y-6">
 
             {/* Section 1: Sample Tweets */}
-            <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-6 space-y-3">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 space-y-3">
               <div>
                 <h2 className="text-base font-semibold text-white">Yazım Stilini Tanımla</h2>
-                <p className="text-sm text-slate-400 mt-0.5">
+                <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
                   Geçmiş paylaşımlarından 5–10 örnek yapıştır. Sistem bunları öğrenip aynı tarzda üretim yapar.
                 </p>
               </div>
@@ -206,18 +206,18 @@ export default function StyleProfilePage() {
                 onChange={(e) => setProfile({ ...profile, sample_tweets: e.target.value })}
                 placeholder={"Örnek paylaşımları buraya yapıştır, her biri yeni satırda...\n\nÖrn:\nYapay zeka araçlarını kullanmak rekabet avantajı değil, minimum standart haline geliyor.\nSabah rutini olmayan biri için \"motivasyon\" kelimesi anlamsızdır."}
                 rows={8}
-                className="w-full rounded-lg border border-slate-700/60 bg-slate-800/60 px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-y transition-colors font-mono"
+                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-y transition-colors font-mono"
               />
-              <p className="text-xs text-slate-600">{sampleCount} örnek girişi</p>
+              <p className="text-xs text-[var(--text-secondary)]">{sampleCount} örnek girişi</p>
             </div>
 
             {/* Section 2: Style Parameters */}
-            <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-6 space-y-5">
+            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 space-y-5">
               <h2 className="text-base font-semibold text-white">Stil Parametreleri</h2>
 
               {/* Ton */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ton</label>
+                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">Ton</label>
                 <div className="flex flex-wrap gap-2">
                   {TONES.map((t) => (
                     <button
@@ -226,7 +226,7 @@ export default function StyleProfilePage() {
                       className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
                         profile.tone === t
                           ? "bg-[#C8F135]/15 text-[#C8F135] border-[#C8F135]/40"
-                          : "text-slate-400 border-slate-700/60 hover:text-white hover:border-slate-600"
+                          : "text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-white hover:border-slate-600"
                       }`}
                     >
                       {t}
@@ -238,13 +238,13 @@ export default function StyleProfilePage() {
               {/* Sentence length slider */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                     Cümle Uzunluğu
                   </label>
-                  <span className="text-xs text-slate-300 font-medium">{sentenceLengthLabel}</span>
+                  <span className="text-xs text-[var(--text-secondary)] font-medium">{sentenceLengthLabel}</span>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-slate-600 w-10">Kısa</span>
+                  <span className="text-xs text-[var(--text-secondary)] w-10">Kısa</span>
                   <input
                     type="range"
                     min={0}
@@ -255,13 +255,13 @@ export default function StyleProfilePage() {
                     }
                     className="flex-1 accent-[#C8F135] cursor-pointer"
                   />
-                  <span className="text-xs text-slate-600 w-10 text-right">Uzun</span>
+                  <span className="text-xs text-[var(--text-secondary)] w-10 text-right">Uzun</span>
                 </div>
               </div>
 
               {/* Emoji usage */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                   Emoji Kullanımı
                 </label>
                 <div className="flex gap-2">
@@ -272,7 +272,7 @@ export default function StyleProfilePage() {
                       className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all border ${
                         profile.emoji_usage === opt
                           ? "bg-[#C8F135]/15 text-[#C8F135] border-[#C8F135]/40"
-                          : "text-slate-400 border-slate-700/60 hover:text-white hover:border-slate-600"
+                          : "text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-white hover:border-slate-600"
                       }`}
                     >
                       {opt}
@@ -283,7 +283,7 @@ export default function StyleProfilePage() {
 
               {/* Signature closer */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                   İmza Kapanış
                 </label>
                 <input
@@ -293,13 +293,13 @@ export default function StyleProfilePage() {
                     setProfile({ ...profile, signature_closer: e.target.value })
                   }
                   placeholder="örn: Odakta kal."
-                  className="w-full rounded-lg border border-slate-700/60 bg-slate-900 px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 transition-colors"
+                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 transition-colors"
                 />
               </div>
 
               {/* Avoid words */}
               <div className="space-y-2">
-                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                   Kaçınılacak Kelimeler
                 </label>
                 <TagInput
@@ -320,7 +320,7 @@ export default function StyleProfilePage() {
 
             {/* Section 3: Active Style Summary */}
             {savedProfile && (
-              <div className="rounded-xl border border-slate-700/60 bg-slate-900/60 p-6 space-y-4">
+              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 space-y-4">
                 <h2 className="text-base font-semibold text-white">Aktif Stil Özeti</h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
@@ -331,8 +331,8 @@ export default function StyleProfilePage() {
                     ...(savedProfile.signature_closer ? [{ label: "Kapanış", value: savedProfile.signature_closer }] : []),
                     ...(savedProfile.avoid_words?.length ? [{ label: "Kaçınılan", value: `${savedProfile.avoid_words.length} kelime` }] : []),
                   ].map((item) => (
-                    <div key={item.label} className="rounded-lg bg-slate-800/60 p-3">
-                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                    <div key={item.label} className="rounded-lg bg-[var(--surface-card)] p-3">
+                      <p className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
                         {item.label}
                       </p>
                       <p className="text-sm text-white font-medium truncate">{item.value}</p>
@@ -340,7 +340,7 @@ export default function StyleProfilePage() {
                   ))}
                 </div>
                 {savedProfile.updated_at && (
-                  <p className="text-xs text-slate-600">
+                  <p className="text-xs text-[var(--text-secondary)]">
                     Son güncelleme:{" "}
                     {new Date(savedProfile.updated_at).toLocaleDateString("tr-TR", {
                       day: "2-digit",

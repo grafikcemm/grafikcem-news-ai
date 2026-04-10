@@ -23,14 +23,14 @@ const CATEGORIES = [
   { id: "design", label: "Tasarım", icon: "🎨", color: "bg-pink-100 text-pink-700" },
   { id: "automation", label: "Otomasyon", icon: "⚡", color: "bg-amber-100 text-amber-700" },
   { id: "freelance", label: "Freelance", icon: "💼", color: "bg-blue-100 text-blue-700" },
-  { id: "dev_tools", label: "Geliştirici Araçları", icon: "🛠️", color: "bg-emerald-100 text-emerald-700" },
+  { id: "dev_tools", label: "Geliştirici Araçları", icon: "🛠️", color: "bg-[var(--success-subtle)] text-[var(--success)]" },
   { id: "growth", label: "Büyüme & Algoritma", icon: "📈", color: "bg-orange-100 text-orange-700" },
 ];
 
 const PRIORITIES = [
   { id: "high", label: "Yüksek", color: "bg-red-100 text-red-700" },
   { id: "medium", label: "Orta", color: "bg-yellow-100 text-yellow-700" },
-  { id: "low", label: "Düşük", color: "bg-slate-100 text-slate-600" },
+  { id: "low", label: "Düşük", color: "bg-[var(--surface-elevated)] text-[var(--text-secondary)]" },
 ];
 
 const DEFAULT_TOPICS: Omit<Topic, "id" | "created_at">[] = [
@@ -291,14 +291,14 @@ export default function TopicsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1.5">
                       <h3 className="font-semibold text-(--text-primary) text-sm">{topic.name}</h3>
-                      <Badge className={`text-[10px] ${cat?.color || "bg-slate-100 text-slate-600"}`}>
+                      <Badge className={`text-[10px] ${cat?.color || "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>
                         {cat?.icon} {cat?.label}
                       </Badge>
-                      <Badge className={`text-[10px] ${pri?.color || "bg-slate-100 text-slate-600"}`}>
+                      <Badge className={`text-[10px] ${pri?.color || "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"}`}>
                         {pri?.label}
                       </Badge>
                       {!topic.is_active && (
-                        <Badge className="text-[10px] bg-slate-200 text-slate-500">Pasif</Badge>
+                        <Badge className="text-[10px] bg-[var(--surface-elevated)] text-[var(--text-tertiary)]">Pasif</Badge>
                       )}
                     </div>
                     {topic.keywords.length > 0 && (

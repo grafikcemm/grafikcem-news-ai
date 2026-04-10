@@ -137,7 +137,7 @@ export default function StoryboardPage() {
                    <p className="text-xl font-bold text-[var(--text-primary)] italic">"{h.text}"</p>
                    <p className="text-sm text-[var(--text-secondary)]">💡 Neden işe yarar: {h.why}</p>
                    <div className="flex gap-2 mt-2 w-full justify-end">
-                     <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(h.text)} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]">Kopyala</Button>
+                     <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(h.text)} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">Kopyala</Button>
                      <Button size="sm" onClick={() => saveHook(h.text)} className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white">Takvime Ekle</Button>
                    </div>
                  </CardContent>

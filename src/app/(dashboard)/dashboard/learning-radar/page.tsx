@@ -121,7 +121,7 @@ export default function LearningRadarPage() {
             <p className="text-[var(--text-secondary)] text-sm mt-1">Sizin için seçilmiş güncel tasarım ve AI odaklı öğrenim materyalleri.</p>
          </div>
          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setModalOpen(true)} className="bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] rounded-[var(--radius-md)]">+ Manuel Ekle</Button>
+            <Button variant="outline" onClick={() => setModalOpen(true)} className="bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] rounded-[var(--radius-md)]">+ Manuel Ekle</Button>
             <Button onClick={handleGenerate} disabled={generating} className="bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] font-medium rounded-[var(--radius-md)]">✨ AI ile Kaynak Bul</Button>
          </div>
       </div>
@@ -130,17 +130,17 @@ export default function LearningRadarPage() {
       <div className="bg-[var(--surface-raised)] border border-[var(--border-subtle)] p-4 rounded-[var(--radius-lg)] flex flex-wrap gap-4 items-center">
          <div className="flex bg-[var(--surface-base)] rounded-md p-1 border border-[var(--border-subtle)]">
             {['Tümü', 'Tasarım', 'AI', 'Freelance', 'İş Geliştirme'].map(c => (
-              <button key={c} onClick={() => setCatFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${catFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-sunken)]'}`}>{c}</button>
+              <button key={c} onClick={() => setCatFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${catFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)]'}`}>{c}</button>
             ))}
          </div>
          <div className="flex bg-[var(--surface-base)] rounded-md p-1 border border-[var(--border-subtle)]">
             {['Tümü', 'Kurs', 'Makale', 'Video', 'Araç', 'Kitap'].map(c => (
-              <button key={c} onClick={() => setTypeFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${typeFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-sunken)]'}`}>{c}</button>
+              <button key={c} onClick={() => setTypeFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${typeFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)]'}`}>{c}</button>
             ))}
          </div>
          <div className="flex bg-[var(--surface-base)] rounded-md p-1 border border-[var(--border-subtle)]">
             {['Tümü', 'Kaydedilenler', 'Tamamlananlar'].map(c => (
-              <button key={c} onClick={() => setStatusFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${statusFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-sunken)]'}`}>{c}</button>
+              <button key={c} onClick={() => setStatusFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${statusFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)]'}`}>{c}</button>
             ))}
          </div>
        </div>
@@ -176,8 +176,8 @@ export default function LearningRadarPage() {
                      <div className="mt-auto pt-4 border-t border-[var(--border-subtle)] flex items-center justify-between">
                          <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">{r.source}</span>
                          <div className="flex gap-2">
-                           {!r.is_completed && <Button variant="ghost" size="sm" onClick={() => completeResource(r)} className="h-7 px-2 text-[10px] text-[var(--text-tertiary)] hover:text-[var(--status-success)]">Tamamlandı ✓</Button>}
-                           <a href={r.url} target="_blank" rel="noopener noreferrer" className="h-7 px-3 flex items-center justify-center rounded-[var(--radius-md)] text-[10px] font-medium bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]">Ziyaret Et →</a>
+                           {!r.is_completed && <Button variant="ghost" size="sm" onClick={() => completeResource(r)} className="h-7 px-2 text-[10px] text-[var(--text-tertiary)] hover:text-[var(--success)]">Tamamlandı ✓</Button>}
+                           <a href={r.url} target="_blank" rel="noopener noreferrer" className="h-7 px-3 flex items-center justify-center rounded-[var(--radius-md)] text-[10px] font-medium bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">Ziyaret Et →</a>
                          </div>
                      </div>
                   </CardContent>

@@ -105,7 +105,7 @@ export default function ContentPlanPage() {
           {plan?.week_theme && <p className="text-[var(--accent)] text-sm mt-1 font-semibold">Tema: {plan.week_theme}</p>}
         </div>
         <div className="flex gap-2">
-          {plan && <Button variant="outline" onClick={addAllToCalendar} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] rounded-[var(--radius-md)]">Tümünü Takvime Ekle</Button>}
+          {plan && <Button variant="outline" onClick={addAllToCalendar} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] rounded-[var(--radius-md)]">Tümünü Takvime Ekle</Button>}
           <Button onClick={handleGenerate} disabled={loading} className="bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-[var(--radius-md)]">
             {loading ? "AI Plan Üretiyor..." : "AI Plan Üret"}
           </Button>
@@ -151,7 +151,7 @@ export default function ContentPlanPage() {
                         </div>
 
                         <div className="mt-auto grid grid-cols-2 gap-2">
-                           <Button size="sm" onClick={() => addSingleToCalendar(c)} className="w-full text-[10px] bg-[var(--surface-overlay)] hover:bg-[var(--surface-sunken)] text-[var(--text-primary)] border border-[var(--border-default)] h-7 rounded-[var(--radius-md)]">Takvime Ekle</Button>
+                           <Button size="sm" onClick={() => addSingleToCalendar(c)} className="w-full text-[10px] bg-[var(--surface-overlay)] hover:bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border-default)] h-7 rounded-[var(--radius-md)]">Takvime Ekle</Button>
                            <Button size="sm" onClick={() => handleStoryboard(c)} className="w-full text-[10px] bg-transparent border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white h-7 rounded-[var(--radius-md)]">Storyboard</Button>
                         </div>
                      </CardContent>

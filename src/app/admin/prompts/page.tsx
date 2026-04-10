@@ -67,23 +67,23 @@ export default function AdminPromptsPage() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Prompt Yönetimi</h1>
-        <p className="text-slate-500 text-sm">Toplu title_tr düzenleme (Auto-save on blur)</p>
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Prompt Yönetimi</h1>
+        <p className="text-[var(--text-tertiary)] text-sm">Toplu title_tr düzenleme (Auto-save on blur)</p>
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-[var(--surface-card)] rounded-lg shadow-sm border border-[var(--border-subtle)] overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-4">
             {[1, 2, 3].map((i) => <Skeleton key={i} className="h-12 w-full" />)}
           </div>
         ) : prompts.length === 0 ? (
-          <div className="p-8 text-center text-slate-500 font-medium">
+          <div className="p-8 text-center text-[var(--text-tertiary)] font-medium">
             Veritabanında hiç prompt bulunamadı. JSON verileri &apos;prompts&apos; tablosuna taşındıysa burada listelenecektir.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-slate-50 text-slate-600 border-b">
+              <thead className="bg-[var(--surface-elevated)] text-[var(--text-secondary)] border-b">
                 <tr>
                   <th className="px-4 py-3 font-medium">ID / Kategori</th>
                   <th className="px-4 py-3 font-medium cursor-help" title="title_original (İngilizce)">English Title</th>
@@ -93,12 +93,12 @@ export default function AdminPromptsPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {prompts.map((p) => (
-                  <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={p.id} className="hover:bg-[var(--surface-elevated)] transition-colors">
                     <td className="px-4 py-3 align-top whitespace-nowrap">
-                      <span className="text-xs text-slate-400 block mb-1 truncate w-24" title={p.id}>{p.id.split('-')[0]}...</span>
-                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{p.category}</span>
+                      <span className="text-xs text-[var(--text-tertiary)] block mb-1 truncate w-24" title={p.id}>{p.id.split('-')[0]}...</span>
+                      <span className="text-[10px] bg-[var(--surface-elevated)] text-[var(--text-secondary)] px-2 py-0.5 rounded-full">{p.category}</span>
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-600 max-w-[200px]">
+                    <td className="px-4 py-3 align-top text-[var(--text-secondary)] max-w-[200px]">
                       {p.title_original}
                     </td>
                     <td className="px-4 py-3 align-top max-w-[250px]">
@@ -113,7 +113,7 @@ export default function AdminPromptsPage() {
                         placeholder="Türkçe başlık..."
                       />
                     </td>
-                    <td className="px-4 py-3 align-top text-slate-500 text-xs max-w-[300px] truncate">
+                    <td className="px-4 py-3 align-top text-[var(--text-tertiary)] text-xs max-w-[300px] truncate">
                       {p.description_tr}
                     </td>
                   </tr>

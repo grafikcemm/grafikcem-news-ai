@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       .from("leads")
       .select("*")
       .eq("id", leadId)
-      .single();
+      .maybeSingle();
 
     if (fetchError || !lead) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
@@ -82,14 +82,7 @@ LEAD BİLGİLERİ:
     }
 
     const response = await anthropicRes.json();
-    let rawOutput = response.content[0].type === 'text' ? response.content[0].text : "";
-    rawOutput = rawOutput.trim();
-    if (rawOutput.startsWith("```json")) {
-      rawOutput = rawOutput.replace(/```json/g, "").replace(/```/g, "").trim();
-    } else if (rawOutput.startsWith("```")) {
-      rawOutput = rawOutput.replace(/```/g, "").trim();
-    }
-
+    const rawOutput = response.content[0].type === 'text' ? response.content[0].text : "";
     const parsedJson = parseClaudeJSON<any>(rawOutput);
 
     // 3. Update Supabase

@@ -53,13 +53,12 @@ GrafikCem stili hook'lar şunlara odaklanır:
 
     const response = await anthropicRes.json();
     const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-    const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-
+    
     let parsed;
     try {
-      parsed = parseClaudeJSON<any>(text);
+      parsed = parseClaudeJSON<any>(rawText);
     } catch {
-      console.error("Claude JSON Parse Error:", text);
+      console.error("Claude JSON Parse Error:", rawText);
       return NextResponse.json({ error: "AI geçersiz format döndürdü" }, { status: 500 });
     }
 

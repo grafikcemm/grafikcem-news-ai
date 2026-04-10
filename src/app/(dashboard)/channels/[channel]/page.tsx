@@ -34,9 +34,9 @@ const CHANNEL_CONFIG = {
     label: "@maskulenkod",
     description: "X (Twitter) — Disiplin & Mentorluk",
     color: "slate",
-    accent: "bg-slate-800",
-    light: "bg-slate-50 border-slate-200",
-    badge: "bg-slate-100 text-slate-700",
+    accent: "bg-[var(--surface-elevated)]",
+    light: "bg-slate-50 border-[var(--border-subtle)]",
+    badge: "bg-[var(--surface-elevated)] text-slate-700",
   },
   linkedin: {
     label: "LinkedIn",
@@ -122,7 +122,7 @@ function ContentCard({
   const isLong = charCount > maxChar;
 
   return (
-    <Card className={`border shadow-sm transition-all ${isSelected ? 'border-blue-400 bg-blue-50/10' : 'border-slate-200 bg-white'}`}>
+    <Card className={`border shadow-sm transition-all ${isSelected ? 'border-blue-400 bg-blue-50/10' : 'border-[var(--border-subtle)] bg-[var(--surface-card)]'}`}>
       <CardContent className="p-4 relative">
         {onToggleSelect && (
           <input
@@ -187,7 +187,7 @@ function ContentCard({
 
         {/* Actions */}
         {item.status === "draft" && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-subtle)]">
             <Button
               size="sm"
               variant="outline"
@@ -222,7 +222,7 @@ function ContentCard({
           </div>
         )}
         {item.status === "used" && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-subtle)]">
             <Button size="sm" variant="outline" className="text-xs h-7 px-3" onClick={handleCopy}>
               📋 Kopyala
             </Button>
@@ -325,13 +325,13 @@ export default function ChannelPage() {
         {days.map((day, i) => {
           const dayItems = items.filter((_, idx) => (idx % 7) === i);
           return (
-            <div key={day} className="border border-slate-200 rounded-lg bg-slate-50 min-h-[300px] flex flex-col">
-              <div className="bg-slate-100 border-b border-slate-200 px-3 py-2 text-center text-xs font-bold text-slate-500">
+            <div key={day} className="border border-[var(--border-subtle)] rounded-lg bg-slate-50 min-h-[300px] flex flex-col">
+              <div className="bg-[var(--surface-elevated)] border-b border-[var(--border-subtle)] px-3 py-2 text-center text-xs font-bold text-slate-500">
                 {day}
               </div>
               <div className="p-2 space-y-2 flex-1 relative">
                 {dayItems.map(item => (
-                  <div key={item.id} className="bg-white border flex flex-col border-slate-300 rounded p-2 text-[10px] shadow-sm overflow-hidden">
+                  <div key={item.id} className="bg-[var(--surface-card)] border flex flex-col border-slate-300 rounded p-2 text-[10px] shadow-sm overflow-hidden">
                      <span className="line-clamp-4 text-slate-700">{item.content}</span>
                      <div className="mt-1 flex items-center justify-between">
                        <StatusDot status={item.status} />
@@ -390,14 +390,14 @@ export default function ChannelPage() {
 
       {/* Views & Tabs */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex gap-1 bg-slate-100 p-1 rounded-lg w-fit">
+        <div className="flex gap-1 bg-[var(--surface-elevated)] p-1 rounded-lg w-fit">
           {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => handleTabChange(tab.key)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                 activeTab === tab.key
-                  ? "bg-white text-slate-900 shadow-sm"
+                  ? "bg-[var(--surface-card)] text-slate-900 shadow-sm"
                   : "text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -412,16 +412,16 @@ export default function ChannelPage() {
               📥 Seçili İndir ({selectedIds.size})
             </Button>
           )}
-          <div className="flex bg-slate-100 p-1 rounded-lg">
+          <div className="flex bg-[var(--surface-elevated)] p-1 rounded-lg">
             <button 
               onClick={() => setViewMode("list")} 
-              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "list" ? "bg-white shadow-sm" : "text-slate-500"}`}
+              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "list" ? "bg-[var(--surface-card)] shadow-sm" : "text-slate-500"}`}
             >
               Liste
             </button>
             <button 
               onClick={() => setViewMode("calendar")} 
-              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "calendar" ? "bg-white shadow-sm" : "text-slate-500"}`}
+              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "calendar" ? "bg-[var(--surface-card)] shadow-sm" : "text-slate-500"}`}
             >
               Takvim
             </button>

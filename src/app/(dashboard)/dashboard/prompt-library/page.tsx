@@ -348,38 +348,38 @@ export default function PromptLibraryPage() {
       
       {/* ADD CUSTOM MODAL */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-slate-200">
+        <DialogContent className="bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]">
           <DialogHeader>
             <DialogTitle>Yeni Prompt Ekle</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">İngilizce Başlık (Zorunlu)</label>
-              <input type="text" value={customPrompt.title} onChange={e => setCustomPrompt({...customPrompt, title: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white" />
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">İngilizce Başlık (Zorunlu)</label>
+              <input type="text" value={customPrompt.title} onChange={e => setCustomPrompt({...customPrompt, title: e.target.value})} className="w-full bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-md p-2 text-sm text-white" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">Türkçe Başlık (Opsiyonel)</label>
-              <input type="text" value={customPrompt.titleTr} onChange={e => setCustomPrompt({...customPrompt, titleTr: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white" />
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">Türkçe Başlık (Opsiyonel)</label>
+              <input type="text" value={customPrompt.titleTr} onChange={e => setCustomPrompt({...customPrompt, titleTr: e.target.value})} className="w-full bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-md p-2 text-sm text-white" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">İçerik (Zorunlu)</label>
-              <textarea value={customPrompt.body} onChange={e => setCustomPrompt({...customPrompt, body: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white h-24" />
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">İçerik (Zorunlu)</label>
+              <textarea value={customPrompt.body} onChange={e => setCustomPrompt({...customPrompt, body: e.target.value})} className="w-full bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-md p-2 text-sm text-white h-24" />
             </div>
             <div className="flex gap-4">
               <div className="space-y-2 flex-1">
-                <label className="text-xs font-medium text-slate-400">Kategori</label>
-                <select value={customPrompt.category} onChange={e => setCustomPrompt({...customPrompt, category: e.target.value})} className="w-full bg-slate-800 border-slate-700 rounded-md p-2 text-sm text-white">
+                <label className="text-xs font-medium text-[var(--text-tertiary)]">Kategori</label>
+                <select value={customPrompt.category} onChange={e => setCustomPrompt({...customPrompt, category: e.target.value})} className="w-full bg-[var(--surface-elevated)] border-[var(--border-subtle)] rounded-md p-2 text-sm text-white">
                   {ALL_CATEGORIES.filter(c => c !== 'Tümü').map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div className="space-y-2 flex-1">
-                <label className="text-xs font-medium text-slate-400">Puan: {customPrompt.rating}</label>
+                <label className="text-xs font-medium text-[var(--text-tertiary)]">Puan: {customPrompt.rating}</label>
                 <input type="range" min="1" max="10" value={customPrompt.rating} onChange={e => setCustomPrompt({...customPrompt, rating: Number(e.target.value)})} className="w-full" />
               </div>
             </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
-            <button onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white">İptal</button>
+            <button onClick={() => setAddModalOpen(false)} className="px-4 py-2 text-sm text-[var(--text-tertiary)] hover:text-white">İptal</button>
             <button onClick={handleAddCustom} className="px-4 py-2 text-sm bg-[#C8F135] text-black font-semibold rounded-md">Kaydet</button>
           </div>
         </DialogContent>

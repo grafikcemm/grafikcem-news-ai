@@ -134,8 +134,8 @@ export default function ContentCalendarPage() {
           <div className="flex items-center justify-between p-4 border-b border-[var(--border-subtle)]">
             <h2 className="text-lg font-bold text-[var(--text-primary)] capitalize">{format(currentDate, "MMMM yyyy", { locale: tr })}</h2>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handlePrevMonth} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]">←</Button>
-              <Button variant="outline" size="sm" onClick={handleNextMonth} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)]">→</Button>
+              <Button variant="outline" size="sm" onClick={handlePrevMonth} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">←</Button>
+              <Button variant="outline" size="sm" onClick={handleNextMonth} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">→</Button>
             </div>
           </div>
           <div className="grid grid-cols-7 border-b border-[var(--border-subtle)]">
@@ -172,7 +172,7 @@ export default function ContentCalendarPage() {
               <div><span className="w-2.5 h-2.5 inline-block rounded-full mr-2" style={{ backgroundColor: PLATFORM_COLORS[item.platform] || '#888' }} /></div>
               <div className="flex-1 font-semibold">{item.title}</div>
               <div className="text-xs text-[var(--text-tertiary)] bg-[var(--surface-overlay)] px-2 py-1 rounded-[var(--radius-md)] border border-[var(--border-default)]">{item.format}</div>
-              <div className={`text-xs font-medium px-2 py-1 rounded-[var(--radius-md)] border ${item.status==='Yayınlandı' ? 'border-[var(--status-success)] text-[var(--status-success)]' : 'border-[var(--border-default)] text-[var(--text-secondary)]'}`}>{item.status}</div>
+              <div className={`text-xs font-medium px-2 py-1 rounded-[var(--radius-md)] border ${item.status==='Yayınlandı' ? 'border-[var(--success)] text-[var(--success)]' : 'border-[var(--border-default)] text-[var(--text-secondary)]'}`}>{item.status}</div>
             </div>
           ))}
           {filteredItems.length === 0 && <div className="p-8 text-center text-[var(--text-tertiary)]">Veri bulunamadı.</div>}

@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       .from("news_items")
       .select("*")
       .eq("id", news_id)
-      .single();
+      .maybeSingle();
 
     if (!newsItem) {
       return NextResponse.json({ error: "News item not found" }, { status: 404 });

@@ -103,8 +103,8 @@ export default function QuoteSuggestionsPage() {
     <div className="p-4 lg:p-8 space-y-6">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Quote & Reply</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Quote & Reply</h1>
+          <p className="text-[var(--text-tertiary)] text-sm mt-1">
             Viral tweetlere quote veya reply üret, görünürlüğünü artır
           </p>
         </div>
@@ -128,15 +128,15 @@ export default function QuoteSuggestionsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-slate-100 rounded-lg w-fit">
+      <div className="flex gap-1 p-1 bg-[var(--surface-elevated)] rounded-lg w-fit">
         {(["quote", "reply"] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
               tab === t
-                ? "bg-white text-slate-900 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+                ? "bg-[var(--surface-card)] text-[var(--text-primary)] shadow-sm"
+                : "text-[var(--text-tertiary)] hover:text-slate-700"
             }`}
           >
             {t === "quote" ? "Quote Tweet" : "Reply"}
@@ -149,13 +149,13 @@ export default function QuoteSuggestionsPage() {
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-40 w-full" />)}
         </div>
       ) : tweets.length === 0 ? (
-        <Card className="border-0 shadow-sm bg-white">
+        <Card className="border-0 shadow-sm bg-[var(--surface-card)]">
           <CardContent className="p-16 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <div className="w-16 h-16 rounded-2xl bg-[var(--surface-elevated)] flex items-center justify-center mx-auto mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             </div>
-            <p className="font-medium text-slate-600">Henüz viral tweet yok</p>
-            <p className="text-slate-400 text-sm mt-1">"Viral Tweetleri Çek" butonuna tıkla</p>
+            <p className="font-medium text-[var(--text-secondary)]">Henüz viral tweet yok</p>
+            <p className="text-[var(--text-tertiary)] text-sm mt-1">"Viral Tweetleri Çek" butonuna tıkla</p>
           </CardContent>
         </Card>
       ) : (
@@ -165,7 +165,7 @@ export default function QuoteSuggestionsPage() {
             const isGenerating = generating[tweet.id];
 
             return (
-              <Card key={tweet.id} className="border-0 shadow-sm bg-white">
+              <Card key={tweet.id} className="border-0 shadow-sm bg-[var(--surface-card)]">
                 <CardContent className="p-5 space-y-4">
                   {/* Original tweet */}
                   <div className="flex items-start gap-3">
@@ -174,7 +174,7 @@ export default function QuoteSuggestionsPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-slate-900 text-sm">@{tweet.author_handle}</span>
+                        <span className="font-semibold text-[var(--text-primary)] text-sm">@{tweet.author_handle}</span>
                         <Badge variant="secondary" className="text-[10px]">
                           {tweet.likes.toLocaleString()} like
                         </Badge>
@@ -200,7 +200,7 @@ export default function QuoteSuggestionsPage() {
                         <Button size="sm" variant="outline" onClick={() => copyToClipboard(genText)} className="text-xs">
                           Kopyala
                         </Button>
-                        <Button size="sm" onClick={() => openOnX(genText)} className="text-xs bg-slate-900 hover:bg-slate-800 text-white">
+                        <Button size="sm" onClick={() => openOnX(genText)} className="text-xs bg-[var(--surface-raised)] hover:bg-[var(--surface-elevated)] text-white">
                           X&apos;te Paylaş
                         </Button>
                       </div>

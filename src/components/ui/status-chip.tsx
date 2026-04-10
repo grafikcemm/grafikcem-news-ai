@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-export type StatusType = "draft" | "active" | "done" | "pending";
+export type StatusType = "draft" | "active" | "done" | "pending" | "discovered" | "researched" | "contacted" | "won" | "lost" | "published";
 
 interface StatusChipProps extends React.HTMLAttributes<HTMLDivElement> {
   status: StatusType;
@@ -9,14 +9,20 @@ interface StatusChipProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const statusConfig: Record<StatusType, { class: string, defaultLabel: string }> = {
-  draft: { class: "bg-[var(--surface-overlay)] text-[var(--text-tertiary)]", defaultLabel: "Draft" },
-  active: { class: "bg-[var(--status-info-subtle)] text-[var(--status-info)]", defaultLabel: "Active" },
-  done: { class: "bg-[var(--status-success-subtle)] text-[var(--status-success)]", defaultLabel: "Done" },
-  pending: { class: "bg-[var(--status-warning-subtle)] text-[var(--status-warning)]", defaultLabel: "Pending" }
+  draft: { class: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]", defaultLabel: "Taslak" },
+  active: { class: "bg-[var(--info-subtle)] text-[var(--info)]", defaultLabel: "Aktif" },
+  done: { class: "bg-[var(--success-subtle)] text-[var(--success)]", defaultLabel: "Tamamlandı" },
+  pending: { class: "bg-[var(--warning-subtle)] text-[var(--warning)]", defaultLabel: "Bekliyor" },
+  discovered: { class: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]", defaultLabel: "Keşfedildi" },
+  researched: { class: "bg-[var(--info-subtle)] text-[var(--info)]", defaultLabel: "Araştırıldı" },
+  contacted: { class: "bg-[var(--warning-subtle)] text-[var(--warning)]", defaultLabel: "İletişime Geçildi" },
+  won: { class: "bg-[var(--success-subtle)] text-[var(--success)]", defaultLabel: "Kazanıldı" },
+  lost: { class: "bg-[var(--danger-subtle)] text-[var(--danger)]", defaultLabel: "Kaybedildi" },
+  published: { class: "bg-[var(--success-subtle)] text-[var(--success)]", defaultLabel: "Yayınlandı" },
 };
 
 export function StatusChip({ status, label, className, ...props }: StatusChipProps) {
-  const config = statusConfig[status];
+  const config = statusConfig[status] || statusConfig.draft;
 
   return (
     <div

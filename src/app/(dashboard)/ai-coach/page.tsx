@@ -104,15 +104,15 @@ export default function AICoachPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-0px)] lg:h-screen">
       {/* Header */}
-      <div className="p-4 lg:p-6 border-b border-slate-100 bg-white">
-        <h1 className="text-xl font-bold text-slate-900">AI Koç</h1>
-        <p className="text-slate-500 text-sm mt-0.5">
+      <div className="p-4 lg:p-6 border-b border-[var(--border-subtle)] bg-[var(--surface-card)]">
+        <h1 className="text-xl font-bold text-[var(--text-primary)]">AI Koç</h1>
+        <p className="text-[var(--text-tertiary)] text-sm mt-0.5">
           Kişisel X büyüme koçun — spesifik, uygulanabilir tavsiyeler
         </p>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 bg-slate-50">
+      <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 bg-[var(--surface-elevated)]">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center space-y-6 py-12">
             <div className="w-16 h-16 rounded-2xl bg-linear-to-br from-blue-500 to-violet-500 flex items-center justify-center">
@@ -120,7 +120,7 @@ export default function AICoachPage() {
             </div>
             <div>
               <h3 className="font-semibold text-slate-800 text-lg">Merhaba, ben senin X Koçun</h3>
-              <p className="text-slate-500 text-sm mt-1 max-w-sm">
+              <p className="text-[var(--text-tertiary)] text-sm mt-1 max-w-sm">
                 @grafikcem için özel olarak ayarlandım. Sana spesifik ve uygulanabilir tavsiyeler vereceğim.
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function AICoachPage() {
                 <button
                   key={q}
                   onClick={() => sendMessage(q)}
-                  className="text-sm px-3 py-1.5 rounded-full bg-white border border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600 transition-colors"
+                  className="text-sm px-3 py-1.5 rounded-full bg-[var(--surface-card)] border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-indigo-300 hover:text-indigo-600 transition-colors"
                 >
                   {q}
                 </button>
@@ -147,14 +147,14 @@ export default function AICoachPage() {
               className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                 msg.role === "user"
                   ? "bg-linear-to-r from-blue-500 to-violet-500 text-white"
-                  : "bg-white text-slate-800 shadow-sm"
+                  : "bg-[var(--surface-card)] text-slate-800 shadow-sm"
               }`}
             >
               {msg.content || (
                 <span className="flex gap-1 items-center">
-                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                  <span className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                  <span className="w-1.5 h-1.5 bg-[var(--text-tertiary)] rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-1.5 h-1.5 bg-[var(--text-tertiary)] rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-1.5 h-1.5 bg-[var(--text-tertiary)] rounded-full animate-bounce [animation-delay:300ms]" />
                 </span>
               )}
             </div>
@@ -165,25 +165,25 @@ export default function AICoachPage() {
 
       {/* Action bar for last assistant message */}
       {messages.some((m) => m.role === "assistant" && m.content) && !streaming && (
-        <div className="px-4 py-2 bg-white border-t border-slate-100 flex gap-2">
+        <div className="px-4 py-2 bg-[var(--surface-card)] border-t border-[var(--border-subtle)] flex gap-2">
           <Button variant="outline" size="sm" onClick={copyLast} className="text-xs">
             Kopyala
           </Button>
-          <Button size="sm" onClick={convertToTweet} className="text-xs bg-slate-900 hover:bg-slate-800 text-white">
+          <Button size="sm" onClick={convertToTweet} className="text-xs bg-[var(--surface-raised)] hover:bg-[var(--surface-elevated)] text-white">
             Tweet Olarak Üret
           </Button>
         </div>
       )}
 
       {/* Input */}
-      <div className="p-4 bg-white border-t border-slate-100">
+      <div className="p-4 bg-[var(--surface-card)] border-t border-[var(--border-subtle)]">
         {messages.length > 0 && !streaming && (
           <div className="flex flex-wrap gap-2 mb-3">
             {SUGGESTED_QUESTIONS.slice(0, 3).map((q) => (
               <button
                 key={q}
                 onClick={() => sendMessage(q)}
-                className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
+                className="text-xs px-2.5 py-1 rounded-full bg-[var(--surface-elevated)] text-[var(--text-tertiary)] hover:bg-indigo-100 hover:text-indigo-600 transition-colors"
               >
                 {q}
               </button>

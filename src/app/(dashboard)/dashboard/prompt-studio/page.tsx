@@ -30,23 +30,23 @@ function VariationCard({ variation, onCopy, onSave }: { variation: Variation; on
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-slate-700/60 bg-slate-800/50 p-5 hover:border-slate-600 transition-colors">
+    <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-5 hover:border-slate-600 transition-colors">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-lg">{variation.icon}</span>
           <span className="font-semibold text-white text-sm">{variation.label}</span>
         </div>
-        <span className="text-[10px] font-medium text-slate-400 bg-slate-700/60 rounded-full px-2 py-0.5 whitespace-nowrap">
+        <span className="text-[10px] font-medium text-[var(--text-tertiary)] bg-[var(--surface-overlay)] rounded-full px-2 py-0.5 whitespace-nowrap">
           {variation.best_for}
         </span>
       </div>
 
       <div className="flex-1">
-        <p className="text-sm font-mono text-slate-200 leading-relaxed whitespace-pre-wrap break-words">
+        <p className="text-sm font-mono text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap break-words">
           {variation.prompt}
         </p>
         {variation.negative_prompt && (
-          <p className="mt-3 text-xs font-mono text-slate-500 leading-relaxed">
+          <p className="mt-3 text-xs font-mono text-[var(--text-tertiary)] leading-relaxed">
             {variation.negative_prompt}
           </p>
         )}
@@ -58,7 +58,7 @@ function VariationCard({ variation, onCopy, onSave }: { variation: Variation; on
           className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
             copied
               ? "bg-[#C8F135]/20 text-[#C8F135] border border-[#C8F135]/40"
-              : "bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white border border-slate-600/40 hover:border-slate-500"
+              : "bg-[var(--surface-overlay)] text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-white border border-slate-600/40 hover:border-slate-500"
           }`}
         >
           {copied ? "✅ Kopyalandı!" : "📋 Kopyala"}
@@ -70,7 +70,7 @@ function VariationCard({ variation, onCopy, onSave }: { variation: Variation; on
               : variation.prompt;
             onSave(fullText);
           }}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold bg-white/5 text-white hover:bg-white/10 transition-colors border border-white/10"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold bg-[var(--surface-elevated)] text-white hover:bg-[var(--surface-card)]/10 transition-colors border border-white/10"
         >
           Kütüphaneye Kaydet
         </button>
@@ -91,16 +91,16 @@ function ModeButton({ config, active, onClick }: { config: ModeConfig; active: b
         className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
           active
             ? "bg-[#C8F135]/15 text-[#C8F135] border border-[#C8F135]/40"
-            : "text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent"
+            : "text-[var(--text-tertiary)] hover:text-white hover:bg-[var(--surface-card)] border border-transparent"
         }`}
       >
         <span className="text-base">{config.icon}</span>
         <span>{config.label}</span>
       </button>
       {showTooltip && (
-        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-56 rounded-lg bg-slate-700 border border-slate-600 px-3 py-2 text-xs text-slate-300 shadow-xl pointer-events-none">
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-56 rounded-lg bg-[var(--surface-overlay)] border border-slate-600 px-3 py-2 text-xs text-[var(--text-secondary)] shadow-xl pointer-events-none">
           {config.tooltip}
-          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-700 border-l border-t border-slate-600 rotate-45" />
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-[var(--surface-overlay)] border-l border-t border-slate-600 rotate-45" />
         </div>
       )}
     </div>
@@ -217,18 +217,18 @@ export default function PromptStudioPage() {
   const activeMode = MODES_CONFIG.find((m) => m.id === selectedMode)!;
 
   return (
-    <div className="min-h-screen bg-slate-950 p-6 lg:p-8">
+    <div className="min-h-screen bg-[var(--surface-base)] p-6 lg:p-8">
       <div className="max-w-6xl mx-auto space-y-8">
 
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Prompt Studio</h1>
-          <p className="mt-1 text-sm text-slate-400">Ham fikrinden → Hazır İngilizce prompt</p>
+          <p className="mt-1 text-sm text-[var(--text-tertiary)]">Ham fikrinden → Hazır İngilizce prompt</p>
         </div>
 
         {/* Mode Selector */}
         <div className="overflow-x-auto">
-          <div className="flex gap-1.5 p-1.5 bg-slate-900 border border-slate-700/60 rounded-xl w-fit">
+          <div className="flex gap-1.5 p-1.5 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-xl w-fit">
             {MODES_CONFIG.map((config) => (
               <ModeButton
                 key={config.id}
@@ -247,11 +247,11 @@ export default function PromptStudioPage() {
         <div className="space-y-3">
           
           <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-medium text-slate-300">Hangi model için?</span>
+            <span className="text-sm font-medium text-[var(--text-secondary)]">Hangi model için?</span>
             <select
               value={selectedAiModel}
               onChange={(e) => setSelectedAiModel(e.target.value)}
-              className="bg-slate-900 border border-slate-700/60 rounded-md text-sm text-slate-200 px-3 py-1 focus:outline-none focus:border-[#C8F135]/40"
+              className="bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-md text-sm text-[var(--text-primary)] px-3 py-1 focus:outline-none focus:border-[#C8F135]/40"
             >
               {["Genel", "Midjourney", "Sora", "Kling", "Stable Diffusion", "Ideogram"].map((m) => (
                 <option key={m} value={m}>{m}</option>
@@ -270,15 +270,15 @@ export default function PromptStudioPage() {
               placeholder={`${activeMode.icon} Türkçe fikrini yaz...\n(örn: kırmızı bir spor araba yağmurlu gecede hızla gidiyor)`}
               rows={4}
               maxLength={1000}
-              className="w-full rounded-xl border border-slate-700/60 bg-slate-900 px-5 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#C8F135]/40 focus:ring-1 focus:ring-[#C8F135]/20 resize-none transition-colors font-mono"
+              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-5 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#C8F135]/40 focus:ring-1 focus:ring-[#C8F135]/20 resize-none transition-colors font-mono"
             />
-            <div className="absolute bottom-3 right-4 text-xs text-slate-600">
+            <div className="absolute bottom-3 right-4 text-xs text-[var(--text-secondary)]">
               {userInput.length}/1000
             </div>
           </div>
 
           <div className="flex items-center justify-between">
-            <p className="text-xs text-slate-600">⌘+Enter ile üret</p>
+            <p className="text-xs text-[var(--text-secondary)]">⌘+Enter ile üret</p>
             <button
               onClick={handleGenerate}
               disabled={loading || !userInput.trim()}
@@ -300,11 +300,11 @@ export default function PromptStudioPage() {
         {variations && variations.length > 0 && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-800" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+              <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
+              <span className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                 {activeMode.icon} {activeMode.label} — 3 Varyasyon
               </span>
-              <div className="h-px flex-1 bg-slate-800" />
+              <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {variations.map((v, i) => (
@@ -326,16 +326,16 @@ export default function PromptStudioPage() {
         {history.length > 0 && (
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-slate-800" />
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Son Üretimler</span>
-              <div className="h-px flex-1 bg-slate-800" />
+              <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
+              <span className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">Son Üretimler</span>
+              <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
             </div>
             
             <div className="mb-4">
               <input
                 type="text"
                 placeholder="Geçmişte ara..."
-                className="w-full bg-slate-900 border border-slate-700/60 text-sm text-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:border-[#C8F135]/40"
+                className="w-full bg-[var(--surface-raised)] border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] rounded-lg px-4 py-2 focus:outline-none focus:border-[#C8F135]/40"
                 onChange={(e) => {
                   const q = e.target.value.toLowerCase();
                   if (!q) {
@@ -353,19 +353,19 @@ export default function PromptStudioPage() {
                 return (
                   <div
                     key={entry.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-3 hover:border-slate-700 transition-colors"
+                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-[var(--surface-card)] px-4 py-3 hover:border-[var(--border-subtle)] transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="text-base flex-shrink-0">{modeConf?.icon}</span>
-                      <span className="text-sm text-slate-300 truncate">{entry.userInput}</span>
+                      <span className="text-sm text-[var(--text-secondary)] truncate">{entry.userInput}</span>
                     </div>
                     <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className="text-xs text-slate-600">
+                      <span className="text-xs text-[var(--text-secondary)]">
                         {new Date(entry.createdAt).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
                       </span>
                       <button
                         onClick={() => handleHistoryReuse(entry)}
-                        className="text-xs text-slate-400 hover:text-[#C8F135] transition-colors font-medium whitespace-nowrap"
+                        className="text-xs text-[var(--text-tertiary)] hover:text-[#C8F135] transition-colors font-medium whitespace-nowrap"
                       >
                         Tekrar Üret →
                       </button>
@@ -379,36 +379,36 @@ export default function PromptStudioPage() {
       </div>
 
       <Dialog open={saveModalOpen} onOpenChange={setSaveModalOpen}>
-        <DialogContent className="bg-slate-900 border-slate-700 text-slate-200">
+        <DialogContent className="bg-[var(--surface-raised)] border-[var(--border-subtle)] text-[var(--text-primary)]">
           <DialogHeader>
             <DialogTitle>Kütüphaneye Kaydet</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">Türkçe Başlık</label>
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">Türkçe Başlık</label>
               <input
                 type="text"
                 value={saveData.titleTr}
                 onChange={(e) => setSaveData({ ...saveData, titleTr: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
+                className="w-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
                 placeholder="Örn: Sinematik Portre"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">İngilizce / Orjinal Başlık (Opsiyonel)</label>
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">İngilizce / Orjinal Başlık (Opsiyonel)</label>
               <input
                 type="text"
                 value={saveData.title}
                 onChange={(e) => setSaveData({ ...saveData, title: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
+                className="w-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">Kategori</label>
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">Kategori</label>
               <select
                 value={saveData.category}
                 onChange={(e) => setSaveData({ ...saveData, category: e.target.value })}
-                className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
+                className="w-full bg-[var(--surface-elevated)] border border-[var(--border-subtle)] rounded-md px-3 py-2 text-sm text-white focus:outline-none focus:border-[#C8F135]/50"
               >
                 {["Midjourney", "Sora", "Genel", "Kling", "Tasarım"].map((c) => (
                   <option key={c} value={c}>{c}</option>
@@ -416,7 +416,7 @@ export default function PromptStudioPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-medium text-slate-400">Puan: {saveData.rating}</label>
+              <label className="text-xs font-medium text-[var(--text-tertiary)]">Puan: {saveData.rating}</label>
               <input
                 type="range"
                 min="1"
@@ -430,14 +430,14 @@ export default function PromptStudioPage() {
           <DialogFooter>
             <button
               onClick={() => setSaveModalOpen(false)}
-              className="px-4 py-2 rounded-md text-sm text-slate-400 hover:text-white"
+              className="px-4 py-2 rounded-md text-sm text-[var(--text-tertiary)] hover:text-white"
             >
               İptal
             </button>
             <button
               onClick={handleSaveToLibrary}
               disabled={saving}
-              className="px-4 py-2 rounded-md text-sm bg-[#C8F135] text-slate-900 font-semibold hover:bg-opacity-90"
+              className="px-4 py-2 rounded-md text-sm bg-[#C8F135] text-[var(--text-primary)] font-semibold hover:bg-opacity-90"
             >
               {saving ? "Kaydediliyor..." : "Kaydet"}
             </button>

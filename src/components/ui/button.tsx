@@ -6,15 +6,15 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "group/button inline-flex shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all duration-150 ease-in-out outline-none select-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-subtle)] active:translate-y-px disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "group/button inline-flex shrink-0 items-center justify-center rounded-[var(--radius-md)] border border-transparent bg-clip-padding font-medium whitespace-nowrap transition-all duration-150 ease-in-out outline-none select-none focus-visible:border-[var(--accent)] focus-visible:ring-2 focus-visible:ring-[var(--accent-subtle)] active:translate-y-px disabled:pointer-events-none disabled:opacity-40 disabled:cursor-not-allowed [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]",
-        secondary: "bg-[var(--surface-overlay)] text-[var(--text-primary)] border-[var(--border-default)] hover:border-[var(--border-strong)]",
-        ghost: "bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-[var(--text-primary)]",
-        destructive: "bg-[var(--status-danger-subtle)] text-[var(--status-danger)] border-[rgba(224,90,90,0.2)]",
-        outline: "bg-transparent text-[var(--text-primary)] border-[var(--border-default)] hover:border-[var(--border-strong)]",
+        default: "bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] shadow-[0_0_0_0_var(--accent-glow)] hover:shadow-[0_0_12px_var(--accent-glow)]",
+        secondary: "bg-[var(--surface-elevated)] text-[var(--text-primary)] border-[var(--border-default)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-overlay)]",
+        ghost: "bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-elevated)] hover:text-[var(--text-primary)]",
+        destructive: "bg-[var(--danger-subtle)] text-[var(--danger)] border-[var(--danger-muted)] hover:bg-[var(--danger-muted)]",
+        outline: "bg-transparent text-[var(--text-primary)] border-[var(--border-default)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-elevated)]",
         link: "text-[var(--accent)] underline-offset-4 hover:underline",
       },
       size: {

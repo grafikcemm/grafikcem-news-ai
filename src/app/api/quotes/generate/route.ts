@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       .from("viral_tweets")
       .select("*")
       .eq("id", viral_tweet_id)
-      .single();
+      .maybeSingle();
 
     if (!tweet) {
       return NextResponse.json({ error: "Tweet not found" }, { status: 404 });

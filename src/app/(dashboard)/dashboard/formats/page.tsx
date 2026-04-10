@@ -328,7 +328,7 @@ export default function FormatsPage() {
                   <Badge className={`text-[10px] ${
                     p.level >= 5 ? "bg-red-100 text-red-700" :
                     p.level >= 4 ? "bg-amber-100 text-amber-700" :
-                    "bg-slate-100 text-slate-600"
+                    "bg-[var(--surface-elevated)] text-[var(--text-secondary)]"
                   }`}>
                     {p.level >= 5 ? "Çok Yüksek Viral" : p.level >= 4 ? "Yüksek Viral" : "Orta Viral"}
                   </Badge>

@@ -2,16 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ScoreBadge } from "@/components/ui/score-badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/empty-state";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { FileTextIcon, HelpCircleIcon } from "lucide-react";
-import { EmptyState } from "@/components/ui/empty-state";
+import { HelpCircleIcon } from "lucide-react";
 
 interface NewsItem {
   id: string;
@@ -58,6 +57,15 @@ const categories = [
   { value: "tool_update", label: "Araç Güncellemeleri" },
 ];
 
+function ScoreBar({ score }: { score: number }) {
+  const color = score <= 40 ? "var(--danger)" : score <= 70 ? "var(--warning)" : "var(--success)";
+  return (
+    <div style={{ width: 40, height: 3, background: "var(--surface-overlay)", borderRadius: 2, overflow: "hidden" }}>
+      <div style={{ width: `${score}%`, height: "100%", background: color, borderRadius: 2 }} />
+    </div>
+  );
+}
+
 export default function NewsPoolPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +73,7 @@ export default function NewsPoolPage() {
   const [activeCategory, setActiveCategory] = useState("all");
   const [activeSource, setActiveSource] = useState<string>("all");
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  
+
   const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
   const [articleData, setArticleData] = useState<ArticleData | null>(null);
   const [articleLoading, setArticleLoading] = useState(false);
@@ -81,7 +89,7 @@ export default function NewsPoolPage() {
       let query = supabase
         .from("news_items")
         .select("*, sources(name)")
-        .order("created_at", { ascending: false })
+        .order("fetched_at", { ascending: false })
         .limit(50);
 
       if (activeCategory === "unread") {
@@ -107,7 +115,7 @@ export default function NewsPoolPage() {
 
   async function handleGenerate(newsId: string) {
     setGeneratingId(newsId);
-    
+
     setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
     supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then(() => {}, () => {});
 
@@ -164,7 +172,7 @@ export default function NewsPoolPage() {
       (item.title_tr || item.title).toLowerCase().includes(search.toLowerCase()) ||
       item.title.toLowerCase().includes(search.toLowerCase()) ||
       (item.summary && item.summary.toLowerCase().includes(search.toLowerCase()));
-    
+
     if (!matchSearch) return false;
     if (activeSource !== "all") {
       if (item.sources?.name !== activeSource) return false;
@@ -175,199 +183,280 @@ export default function NewsPoolPage() {
   const uniqueSources = Array.from(new Set(news.map(n => n.sources?.name).filter(Boolean))) as string[];
 
   return (
-    <div className="flex flex-col lg:flex-row h-full min-h-[calc(100vh)] bg-[var(--surface-default)]">
-      {/* SOL: LİSTE MODÜLÜ */}
-      <div className="w-full lg:w-[45%] flex flex-col h-full lg:h-[calc(100vh)] border-r border-[var(--border-subtle)] bg-[var(--surface-default)]">
-        
-        {/* Header Alanı */}
-        <div className="p-[20px] pb-3 border-b border-[var(--border-subtle)] shrink-0">
-           <h1 className="text-display mb-1">Haber Havuzu</h1>
-           <p className="text-small">Trend haberleri araştır, özetle ve üretime dönüştür.</p>
-           
-           {/* Ara, Filtrele */}
-           <div className="mt-[20px] space-y-[16px]">
-              <Input
-                placeholder="Haberlerde ara..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="bg-[var(--surface-sunken)] border-[var(--border-subtle)]"
-              />
-              <div className="flex flex-wrap gap-[8px]">
-                {categories.map((cat) => (
-                  <button
-                    key={cat.value}
-                    onClick={() => setActiveCategory(cat.value)}
-                    className={`px-[12px] py-[6px] rounded-[var(--radius-md)] text-[12px] font-medium transition-all duration-120 ${
-                      activeCategory === cat.value
-                        ? "bg-[var(--text-primary)] text-[var(--surface-default)]"
-                        : "bg-[var(--surface-raised)] text-[var(--text-secondary)] border border-[var(--border-subtle)] hover:border-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-                    }`}
+    <div className="flex flex-col lg:flex-row" style={{ height: "calc(100vh - 56px)" }}>
+      {/* LEFT PANEL — List */}
+      <div
+        className="w-full lg:w-[38%] flex flex-col h-full overflow-hidden"
+        style={{ background: "var(--surface-raised)", borderRight: "1px solid var(--border-subtle)" }}
+      >
+        {/* Header */}
+        <div
+          className="shrink-0"
+          style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-raised)" }}
+        >
+          {/* Search */}
+          <div className="flex items-center gap-[8px]" style={{
+            background: "var(--surface-elevated)",
+            border: "1px solid var(--border-default)",
+            borderRadius: "var(--radius-md)",
+            padding: "8px 14px",
+            marginBottom: 12,
+          }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-tertiary)" }}>
+              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Haberlerde ara..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              style={{
+                background: "transparent",
+                border: "none",
+                outline: "none",
+                color: "var(--text-primary)",
+                fontSize: 13,
+                flex: 1,
+              }}
+            />
+          </div>
+
+          {/* Category pills */}
+          <div className="flex flex-wrap gap-[6px]" style={{ marginBottom: 8 }}>
+            {categories.map((cat) => (
+              <button
+                key={cat.value}
+                onClick={() => setActiveCategory(cat.value)}
+                style={{
+                  padding: "4px 10px",
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 500,
+                  background: activeCategory === cat.value ? "var(--accent-subtle)" : "var(--surface-elevated)",
+                  color: activeCategory === cat.value ? "var(--accent)" : "var(--text-secondary)",
+                  border: `1px solid ${activeCategory === cat.value ? "var(--accent-muted)" : "var(--border-default)"}`,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Source pills */}
+          <div className="flex flex-wrap gap-[6px] items-center">
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>Kaynak:</span>
+            <button
+              onClick={() => setActiveSource("all")}
+              style={{
+                padding: "3px 8px",
+                borderRadius: "var(--radius-sm)",
+                fontSize: 10,
+                fontWeight: 500,
+                background: activeSource === "all" ? "var(--accent-subtle)" : "var(--surface-elevated)",
+                color: activeSource === "all" ? "var(--accent)" : "var(--text-tertiary)",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Hepsi
+            </button>
+            {uniqueSources.map(src => (
+              <button
+                key={src}
+                onClick={() => setActiveSource(src)}
+                style={{
+                  padding: "3px 8px",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 10,
+                  fontWeight: 500,
+                  background: activeSource === src ? "var(--accent-subtle)" : "var(--surface-elevated)",
+                  color: activeSource === src ? "var(--accent)" : "var(--text-tertiary)",
+                  border: "none",
+                  cursor: "pointer",
+                }}
+              >
+                {src}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* List */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div style={{ padding: 20 }} className="space-y-3">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-[70px] w-full" style={{ background: "var(--surface-elevated)", borderRadius: "var(--radius-md)" }} />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <div style={{ padding: 48, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>Haber bulunamadı</div>
+          ) : (
+            <div className="flex flex-col">
+              {filtered.map(item => {
+                const isSelected = selectedNewsId === item.id;
+                return (
+                  <div
+                    key={item.id}
+                    onClick={() => handleOpenArticle(item.id)}
+                    className="cursor-pointer transition-colors duration-100"
+                    style={{
+                      padding: "14px 20px",
+                      borderBottom: "1px solid var(--border-subtle)",
+                      background: isSelected ? "var(--accent-subtle)" : "transparent",
+                      borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
+                    }}
+                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--surface-elevated)"; }}
+                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                   >
-                    {cat.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-[8px] items-center">
-                 <span className="text-[12px] text-[var(--text-tertiary)] font-medium">Kaynak:</span>
-                 <button
-                    onClick={() => setActiveSource("all")}
-                    className={`px-[10px] py-[4px] rounded-[var(--radius-sm)] text-[11px] font-medium transition-all ${
-                      activeSource === "all" ? "bg-[var(--accent-subtle)] text-[var(--accent)]" : "bg-[var(--surface-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)]"
-                    }`}
-                  >
-                    Hepsi
-                  </button>
-                  {uniqueSources.map(src => (
-                    <button
-                      key={src}
-                      onClick={() => setActiveSource(src)}
-                      className={`px-[10px] py-[4px] rounded-[var(--radius-sm)] text-[11px] font-medium transition-all ${
-                         activeSource === src ? "bg-[var(--accent-subtle)] text-[var(--accent)]" : "bg-[var(--surface-raised)] text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)]"
-                      }`}
+                    <div className="flex items-center gap-[8px]" style={{ marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{item.sources?.name}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                        · {formatDistanceToNow(new Date(item.fetched_at), { addSuffix: true, locale: tr })}
+                      </span>
+                      {!item.is_read && (
+                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", boxShadow: "0 0 6px var(--accent)" }} />
+                      )}
+                    </div>
+                    <p
+                      className="line-clamp-2"
+                      style={{
+                        fontSize: 13,
+                        fontWeight: item.is_read ? 400 : 500,
+                        color: item.is_read ? "var(--text-secondary)" : "var(--text-primary)",
+                        lineHeight: 1.4,
+                        marginBottom: 6,
+                      }}
                     >
-                      {src}
-                    </button>
-                  ))}
-              </div>
-           </div>
-        </div>
-
-        {/* Liste Alanı */}
-        <div className="flex-1 overflow-y-auto w-full scrollbar-thin">
-           {loading ? (
-             <div className="p-[20px] space-y-[12px]">
-               {[...Array(6)].map((_, i) => (
-                 <Skeleton key={i} className="h-[70px] w-full bg-[var(--surface-raised)] rounded-[var(--radius-md)]" />
-               ))}
-             </div>
-           ) : filtered.length === 0 ? (
-              <div className="p-12 text-center text-[var(--text-tertiary)] text-[13px]">Haber bulunamadı</div>
-           ) : (
-             <div className="flex flex-col divide-y divide-[var(--border-subtle)]">
-               {filtered.map(item => {
-                 const isSelected = selectedNewsId === item.id;
-                 return (
-                   <div 
-                     key={item.id} 
-                     onClick={() => handleOpenArticle(item.id)}
-                     className={`flex gap-[12px] p-[16px] cursor-pointer transition-colors duration-120 ${isSelected ? "bg-[var(--surface-overlay)]" : "hover:bg-[var(--surface-overlay)]"}`}
-                   >
-                     <div className="pt-1 w-2 flex justify-center">
-                        {!item.is_read && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent)] shrink-0 shadow-[0_0_8px_var(--accent)] mt-1" />}
-                     </div>
-                     <div className="flex-1 min-w-0 flex flex-col justify-between pr-2">
-                        <h3 className={`text-[14px] leading-snug line-clamp-2 ${item.is_read ? 'text-[var(--text-secondary)] font-normal' : 'text-[var(--text-primary)] font-medium'}`}>
-                          {item.title_tr || item.title}
-                        </h3>
-                        <div className="flex items-center gap-2 mt-2">
-                           <span className="text-[11px] text-[var(--text-tertiary)]">{item.sources?.name}</span>
-                           <span className="text-[11px] text-[var(--border-strong)]">•</span>
-                           <span className="text-[11px] text-[var(--text-tertiary)] uppercase tracking-wider">{formatDistanceToNow(new Date(item.fetched_at), { addSuffix: true, locale: tr })}</span>
-                           {item.is_used && (
-                             <>
-                               <span className="text-[11px] text-[var(--border-strong)]">•</span>
-                               <span className="text-[10px] bg-[var(--surface-raised)] text-[var(--text-secondary)] px-1 rounded">Kullanıldı</span>
-                             </>
-                           )}
-                        </div>
-                     </div>
-                     <div className="flex flex-col items-end justify-between shrink-0 pl-2">
-                        <ScoreBadge score={item.viral_score} />
-                     </div>
-                   </div>
-                 );
-               })}
-             </div>
-           )}
-        </div>
-      </div>
-
-      {/* SAĞ: OKUMA MODÜLÜ */}
-      <div className="w-full lg:w-[55%] flex flex-col h-[600px] lg:h-[calc(100vh)] bg-[var(--surface-sunken)] p-[24px] lg:p-[40px] overflow-y-auto scrollbar-thin">
-         {!selectedNewsId ? (
-            <div className="m-auto w-full max-w-sm">
-                <EmptyState 
-                  icon={<HelpCircleIcon size={32} />}
-                  title="Bir Haber Seçin"
-                  description="Haberi özetlemek ve tweet formatında içerik üretmek için sol taraftan bir haber seçin."
-                />
-            </div>
-         ) : articleLoading ? (
-            <div className="space-y-[24px] max-w-3xl animate-pulse">
-               <Skeleton className="w-[100px] h-6 bg-[var(--surface-raised)] rounded" />
-               <Skeleton className="w-full h-12 bg-[var(--surface-raised)] rounded" />
-               <Skeleton className="w-3/4 h-12 bg-[var(--surface-raised)] rounded" />
-               <div className="pt-[40px] space-y-[12px]">
-                 <Skeleton className="w-full h-4 bg-[var(--surface-raised)] rounded" />
-                 <Skeleton className="w-full h-4 bg-[var(--surface-raised)] rounded" />
-                 <Skeleton className="w-[85%] h-4 bg-[var(--surface-raised)] rounded" />
-                 <Skeleton className="w-full h-4 bg-[var(--surface-raised)] rounded mt-4" />
-                 <Skeleton className="w-[90%] h-4 bg-[var(--surface-raised)] rounded" />
-               </div>
-            </div>
-         ) : articleData ? (
-            <div className="flex flex-col flex-1 max-w-3xl m-auto w-full justify-start h-full pt-4">
-               {/* Metadata */}
-               <div className="flex flex-wrap items-center gap-[12px] mb-[20px]">
-                  <span className="text-[12px] font-medium text-[var(--text-primary)] px-[10px] py-[4px] bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-sm)]">
-                     {articleData.source_name}
-                  </span>
-                  <ScoreBadge score={articleData.viral_score} />
-                  <span className="text-[12px] text-[var(--text-tertiary)] tracking-wide uppercase px-2">
-                     {articleData.fetched_at && formatDistanceToNow(new Date(articleData.fetched_at), { addSuffix: true, locale: tr })}
-                  </span>
-               </div>
-
-               {/* Başlık */}
-               <h1 className="text-[28px] lg:text-[32px] font-bold text-[var(--text-primary)] leading-[1.1] tracking-tight mb-[16px]">
-                 {articleData.title_tr}
-               </h1>
-               {articleData.title_original && articleData.title_original !== articleData.title_tr && (
-                 <p className="text-[14px] text-[var(--text-tertiary)] italic mb-[32px] font-[450] leading-snug">
-                   "{articleData.title_original}"
-                 </p>
-               )}
-
-               <hr className="border-[var(--border-subtle)] mb-[32px]" />
-
-               {/* Metin */}
-               <div className="flex-1 space-y-[20px]">
-                 {articleData.full_summary_tr ? (
-                    articleData.full_summary_tr.split("\n\n").map((paragraph, i) => (
-                      <p key={i} className="text-body text-[15px] lg:text-[16px] leading-[1.7] text-[var(--text-secondary)]">
-                        {paragraph}
-                      </p>
-                    ))
-                  ) : (
-                    <p className="text-body text-[15px] lg:text-[16px] leading-[1.7] text-[var(--text-secondary)]">
-                      {articleData.summary || "Özet mevcut değil."}
+                      {item.title_tr || item.title}
                     </p>
-                  )}
-               </div>
-
-               {/* Aksiyon Bar */}
-               <div className="sticky bottom-0 mt-[40px] pt-[20px] pb-[20px] bg-gradient-to-t from-[var(--surface-sunken)] to-transparent flex gap-4">
-                  <Button 
-                    variant="default" 
-                    size="lg" 
-                    className="flex-1 h-[48px] text-[15px] shadow-lg shadow-[var(--accent)]/10"
-                    onClick={() => handleGenerate(selectedNewsId)}
-                    disabled={generatingId === selectedNewsId}
-                  >
-                     {generatingId === selectedNewsId ? "Üretiliyor..." : "Tweet Üret"}
-                  </Button>
-                  <a href={articleData.url} target="_blank" rel="noopener noreferrer" className="flex-1 max-w-[200px]">
-                     <Button variant="secondary" size="lg" className="w-full h-[48px] text-[15px]">Orijinal Kaynak ↗</Button>
-                  </a>
-               </div>
+                    <div className="flex items-center gap-[8px]">
+                      <ScoreBar score={item.viral_score} />
+                      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{item.viral_score}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-         ) : (
-            <div className="p-12 text-center text-[var(--text-tertiary)]">
-               Makale yüklenemedi.
-            </div>
-         )}
+          )}
+        </div>
       </div>
 
+      {/* RIGHT PANEL — Detail */}
+      <div
+        className="w-full lg:w-[62%] flex flex-col h-full overflow-y-auto"
+        style={{ background: "var(--surface-base)", padding: "32px 40px" }}
+      >
+        {!selectedNewsId ? (
+          <div className="flex-1 flex items-center justify-center">
+            <EmptyState
+              icon={<HelpCircleIcon size={40} />}
+              title="Bir haber seçin"
+              description="Haberi özetlemek ve tweet formatında içerik üretmek için sol taraftan bir haber seçin."
+            />
+          </div>
+        ) : articleLoading ? (
+          <div className="space-y-6 max-w-3xl animate-pulse">
+            <Skeleton className="w-[100px] h-6" style={{ background: "var(--surface-elevated)" }} />
+            <Skeleton className="w-full h-12" style={{ background: "var(--surface-elevated)" }} />
+            <Skeleton className="w-3/4 h-12" style={{ background: "var(--surface-elevated)" }} />
+            <div className="pt-10 space-y-3">
+              <Skeleton className="w-full h-4" style={{ background: "var(--surface-elevated)" }} />
+              <Skeleton className="w-full h-4" style={{ background: "var(--surface-elevated)" }} />
+              <Skeleton className="w-[85%] h-4" style={{ background: "var(--surface-elevated)" }} />
+            </div>
+          </div>
+        ) : articleData ? (
+          <div className="flex flex-col flex-1 max-w-3xl w-full">
+            {/* Metadata */}
+            <div className="flex flex-wrap items-center gap-[12px]" style={{ marginBottom: 20 }}>
+              <span className="text-label" style={{
+                padding: "4px 10px",
+                background: "var(--surface-elevated)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)",
+                fontSize: 12,
+                fontWeight: 500,
+              }}>
+                {articleData.source_name}
+              </span>
+              <ScoreBadge score={articleData.viral_score} />
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                {articleData.fetched_at && formatDistanceToNow(new Date(articleData.fetched_at), { addSuffix: true, locale: tr })}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h1 className="text-display" style={{ fontSize: 24, marginBottom: 16 }}>
+              {articleData.title_tr}
+            </h1>
+            {articleData.title_original && articleData.title_original !== articleData.title_tr && (
+              <p style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic", marginBottom: 32, fontWeight: 450 }}>
+                &ldquo;{articleData.title_original}&rdquo;
+              </p>
+            )}
+
+            <hr style={{ border: "none", borderTop: "1px solid var(--border-subtle)", marginBottom: 32 }} />
+
+            {/* Content */}
+            <div className="flex-1 space-y-5">
+              {articleData.full_summary_tr ? (
+                articleData.full_summary_tr.split("\n\n").map((paragraph, i) => (
+                  <p key={i} className="text-body" style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-secondary)" }}>
+                    {paragraph}
+                  </p>
+                ))
+              ) : (
+                <p className="text-body" style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-secondary)" }}>
+                  {articleData.summary || "Özet mevcut değil."}
+                </p>
+              )}
+            </div>
+
+            {/* Action Bar */}
+            <div
+              className="sticky bottom-0 flex gap-[12px]"
+              style={{
+                marginTop: 40,
+                padding: "16px 0",
+                background: "var(--surface-base)",
+                borderTop: "1px solid var(--border-subtle)",
+              }}
+            >
+              <Button
+                variant="default"
+                size="lg"
+                className="flex-1"
+                style={{ height: 48, fontSize: 15 }}
+                onClick={() => handleGenerate(selectedNewsId)}
+                disabled={generatingId === selectedNewsId}
+              >
+                {generatingId === selectedNewsId ? "Üretiliyor..." : "X'e Dönüştür"}
+              </Button>
+              <Button variant="secondary" size="lg" style={{ height: 48, fontSize: 15 }}>
+                LinkedIn Yap
+              </Button>
+              <Button variant="ghost" size="lg" style={{ height: 48, fontSize: 15 }}>
+                Kaydet
+              </Button>
+              {articleData.url && (
+                <a href={articleData.url} target="_blank" rel="noopener noreferrer">
+                  <Button variant="ghost" size="lg" style={{ height: 48, fontSize: 15, color: "var(--text-tertiary)" }}>
+                    Kaynak ↗
+                  </Button>
+                </a>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: 48, textAlign: "center", color: "var(--text-tertiary)" }}>
+            Makale yüklenemedi.
+          </div>
+        )}
+      </div>
     </div>
   );
 }

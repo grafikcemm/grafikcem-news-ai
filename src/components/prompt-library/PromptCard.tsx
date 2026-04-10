@@ -68,7 +68,7 @@ export default function PromptCard({ prompt, onOpen, onCopy, isCopied }: PromptC
         {prompt.tags.slice(0, 3).map((tag) => (
           <span
             key={tag}
-            className="px-2 py-0.5 rounded text-[10px] bg-white/5 border border-white/10 text-[#888888]"
+            className="px-2 py-0.5 rounded text-[10px] bg-[var(--surface-elevated)] border border-white/10 text-[#888888]"
           >
             {tag}
           </span>

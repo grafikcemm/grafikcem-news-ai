@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     .from("channel_settings")
     .select("style_profile")
     .eq("channel_id", channel)
-    .single();
+    .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 

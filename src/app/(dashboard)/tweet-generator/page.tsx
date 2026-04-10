@@ -152,15 +152,15 @@ function TweetGeneratorContent() {
   return (
     <div className="p-4 lg:p-8 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">Tweet Üretici</h1>
-        <p className="text-slate-500 text-sm mt-1">
+        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tweet Üretici</h1>
+        <p className="text-[var(--text-tertiary)] text-sm mt-1">
           12 viral pattern + 8 format — AI ile tweet seçenekleri üret
         </p>
       </div>
 
       {/* Format Selector */}
       <div>
-        <p className="text-sm font-medium text-slate-600 mb-2">Format Seç</p>
+        <p className="text-sm font-medium text-[var(--text-secondary)] mb-2">Format Seç</p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {FORMATS.map((f) => (
             <button
@@ -169,12 +169,12 @@ function TweetGeneratorContent() {
               className={`p-2 rounded-lg border text-left transition-all ${
                 selectedFormat === f.id
                   ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-slate-200 hover:border-slate-300 bg-white"
+                  : "border-[var(--border-subtle)] hover:border-[var(--border-default)] bg-[var(--surface-card)]"
               }`}
             >
               <div className="text-lg">{f.icon}</div>
               <div className="text-xs font-medium">{f.label}</div>
-              <div className="text-[10px] text-slate-500 leading-tight mt-0.5">{f.desc}</div>
+              <div className="text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{f.desc}</div>
             </button>
           ))}
         </div>
@@ -183,9 +183,9 @@ function TweetGeneratorContent() {
       <div className="grid lg:grid-cols-5 gap-6">
         {/* Left panel — News detail */}
         <div className="lg:col-span-2 space-y-4">
-          <Card className="border-0 shadow-sm bg-white sticky top-4">
+          <Card className="border-0 shadow-sm bg-[var(--surface-card)] sticky top-4">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-slate-900">Haber Detayı</CardTitle>
+              <CardTitle className="text-sm font-semibold text-[var(--text-primary)]">Haber Detayı</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {loading ? (
@@ -195,8 +195,8 @@ function TweetGeneratorContent() {
                 </div>
               ) : newsItem ? (
                 <>
-                  <h3 className="font-semibold text-slate-900">{newsItem.title}</h3>
-                  <p className="text-sm text-slate-500 leading-relaxed">{newsItem.summary}</p>
+                  <h3 className="font-semibold text-[var(--text-primary)]">{newsItem.title}</h3>
+                  <p className="text-sm text-[var(--text-tertiary)] leading-relaxed">{newsItem.summary}</p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="secondary" className="text-xs">
                       {newsItem.sources?.name}
@@ -204,10 +204,10 @@ function TweetGeneratorContent() {
                     <Badge
                       className={`text-xs ${
                         newsItem.viral_score >= 80
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-[var(--success-subtle)] text-[var(--success)]"
                           : newsItem.viral_score >= 60
                           ? "bg-amber-100 text-amber-700"
-                          : "bg-slate-100 text-slate-500"
+                          : "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"
                       }`}
                     >
                       Viral: {newsItem.viral_score}
@@ -226,7 +226,7 @@ function TweetGeneratorContent() {
                   </a>
                 </>
               ) : (
-                <div className="text-center py-8 text-slate-400 text-sm">
+                <div className="text-center py-8 text-[var(--text-tertiary)] text-sm">
                   <p>Tweet üretmek için bir haber seçin</p>
                   <p className="mt-2 text-xs">Haber Havuzu&apos;ndan bir haber seçip &quot;Tweet Üret&quot; butonuna tıklayın</p>
                 </div>
@@ -245,12 +245,12 @@ function TweetGeneratorContent() {
               </div>
 
               {showOptions && (
-                <div className="space-y-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                <div className="space-y-4 p-4 bg-[var(--surface-elevated)] rounded-lg border border-[var(--border-subtle)]">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-slate-700">A/B Testi Üret</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={abMode} onChange={() => setAbMode(!abMode)} className="sr-only peer" />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                      <div className="w-9 h-5 bg-[var(--surface-elevated)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--surface-card)] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                   <div className="space-y-1">
@@ -261,7 +261,7 @@ function TweetGeneratorContent() {
                           key={l}
                           onClick={() => setLanguage(l)}
                           className={`flex-1 py-1 rounded text-xs font-medium border ${
-                            language === l ? "bg-slate-900 text-white" : "text-slate-600 bg-white hover:bg-slate-50"
+                            language === l ? "bg-[var(--surface-raised)] text-white" : "text-[var(--text-secondary)] bg-[var(--surface-card)] hover:bg-[var(--surface-elevated)]"
                           }`}
                         >
                           {l.toUpperCase()}
@@ -274,7 +274,7 @@ function TweetGeneratorContent() {
                     <select
                       value={tone}
                       onChange={(e) => setTone(e.target.value)}
-                      className="w-full text-sm rounded-md border-slate-200 p-2 outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full text-sm rounded-md border-[var(--border-subtle)] p-2 outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="">Otomatik (Haber türüne göre)</option>
                       <option value="Ciddi ve Analitik">Ciddi ve Analitik</option>
@@ -297,7 +297,7 @@ function TweetGeneratorContent() {
                   disabled={generating || !newsId}
                   className={`w-full h-11 text-white ${
                     !newsId
-                      ? "bg-slate-300 cursor-not-allowed opacity-100 hover:bg-slate-300"
+                      ? "bg-[var(--surface-overlay)] cursor-not-allowed opacity-100 hover:bg-[var(--surface-overlay)]"
                       : "bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600"
                   }`}
                 >
@@ -332,20 +332,20 @@ function TweetGeneratorContent() {
               ))}
             </div>
           ) : drafts.length === 0 ? (
-            <Card className="border-0 shadow-sm bg-white">
-              <CardContent className="p-12 text-center text-slate-400">
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-300"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
+            <Card className="border-0 shadow-sm bg-[var(--surface-card)]">
+              <CardContent className="p-12 text-center text-[var(--text-tertiary)]">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--surface-elevated)] flex items-center justify-center mx-auto mb-4">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
                 </div>
-                <p className="font-medium text-slate-500">Henüz tweet seçeneği yok</p>
-                <p className="text-xs text-slate-400 mt-1">Bir haber seçip format belirleyerek üret butonuna tıklayın</p>
+                <p className="font-medium text-[var(--text-tertiary)]">Henüz tweet seçeneği yok</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">Bir haber seçip format belirleyerek üret butonuna tıklayın</p>
               </CardContent>
             </Card>
           ) : (
             drafts.map((draft, i) => (
               <Card
                 key={draft.id}
-                className={`border-0 shadow-sm bg-white ${
+                className={`border-0 shadow-sm bg-[var(--surface-card)] ${
                   draft.status === "approved"
                     ? "ring-2 ring-blue-500/30"
                     : draft.status === "rejected"
@@ -356,7 +356,7 @@ function TweetGeneratorContent() {
                 <CardContent className="p-5">
                   <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-400">Seçenek {i + 1}</span>
+                      <span className="text-xs font-bold text-[var(--text-tertiary)]">Seçenek {i + 1}</span>
                       <Badge
                         variant="outline"
                         className={`text-[10px] ${
@@ -387,7 +387,7 @@ function TweetGeneratorContent() {
                     <div className="flex items-center gap-2">
                       <span
                         className={`text-xs ${
-                          draft.content.length > 280 ? "text-red-500 font-semibold" : "text-slate-400"
+                          draft.content.length > 280 ? "text-red-500 font-semibold" : "text-[var(--text-tertiary)]"
                         }`}
                       >
                         {draft.content.length} kar
@@ -398,21 +398,21 @@ function TweetGeneratorContent() {
                   </div>
 
                   {draft.score_reason && (
-                    <p className="text-[10px] text-slate-400 italic mb-2">{draft.score_reason}</p>
+                    <p className="text-[10px] text-[var(--text-tertiary)] italic mb-2">{draft.score_reason}</p>
                   )}
 
                   {/* Tweet content */}
-                  <div className="bg-slate-50 rounded-xl p-4 mb-4 relative">
+                  <div className="bg-[var(--surface-elevated)] rounded-xl p-4 mb-4 relative">
                     <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
                       {draft.content}
                     </p>
                     {draft.tweet_type === "thread" &&
                       draft.thread_tweets &&
                       Array.isArray(draft.thread_tweets) && (
-                        <div className="mt-3 space-y-2 border-t border-slate-200 pt-3">
+                        <div className="mt-3 space-y-2 border-t border-[var(--border-subtle)] pt-3">
                           {draft.thread_tweets.map((tweet, j) => (
                             <div key={j} className="flex gap-2">
-                              <span className="text-xs text-slate-400 shrink-0 mt-0.5">{j + 1}.</span>
+                              <span className="text-xs text-[var(--text-tertiary)] shrink-0 mt-0.5">{j + 1}.</span>
                               <p className="text-sm text-slate-700">{tweet}</p>
                             </div>
                           ))}
@@ -468,7 +468,7 @@ function TweetGeneratorContent() {
                           "_blank"
                         )
                       }
-                      className="text-xs bg-slate-900 hover:bg-slate-800 text-white"
+                      className="text-xs bg-[var(--surface-raised)] hover:bg-[var(--surface-elevated)] text-white"
                     >
                       X&apos;te Paylaş
                     </Button>

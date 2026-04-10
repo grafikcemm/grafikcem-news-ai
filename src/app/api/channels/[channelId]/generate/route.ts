@@ -126,7 +126,7 @@ export async function POST(
         .from("channel_settings")
         .select("last_post_category")
         .eq("channel_id", "maskulenkod")
-        .single();
+        .maybeSingle();
 
       const category = getNextCategory(channelSettings?.last_post_category || null);
 
@@ -137,7 +137,7 @@ export async function POST(
         .gt("viral_score", 0)
         .order("viral_score", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       const inspiration = topNews
         ? `${topNews.title} — ${topNews.summary?.substring(0, 150)}`

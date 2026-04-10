@@ -102,7 +102,7 @@ export default function CompetitorsPage() {
             onClick={fetchData} 
             variant="outline" 
             size="sm"
-            className="bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-sunken)] gap-2 rounded-[var(--radius-md)]"
+            className="bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] gap-2 rounded-[var(--radius-md)]"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Yenile

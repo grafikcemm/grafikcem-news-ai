@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       .from("news_items")
       .select("*, sources(name)")
       .eq("id", news_id)
-      .single();
+      .maybeSingle();
 
     if (error || !newsItem) {
       return NextResponse.json({ error: "News item not found" }, { status: 404 });
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       .from("settings")
       .select("value")
       .eq("key", "style_profile")
-      .single();
+      .maybeSingle();
 
     const styleSection = styleSettings?.value
       ? `\n\nSTYLE PROFILE — write exactly in this style:\n${JSON.stringify(styleSettings.value)}`
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       .from("settings")
       .select("value")
       .eq("key", "custom_voice_prompt")
-      .single();
+      .maybeSingle();
 
     const voiceSection = voiceSettings?.value ? `\n\nEK KURALLAR:\n${voiceSettings.value}` : "";
     const systemPrompt = `${TWEET_GENERATION_SYSTEM}${styleSection}${voiceSection}`;
