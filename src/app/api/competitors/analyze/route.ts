@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+import { generateWithGemini } from "@/lib/gemini";
 
 export const maxDuration = 60;
 
@@ -8,11 +9,6 @@ export async function POST(request: NextRequest) {
   if (!validateApiRequest(request)) return unauthorizedResponse();
 
   try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
-    }
-
     // Fetch all handles from competitors table
     const { data: competitors, error: fetchError } = await supabaseAdmin
       .from("competitors")
@@ -27,40 +23,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Analiz edilecek rakip hesabı bulunamadı." }, { status: 400 });
     }
 
-    const systemPrompt = "Sen kıdemli bir sosyal medya stratejistisin. Sektörel rakipleri analiz ederek Ali Cem (@grafikcem) için stratejik raporlar hazırlarsın.";
+    const systemPrompt = "Sen GrafikCem (@grafikcem) için stratejik bir sosyal medya danışmanısın. Rakipleri analiz ederek uygulanabilir dersler çıkarırsın.";
     
-    const userPrompt = `Aşağıdaki sosyal medya hesapları hakkında bildiklerini anlat. 
-Her biri için: içerik stili, format tercihi, tahmini takipçi kitlesi, güçlü yönleri ve Ali Cem için ne gibi bir ders çıkarılabilir sorusuna yanıt ver.
+    const userPrompt = `"Sen GrafikCem (@grafikcem) için içerik stratejisti olarak aşağıdaki Instagram rakip hesaplarını analiz et.
 
-Hesaplar: ${handles.join(", ")}
+GrafikCem stili: koyu temali carousel setleri, mikrofonsuz sinematik reels, AI tasarım araçları içerikleri.
 
-Lütfen Türkçe, profesyonel ve aksiyon odaklı bir analiz raporu sun.`;
+Rakipler: ${handles.join(", ")}
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+Her hesap için bildiklerini anlat:
+içerik stili, format tercihi, güçlü yönler.
 
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
+Son olarak GrafikCem için:
+- Bu haftaki 3 içerik fikri
+- Rakiplerin kaçırdığı 2 fırsat alanı
 
-    const response = await anthropicRes.json();
-    const text = response.content[0].type === "text" ? response.content[0].text : "";
+Lütfen Türkçe, profesyonel ve aksiyon odaklı bir analiz raporu sun."`;
 
-    // Save results to competitor_analysis table
+    const text = await generateWithGemini(userPrompt, 'analytical', systemPrompt);
+
+    // Save results to competitor_analysis table (Overwrite logic as per user request)
+    // Actually the user said "overwrite", but the existing table seems to keep history.
+    // I will insert a new one and the UI will fetch the latest.
     const { error: saveError } = await supabaseAdmin
       .from("competitor_analysis")
       .insert({

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import * as cheerio from "cheerio";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 import {
   FULL_ARTICLE_TRANSLATE_SYSTEM_PROMPT,
   buildFullArticleTranslatePrompt,
@@ -34,6 +35,9 @@ const ALLOWED_DOMAINS = [
   "bbc.com",
   "cnn.com",
   "apnews.com",
+  "replicate.com",
+  "mistral.ai",
+  "google.com"
 ];
 
 function isAllowedUrl(url: string): boolean {
@@ -110,12 +114,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Call Claude for translation
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
-    
+    // Call Gemini for translation
     const userPrompt = buildFullArticleTranslatePrompt({
       title: newsItem.title,
       content: articleContent,
@@ -123,36 +122,15 @@ export async function POST(request: NextRequest) {
       source_name: sourceName
     });
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4096,
-        system: FULL_ARTICLE_TRANSLATE_SYSTEM_PROMPT,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    const rawText = response.content[0].type === "text" ? response.content[0].text : "";
+    const text = await generateWithGemini(userPrompt, 'analytical', FULL_ARTICLE_TRANSLATE_SYSTEM_PROMPT);
 
     let parsed: { title_tr: string; full_summary_tr: string };
-    try {
-      parsed = parseClaudeJSON<{ title_tr: string; full_summary_tr: string }>(rawText, "article_translation");
-    } catch {
-      return NextResponse.json({ error: "AI returned invalid response" }, { status: 500 });
+    const jsonParsed = parseAIJSON<{ title_tr: string; full_summary_tr: string }>(text);
+    
+    if (!jsonParsed || !jsonParsed.full_summary_tr) {
+        return NextResponse.json({ error: "Gemini returned invalid response: " + text }, { status: 500 });
     }
+    parsed = jsonParsed;
 
     // Save to database
     const updateData: any = {

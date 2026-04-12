@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { NEWS_QUOTE_REPLY_SYSTEM, NEWS_QUOTE_REPLY_USER } from "@/lib/prompts";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { parseAIJSON } from "@/lib/parse-ai";
+import { generateWithGemini } from "@/lib/gemini";
 
 export async function POST(request: NextRequest) {
   if (!validateApiRequest(request)) return unauthorizedResponse();
@@ -24,44 +25,16 @@ export async function POST(request: NextRequest) {
     if (!newsItem) {
       return NextResponse.json({ error: "News item not found" }, { status: 404 });
     }
-
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
     
     const userPrompt = NEWS_QUOTE_REPLY_USER(newsItem.title_tr || newsItem.title, newsItem.summary || "", format);
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 512,
-        system: NEWS_QUOTE_REPLY_SYSTEM,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    const rawText = response.content[0].type === "text" ? response.content[0].text.trim() : "";
+    const text = await generateWithGemini(userPrompt, 'creative', NEWS_QUOTE_REPLY_SYSTEM);
 
     let parsed: { content: string; hook_strength: string | number; reason: string };
     try {
-      // The parseClaudeJSON second argument 'quote_reply' is used in the original code
-      parsed = parseClaudeJSON<any>(rawText);
+      parsed = parseAIJSON<any>(text);
     } catch {
-      console.error("Failed to parse Claude JSON for Quote & Reply", rawText);
+      console.error("Failed to parse AI JSON for Quote & Reply", text.slice(0, 300));
       return NextResponse.json({ error: "AI returned invalid response format" }, { status: 500 });
     }
 

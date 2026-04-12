@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { REPLY_GENERATION_SYSTEM, REPLY_GENERATION_USER } from "@/lib/prompts";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+import { generateWithGemini } from "@/lib/gemini";
 
 export async function POST(request: NextRequest) {
   if (!validateApiRequest(request)) return unauthorizedResponse();
@@ -24,38 +25,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Tweet not found" }, { status: 404 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
+    const replyText = await generateWithGemini(REPLY_GENERATION_USER(tweet.content), 'creative', REPLY_GENERATION_SYSTEM);
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 512,
-        system: REPLY_GENERATION_SYSTEM,
-        messages: [{ role: "user", content: REPLY_GENERATION_USER(tweet.content) }],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    const replyText = response.content[0].type === "text" ? response.content[0].text.trim() : "";
-
-    return NextResponse.json({ reply: replyText, original: tweet });
-  } catch (err) {
+    return NextResponse.json({ reply: replyText.trim(), original: tweet });
+  } catch (err: any) {
     console.error("Reply generate error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error: " + (err.message || "") }, { status: 500 });
   }
 }

@@ -282,7 +282,7 @@ export default function PromptStudioPage() {
             <button
               onClick={handleGenerate}
               disabled={loading || !userInput.trim()}
-              className="flex items-center gap-2 rounded-xl bg-[#C8F135] px-6 py-2.5 text-sm font-bold text-slate-950 hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-2 rounded-xl bg-[#C8F135] px-6 py-2.5 text-sm font-bold text-[var(--text-primary)] hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               {loading ? (
                 <>

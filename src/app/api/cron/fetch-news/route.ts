@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import Parser from "rss-parser";
-import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt, AUTO_TRANSLATE_SYSTEM_PROMPT, buildAutoTranslateUserPrompt } from "@/lib/prompts";
+import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 
 export const maxDuration = 60; // Max allowed for Vercel Hobby tier
 
@@ -22,12 +23,6 @@ export async function POST(request: NextRequest) {
 async function handler(request: NextRequest) {
   if (!validateCronRequest(request)) return unauthorizedResponse();
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error("ANTHROPIC_API_KEY is missing");
-    return NextResponse.json({ error: "Anthropic API key missing" }, { status: 500 });
-  }
-
   try {
     // 1. Fetch active sources
     const { data: sources, error: sourcesError } = await supabaseAdmin
@@ -39,7 +34,7 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch sources" }, { status: 500 });
     }
 
-    // 2. Allow processing a single source for debugging/Hobby split
+    // 2. Allow processing a single source for debugging
     const sourceParam = request.nextUrl.searchParams.get("source");
     let sourcesToProcess = sources;
     if (sourceParam !== null) {
@@ -74,7 +69,7 @@ async function handler(request: NextRequest) {
         } catch (fetchErr: any) {
           clearTimeout(timeoutId);
           console.error(`✗ ${source.name}: ${fetchErr.message || 'Fetch failed'}`);
-          return; // Skip and continue for this source
+          return;
         }
 
         let feed;
@@ -82,7 +77,7 @@ async function handler(request: NextRequest) {
           feed = await parser.parseString(xmlData);
         } catch (parseErr: any) {
           console.error(`✗ ${source.name}: XML Parse failed - ${parseErr.message || 'Parse error'}`);
-          return; // Skip and continue for this source
+          return;
         }
 
         const items = feed.items.slice(0, 20); // Max 20 per source
@@ -98,18 +93,18 @@ async function handler(request: NextRequest) {
             .eq("url", item.link)
             .single();
 
-          const lowerTitle = item.title.toLowerCase();
-          const lowerSummary = (item.contentSnippet || item.content?.substring(0, 500) || "").toLowerCase();
-          const fullText = `${lowerTitle} ${lowerSummary}`;
-          
-          let custom_tag = null;
-          const ecoKeywords = ["türkiye", "türk", "istanbul", "ankara", "girişim", "startup tr", "webrazzi", "teknoloji şirketi"];
-          const toolKeywords = ["figma", "canva", "midjourney", "claude", "chatgpt", "gpt", "gemini", "update", "launch", "v2", "v3", "v4", "new feature", "yeni özellik", "güncelleme"];
-          
-          if (ecoKeywords.some(k => fullText.includes(k))) custom_tag = "turkish_eco";
-          else if (toolKeywords.some(k => fullText.includes(k))) custom_tag = "tool_update";
-
           if (!existing) {
+            const lowerTitle = item.title.toLowerCase();
+            const lowerSummary = (item.contentSnippet || item.content?.substring(0, 500) || "").toLowerCase();
+            const fullText = `${lowerTitle} ${lowerSummary}`;
+            
+            let custom_tag = null;
+            const ecoKeywords = ["türkiye", "türk", "istanbul", "ankara", "girişim", "startup tr", "webrazzi", "teknoloji şirketi"];
+            const toolKeywords = ["figma", "canva", "midjourney", "claude", "chatgpt", "gpt", "gemini", "update", "launch", "v2", "v3", "v4", "new feature", "yeni özellik", "güncelleme"];
+            
+            if (ecoKeywords.some(k => fullText.includes(k))) custom_tag = "turkish_eco";
+            else if (toolKeywords.some(k => fullText.includes(k))) custom_tag = "tool_update";
+
             newItems.push({
               source_id: source.id,
               title: item.title,
@@ -120,11 +115,8 @@ async function handler(request: NextRequest) {
               custom_tag
             });
             addedCount++;
-          } else if (custom_tag && existing.custom_tag !== custom_tag) {
-             await supabaseAdmin.from("news_items").update({ custom_tag }).eq("id", existing.id);
           }
         }
-        
         console.log(`✓ ${source.name}: ${addedCount} haber`);
       } catch (err: any) {
         console.error(`✗ ${source.name}: Unexpected error - ${err.message || String(err)}`);
@@ -141,126 +133,58 @@ async function handler(request: NextRequest) {
     const itemsToProcess = newItems.slice(0, 3);
     console.log(`[fetch-news] Processing ${itemsToProcess.length} items`);
 
+    // Insert new items
     const { data: inserted, error: insertError } = await supabaseAdmin
       .from("news_items")
       .upsert(itemsToProcess, { onConflict: 'url', ignoreDuplicates: true })
-      .select("id, title, summary, url, published_at");
+      .select("id, title, summary, url, published_at, category");
 
     if (insertError || !inserted) {
       console.error("Insert error:", insertError);
       return NextResponse.json({ error: "Failed to insert news items" }, { status: 500 });
     }
 
-    // 5. Batch score with Claude
-    const scoringBatches = [];
-    for (let i = 0; i < inserted.length; i += 10) {
-      scoringBatches.push(inserted.slice(i, i + 10));
-    }
-
-    for (const batch of scoringBatches) {
+    // 5. Scoring & Translation Loop
+    for (const item of inserted) {
       try {
-        const userPrompt = buildScoringUserPrompt(batch);
+        // Translation Step
+        const translationPrompt = `
+Aşağıdaki haber başlığını ve özetini Türkçeye çevir.
+Başlık: net, anlaşılır, Türkçe gazete diline uygun.
+Özet: 2-3 cümle, sade Türkçe, bilgilendirici.
 
-        const scoringRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1500,
-            system: VIRAL_SCORING_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: userPrompt }],
-          }),
-        });
+Orijinal başlık: ${item.title}
+Orijinal özet: ${item.summary || item.title}
 
-        if (scoringRes.ok) {
-          const scoringData = await scoringRes.json();
-          const rawScoreText = scoringData.content[0].type === "text" ? scoringData.content[0].text : "";
-          const scoreText = rawScoreText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
+{"title_tr": "Türkçe başlık buraya", "summary_tr": "Türkçe özet buraya"}
+`;
 
-          let scores: Array<{ score: number; reason: string; category?: string }>;
-          try {
-            const parsed = parseClaudeJSON<any>(scoreText);
-            scores = Array.isArray(parsed) ? parsed : (parsed.scores || [parsed]);
-          } catch {
-            console.error("[fetch-news] Invalid score JSON:", scoreText);
-            continue;
-          }
+        const translationText = await generateWithGemini(translationPrompt, 'analytical');
+        const translation = parseAIJSON<{title_tr: string, summary_tr: string}>(translationText);
 
-          for (let j = 0; j < Math.min(scores.length, batch.length); j++) {
-            const s = scores[j];
-            if (typeof s?.score === "number") {
-              await supabaseAdmin
-                .from("news_items")
-                .update({
-                  viral_score: Math.min(100, Math.max(0, s.score)),
-                  viral_reason: s.reason || "",
-                  category: s.category || batch[j].url,
-                })
-                .eq("id", batch[j].id);
-            }
-          }
-        }
+        // Scoring Step
+        const scoringPrompt = buildScoringUserPrompt([item]);
+        const scoreResultText = await generateWithGemini(scoringPrompt, 'analytical', VIRAL_SCORING_SYSTEM_PROMPT);
+        const scoreData = parseAIJSON<any>(scoreResultText);
+        
+        const score = Array.isArray(scoreData) ? scoreData[0] : (scoreData?.scores?.[0] || scoreData);
+
+        // Update with both translation and score
+        await supabaseAdmin
+          .from("news_items")
+          .update({
+            title_tr: translation?.title_tr || null,
+            summary_tr: translation?.summary_tr || null,
+            title_original: item.title,
+            viral_score: score?.score || 0,
+            viral_reason: score?.reason || "",
+            category: score?.category || item.category,
+          })
+          .eq("id", item.id);
+
       } catch (err) {
-        console.error("[fetch-news] Scoring batch error:", err);
-      }
-    }
-
-    // 6. Auto-translate non-Turkish titles
-    const turkishChars = /[çğıöşüÇĞİÖŞÜ]/;
-    const itemsToTranslate = inserted.filter(item => !turkishChars.test(item.title));
-
-    if (itemsToTranslate.length > 0) {
-      try {
-        const translateUserPrompt = buildAutoTranslateUserPrompt(itemsToTranslate);
-        const translateRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1500,
-            system: AUTO_TRANSLATE_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: translateUserPrompt }],
-          }),
-        });
-
-        if (translateRes.ok) {
-          const translateData = await translateRes.json();
-          const rawTranslateText = translateData.content[0].type === "text" ? translateData.content[0].text : "";
-          const translateText = rawTranslateText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
-
-          let translations: Array<{ title_tr: string; summary_tr: string }>;
-          try {
-            const parsed = parseClaudeJSON<any>(translateText);
-            translations = Array.isArray(parsed) ? parsed : (parsed.translations || [parsed]);
-          } catch {
-            console.error("[fetch-news] Invalid translation JSON:", translateText);
-            translations = [];
-          }
-
-          for (let j = 0; j < Math.min(translations.length, itemsToTranslate.length); j++) {
-            const tr = translations[j];
-            if (tr?.title_tr) {
-              await supabaseAdmin
-                .from("news_items")
-                .update({
-                  title_tr: tr.title_tr,
-                  title_original: itemsToTranslate[j].title,
-                  summary: tr.summary_tr || itemsToTranslate[j].summary,
-                })
-                .eq("id", itemsToTranslate[j].id);
-            }
-          }
-        }
-      } catch (err) {
-        console.error("[fetch-news] Translation error:", err);
+        console.error(`[fetch-news] Processing error for ${item.title}:`, err);
       }
     }
 
@@ -268,7 +192,6 @@ async function handler(request: NextRequest) {
       message: "Fetch complete",
       processed: itemsToProcess.length,
       inserted: inserted.length,
-      translated: itemsToTranslate.length,
     });
   } catch (err) {
     console.error("Cron fetch-news error:", err);

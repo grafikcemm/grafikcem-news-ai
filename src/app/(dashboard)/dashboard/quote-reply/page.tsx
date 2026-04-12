@@ -138,7 +138,7 @@ export default function QuoteReplyPage() {
                           Viral: {item.viral_score || 0}
                         </Badge>
                       </div>
-                      <h3 className={`text-sm font-medium leading-snug line-clamp-2 ${selectedNewsId === item.id ? 'text-indigo-900' : 'text-slate-800'}`}>
+                      <h3 className={`text-sm font-medium leading-snug line-clamp-2 ${selectedNewsId === item.id ? 'text-indigo-900' : 'text-[var(--text-primary)]'}`}>
                         {item.title}
                       </h3>
                       <p className="text-xs text-[var(--text-tertiary)] mt-2 line-clamp-2">
@@ -182,7 +182,7 @@ export default function QuoteReplyPage() {
                 <label className="text-sm font-semibold text-[var(--text-primary)]">2. Seçilen Haber</label>
                 {selectedNews ? (
                   <div className="bg-[var(--surface-elevated)] rounded-lg p-4 border border-[var(--border-subtle)]">
-                    <h4 className="font-medium text-slate-800 text-sm mb-1">{selectedNews.title}</h4>
+                    <h4 className="font-medium text-[var(--text-primary)] text-sm mb-1">{selectedNews.title}</h4>
                     <a href={selectedNews.url} target="_blank" rel="noreferrer" className="text-xs text-blue-500 hover:underline">
                       Kaynağa Git ↗
                     </a>
@@ -221,7 +221,7 @@ export default function QuoteReplyPage() {
                   ANALİZ: {result.reason}
                 </div>
                 
-                <p className="text-slate-800 text-base leading-relaxed whitespace-pre-wrap">
+                <p className="text-[var(--text-primary)] text-base leading-relaxed whitespace-pre-wrap">
                   {result.content}
                 </p>
 

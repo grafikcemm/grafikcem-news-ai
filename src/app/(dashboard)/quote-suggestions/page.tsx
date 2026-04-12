@@ -136,7 +136,7 @@ export default function QuoteSuggestionsPage() {
             className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
               tab === t
                 ? "bg-[var(--surface-card)] text-[var(--text-primary)] shadow-sm"
-                : "text-[var(--text-tertiary)] hover:text-slate-700"
+                : "text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
             }`}
           >
             {t === "quote" ? "Quote Tweet" : "Reply"}
@@ -182,7 +182,7 @@ export default function QuoteSuggestionsPage() {
                           {tweet.retweets.toLocaleString()} RT
                         </Badge>
                       </div>
-                      <p className="text-sm text-slate-700 leading-relaxed">{tweet.content}</p>
+                      <p className="text-sm text-[var(--text-primary)] leading-relaxed">{tweet.content}</p>
                     </div>
                   </div>
 
@@ -195,7 +195,7 @@ export default function QuoteSuggestionsPage() {
                           <span className="text-red-500 ml-2">⚠ 280 karakter limiti aşıldı</span>
                         )}
                       </p>
-                      <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-wrap">{genText}</p>
+                      <p className="text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap">{genText}</p>
                       <div className="flex gap-2">
                         <Button size="sm" variant="outline" onClick={() => copyToClipboard(genText)} className="text-xs">
                           Kopyala

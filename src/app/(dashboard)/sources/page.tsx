@@ -245,7 +245,7 @@ export default function SourcesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center hidden sm:table-cell">
-                        <span className="text-sm font-semibold text-slate-700">
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">
                           {source.article_count}
                         </span>
                       </td>

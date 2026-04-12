@@ -4,7 +4,8 @@ import { GRAFIKCEM_SYSTEM, buildGrafikcemUserPrompt } from "@/lib/prompts/grafik
 import { MASKULENKOD_SYSTEM, buildMaskulenkodUserPrompt, getNextCategory } from "@/lib/prompts/maskulenkod.prompt";
 import { LINKEDIN_SYSTEM, buildLinkedInUserPrompt } from "@/lib/prompts/linkedin.prompt";
 import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { parseAIJSON } from "@/lib/parse-ai";
+import { generateWithGemini } from "@/lib/gemini";
 
 export const maxDuration = 60;
 
@@ -19,12 +20,6 @@ export async function POST(request: NextRequest) {
 async function handler(request: NextRequest) {
   if (!validateCronRequest(request)) return unauthorizedResponse();
 
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error("[cron/generate] ANTHROPIC_API_KEY is missing");
-    return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-  }
-
   const results: Record<string, string> = {};
 
   // Fetch active channels
@@ -37,8 +32,8 @@ async function handler(request: NextRequest) {
     return NextResponse.json({ message: "No active channels" });
   }
 
-  // Get top news from last 24h
-  const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  // Get top news from last 7 days
+  const yesterday = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const { data: topNews } = await supabaseAdmin
     .from("news_items")
     .select("id, title, summary, sources(name), category, viral_score, used_by")
@@ -63,25 +58,10 @@ async function handler(request: NextRequest) {
           category: news.category,
         });
 
-        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1024,
-            system: GRAFIKCEM_SYSTEM,
-            messages: [{ role: "user", content: userPrompt }],
-          }),
-        });
+        const text = await generateWithGemini(userPrompt, 'creative', GRAFIKCEM_SYSTEM);
+        const parsed = parseAIJSON<any>(text);
 
-        if (anthropicRes.ok) {
-          const response = await anthropicRes.json();
-          const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-          const parsed = parseClaudeJSON<any>(rawText);
+        if (parsed) {
 
           await supabaseAdmin.from("generated_content").insert({
             channel: "grafikcem",
@@ -105,25 +85,11 @@ async function handler(request: NextRequest) {
           ? `${items[0].title} — ${items[0].summary?.substring(0, 150)}`
           : undefined;
 
-        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1024,
-            system: MASKULENKOD_SYSTEM,
-            messages: [{ role: "user", content: buildMaskulenkodUserPrompt(category, inspiration) }],
-          }),
-        });
+        const userPrompt = buildMaskulenkodUserPrompt(category, inspiration);
+        const text = await generateWithGemini(userPrompt, 'creative', MASKULENKOD_SYSTEM);
+        const parsed = parseAIJSON<any>(text);
 
-        if (anthropicRes.ok) {
-          const response = await anthropicRes.json();
-          const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-          const parsed = parseClaudeJSON<any>(rawText);
+        if (parsed) {
 
           await supabaseAdmin.from("generated_content").insert({
             channel: "maskulenkod",
@@ -151,25 +117,10 @@ async function handler(request: NextRequest) {
           category: news.category,
         });
 
-        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 1024,
-            system: LINKEDIN_SYSTEM,
-            messages: [{ role: "user", content: userPrompt }],
-          }),
-        });
+        const text = await generateWithGemini(userPrompt, 'creative', LINKEDIN_SYSTEM);
+        const parsed = parseAIJSON<any>(text);
 
-        if (anthropicRes.ok) {
-          const response = await anthropicRes.json();
-          const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-          const parsed = parseClaudeJSON<any>(rawText);
+        if (parsed) {
 
           await supabaseAdmin.from("generated_content").insert({
             channel: "linkedin",

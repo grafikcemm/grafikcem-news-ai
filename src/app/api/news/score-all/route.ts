@@ -2,18 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { parseAIJSON } from "@/lib/parse-ai";
+import { generateWithGemini } from "@/lib/gemini";
 
 export const maxDuration = 60; // Max for Vercel Hobby
 
 export async function POST(request: NextRequest) {
   if (!validateCronRequest(request)) return unauthorizedResponse();
-
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    console.error("[score-all] ANTHROPIC_API_KEY is missing");
-    return NextResponse.json({ error: "ANTHROPIC_API_KEY not configured" }, { status: 500 });
-  }
 
   try {
     // Fetch unscored items
@@ -48,37 +43,14 @@ export async function POST(request: NextRequest) {
       try {
         const userPrompt = buildScoringUserPrompt(batch);
 
-        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 2048,
-            system: VIRAL_SCORING_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: userPrompt }],
-          }),
-        });
-
-        if (!anthropicRes.ok) {
-          const errorText = await anthropicRes.text();
-          console.error(`[score-all] Batch ${batchIdx + 1} Claude Error:`, errorText);
-          throw new Error(`Claude API Error: ${anthropicRes.status}`);
-        }
-
-        const response = await anthropicRes.json();
-        const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-        const cleaned = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+        const text = await generateWithGemini(userPrompt, 'analytical', VIRAL_SCORING_SYSTEM_PROMPT);
 
         let scores: Array<{ score: number; reason: string; category?: string }>;
         try {
-          const parsed = parseClaudeJSON<any>(cleaned);
-          scores = Array.isArray(parsed) ? parsed : (parsed.scores || [parsed]);
+          const parsed = parseAIJSON<any>(text);
+          scores = Array.isArray(parsed) ? parsed : (parsed?.scores || [parsed]);
         } catch (parseErr) {
-          console.error(`[score-all] Batch ${batchIdx + 1} invalid JSON:`, rawText);
+          console.error(`[score-all] Batch ${batchIdx + 1} invalid JSON:`, text.slice(0, 300));
           totalFailed += batch.length;
           continue;
         }

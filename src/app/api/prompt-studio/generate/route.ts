@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getModeConfig } from "@/lib/prompt-studio/modes.config";
 import type { Mode } from "@/lib/prompt-studio/types";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 
 export const maxDuration = 60;
 
@@ -44,52 +45,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid mode" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
-
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2000,
-        system: modeConfig.systemPrompt,
-        messages: [{ role: "user", content: userInput }],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const raw = await anthropicRes.json();
-    const text = (raw.content[0].type === "text" ? raw.content[0].text : "")
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    const text = await generateWithGemini(userInput, 'creative', modeConfig.systemPrompt);
 
     let parsed: { variations: unknown[] };
-    try {
-      parsed = parseClaudeJSON<any>(text);
-    } catch {
-      console.error("[prompt-studio] Invalid JSON from Claude:", text.slice(0, 400));
+    const jsonParsed = parseAIJSON<any>(text);
+    if (!jsonParsed) {
+      console.error("[prompt-studio] Invalid JSON from Gemini:", text.slice(0, 400));
       return NextResponse.json(
         { error: "AI yanıtı parse edilemedi. Tekrar deneyin." },
         { status: 502 }
       );
     }
+    parsed = jsonParsed;
 
     return NextResponse.json({ mode, variations: parsed.variations });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[prompt-studio] generate error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error: " + (err.message || "") }, { status: 500 });
   }
 }

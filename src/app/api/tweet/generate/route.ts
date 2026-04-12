@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { TWEET_GENERATION_SYSTEM, TWEET_GENERATION_USER, FORMAT_INSTRUCTIONS } from "@/lib/prompts";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 
-import { parseClaudeJSON } from "@/lib/parse-claude";
 export async function POST(request: NextRequest) {
   if (!validateApiRequest(request)) return unauthorizedResponse();
 
@@ -46,11 +47,6 @@ export async function POST(request: NextRequest) {
     const voiceSection = voiceSettings?.value ? `\n\nEK KURALLAR:\n${voiceSettings.value}` : "";
     const systemPrompt = `${TWEET_GENERATION_SYSTEM}${styleSection}${voiceSection}`;
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
-
     const title = newsItem.title_tr || newsItem.title;
     const summary = newsItem.summary || "";
     const baseUserPrompt = TWEET_GENERATION_USER(title, summary, sourceName, newsItem.category || "ai_news");
@@ -72,30 +68,8 @@ export async function POST(request: NextRequest) {
     
     const userPrompt = baseUserPrompt + formatInstruction;
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-    const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+    const text = await generateWithGemini(userPrompt, 'creative', systemPrompt);
+    console.log("DEBUG: Gemini raw text:", text);
 
     let parsed: {
       options: Array<{
@@ -107,12 +81,13 @@ export async function POST(request: NextRequest) {
         pattern_used?: string;
       }>;
     };
-    try {
-      parsed = parseClaudeJSON<any>(text);
-    } catch {
-      console.error("Claude returned invalid JSON:", rawText);
+    
+    const jsonParsed = parseAIJSON<any>(text);
+    if (!jsonParsed) {
+      console.error("Gemini returned invalid JSON:", text);
       return NextResponse.json({ error: "AI returned invalid response" }, { status: 500 });
     }
+    parsed = jsonParsed;
 
     if (!parsed.options || !Array.isArray(parsed.options)) {
       return NextResponse.json({ error: "AI returned unexpected format" }, { status: 500 });
@@ -134,22 +109,39 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      if (!draftError && draft) {
+      if (draft && !draftError) {
         drafts.push({
           ...draft,
           score_reason: option.score_reason,
           pattern_used: option.pattern_used || null,
         });
+      } else {
+        console.error("Tweet draft insert error:", draftError);
       }
     }
 
+    if (drafts.length === 0 && parsed.options.length > 0) {
+        console.error("All draft inserts failed. Returning raw AI options as fallback.");
+        return NextResponse.json({ 
+          options: parsed.options.map((opt, idx) => ({
+            id: `temp-${idx}`,
+            content: opt.content,
+            tweet_type: opt.type,
+            thread_tweets: opt.thread_tweets,
+            ai_score: opt.score,
+            score_reason: opt.score_reason,
+            pattern_used: opt.pattern_used,
+            status: 'pending'
+          })),
+          warning: "İçerikler üretildi ancak veritabanına kaydedilemedi."
+        });
+    }
+
     return NextResponse.json({ options: drafts });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Tweet generate error:", err);
-    const msg = err instanceof Error ? err.message : "";
-    const isCreditError = msg.includes("credit balance");
     return NextResponse.json(
-      { error: isCreditError ? "API kredi yetersiz — Anthropic Console'dan kredi yükleyin" : "Internal server error" },
+      { error: "Internal server error: " + (err.message || "") },
       { status: 500 }
     );
   }

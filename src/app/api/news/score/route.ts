@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 
 const MAX_NEWS_IDS = 30;
 
@@ -29,11 +30,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No matching news items found" }, { status: 404 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
-
     // Batch score (max 10 per call)
     const batches = [];
     for (let i = 0; i < items.length; i += 10) {
@@ -46,40 +42,18 @@ export async function POST(request: NextRequest) {
       try {
         const userPrompt = buildScoringUserPrompt(batch);
 
-        const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-5",
-            max_tokens: 2048,
-            system: VIRAL_SCORING_SYSTEM_PROMPT,
-            messages: [{ role: "user", content: userPrompt }],
-          }),
-        });
-
-        if (!anthropicRes.ok) {
-          const errorText = await anthropicRes.text();
-          console.error("Claude API Error Status:", anthropicRes.status, errorText);
-          continue;
-        }
-
-        const response = await anthropicRes.json();
-        const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-        const text = rawText.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+        const text = await generateWithGemini(userPrompt, 'analytical', VIRAL_SCORING_SYSTEM_PROMPT);
 
         let scores: Array<{ score: number; reason: string; category?: string }>;
-        try {
-          const parsed = parseClaudeJSON<any>(text);
-          // If parsed is a single object { "scores": [...] }, extract it
-          scores = Array.isArray(parsed) ? parsed : (parsed.scores || [parsed]);
-        } catch {
-          console.error("Claude returned invalid JSON for scoring:", rawText);
+        const parsed = parseAIJSON<any>(text);
+        
+        if (!parsed) {
+          console.error("Gemini returned invalid or empty JSON for scoring:", text);
           continue;
         }
+
+        // If parsed is a single object { "scores": [...] }, extract it
+        scores = Array.isArray(parsed) ? parsed : (parsed.scores || [parsed]);
 
         for (let j = 0; j < Math.min(scores.length, batch.length); j++) {
           const s = scores[j];
@@ -96,7 +70,7 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (err) {
-        console.error("Claude scoring batch error:", err);
+        console.error("Gemini scoring batch error:", err);
         continue;
       }
     }

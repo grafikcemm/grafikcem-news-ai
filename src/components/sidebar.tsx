@@ -47,9 +47,9 @@ const navGroups: NavGroup[] = [
   {
     title: "CREATE",
     items: [
-      { label: "@grafikcem", href: "/channels/grafikcem", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "#E879A0"}} /> },
-      { label: "@maskulenkod", href: "/channels/maskulenkod", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "#60A5FA"}} /> },
-      { label: "LinkedIn", href: "/channels/linkedin", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "#34D399"}} /> },
+      { label: "@grafikcem", href: "/channels/grafikcem", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-grafikcem)"}} /> },
+      { label: "@maskulenkod", href: "/channels/maskulenkod", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-maskulenkod)"}} /> },
+      { label: "LinkedIn", href: "/channels/linkedin", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-linkedin)"}} /> },
     ],
   },
   {

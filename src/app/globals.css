@@ -20,10 +20,10 @@
   --border-accent: rgba(99,179,237,0.3);
 
   /* Metin */
-  --text-primary: #f0f4ff;
-  --text-secondary: #8896b3;
-  --text-tertiary: #4a5568;
-  --text-disabled: #2d3748;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-tertiary: #64748b;
+  --text-disabled: #334155;
 
   /* Accent — Electric Blue (Quantix stili) */
   --accent: #4f9cf9;
@@ -50,6 +50,11 @@
 
   --info: #60a5fa;
   --info-subtle: rgba(96,165,250,0.08);
+
+  /* Channel Colors */
+  --channel-grafikcem: #E879A0;
+  --channel-maskulenkod: #60A5FA;
+  --channel-linkedin: #34D399;
 
   /* Gradient'lar */
   --gradient-card: linear-gradient(135deg, #0d1117 0%, #111827 100%);

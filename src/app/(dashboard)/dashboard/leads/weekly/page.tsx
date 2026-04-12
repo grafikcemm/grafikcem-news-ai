@@ -112,7 +112,7 @@ export default function WeeklyPlanPage() {
               
               return (
                 <div key={dayStr} className="bg-[var(--surface-card)] dark:bg-[var(--surface-card)] rounded-2xl border border-[var(--border-subtle)] dark:border-[var(--border-subtle)]/50 p-4 min-h-[400px]">
-                  <h3 className="text-center font-bold text-slate-700 dark:text-[var(--text-secondary)] pb-3 mb-4 border-b border-[var(--border-subtle)] dark:border-[var(--border-subtle)]">
+                  <h3 className="text-center font-bold text-[var(--text-primary)] dark:text-[var(--text-secondary)] pb-3 mb-4 border-b border-[var(--border-subtle)] dark:border-[var(--border-subtle)]">
                     {format(day, "EEEE", { locale: tr })}
                     <span className="block text-xs font-normal text-[var(--text-tertiary)] mt-1">{format(day, "d MMM")}</span>
                   </h3>

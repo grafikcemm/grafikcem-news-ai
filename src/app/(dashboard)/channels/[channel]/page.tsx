@@ -36,7 +36,7 @@ const CHANNEL_CONFIG = {
     color: "slate",
     accent: "bg-[var(--surface-elevated)]",
     light: "bg-slate-50 border-[var(--border-subtle)]",
-    badge: "bg-[var(--surface-elevated)] text-slate-700",
+    badge: "bg-[var(--surface-elevated)] text-[var(--text-primary)]",
   },
   linkedin: {
     label: "LinkedIn",
@@ -135,7 +135,7 @@ function ContentCard({
         {/* Header */}
         <div className={`flex items-center gap-2 mb-3 flex-wrap ${onToggleSelect ? 'pl-7' : ''}`}>
           <StatusDot status={item.status} />
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-[var(--text-secondary)]">
             {formatDistanceToNow(new Date(item.created_at), { addSuffix: true, locale: tr })}
           </span>
           {item.content_category && (
@@ -156,7 +156,7 @@ function ContentCard({
         {/* Content */}
         {editing ? (
           <textarea
-            className="w-full text-sm text-slate-800 border border-slate-300 rounded-md p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px]"
+            className="w-full text-sm text-[var(--text-primary)] border border-slate-300 rounded-md p-3 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[120px]"
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             onBlur={handleSaveEdit}
@@ -164,7 +164,7 @@ function ContentCard({
           />
         ) : (
           <p
-            className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed cursor-text"
+            className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed cursor-text"
             onClick={() => item.status === "draft" && setEditing(true)}
           >
             {item.content}
@@ -245,29 +245,28 @@ export default function ChannelPage() {
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const fetchContent = useCallback(async (status?: TabStatus) => {
+  const fetchContent = useCallback(async () => {
     setLoading(true);
-    const s = status || activeTab;
-    const res = await fetch(`/api/channels/${channel}/content?status=${s}`);
-    if (res.ok) {
-      const data = await res.json();
-      setItems(data.content || []);
+    try {
+      const res = await fetch(`/api/channels/${channel}/content?status=${activeTab}`);
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.content || []);
+      }
+    } catch (err) {
+      console.error("Fetch content error:", err);
+      toast.error("İçerikler yüklenemedi");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [channel, activeTab]);
 
   useEffect(() => { 
-    // disable exhaustive-deps warning to fix cascade render issue temporarily
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     fetchContent(); 
-  }, [channel]);
+  }, [fetchContent]);
 
   const handleTabChange = (tab: TabStatus) => {
     setActiveTab(tab);
-    setLoading(true);
-    fetch(`/api/channels/${channel}/content?status=${tab}`)
-      .then((r) => r.json())
-      .then((d) => { setItems(d.content || []); setLoading(false); });
   };
 
   const handleGenerate = async () => {
@@ -326,13 +325,13 @@ export default function ChannelPage() {
           const dayItems = items.filter((_, idx) => (idx % 7) === i);
           return (
             <div key={day} className="border border-[var(--border-subtle)] rounded-lg bg-slate-50 min-h-[300px] flex flex-col">
-              <div className="bg-[var(--surface-elevated)] border-b border-[var(--border-subtle)] px-3 py-2 text-center text-xs font-bold text-slate-500">
+              <div className="bg-[var(--surface-elevated)] border-b border-[var(--border-subtle)] px-3 py-2 text-center text-xs font-bold text-[var(--text-secondary)]">
                 {day}
               </div>
               <div className="p-2 space-y-2 flex-1 relative">
                 {dayItems.map(item => (
                   <div key={item.id} className="bg-[var(--surface-card)] border flex flex-col border-slate-300 rounded p-2 text-[10px] shadow-sm overflow-hidden">
-                     <span className="line-clamp-4 text-slate-700">{item.content}</span>
+                     <span className="line-clamp-4 text-[var(--text-primary)]">{item.content}</span>
                      <div className="mt-1 flex items-center justify-between">
                        <StatusDot status={item.status} />
                        <span className="text-slate-400">{item.content.length}c</span>
@@ -348,7 +347,7 @@ export default function ChannelPage() {
   };
 
   if (!config) {
-    return <div className="p-8 text-slate-500">Kanal bulunamadı: {channel}</div>;
+    return <div className="p-8 text-[var(--text-secondary)]">Kanal bulunamadı: {channel}</div>;
   }
 
   const tabs: { key: TabStatus; label: string }[] = [
@@ -365,9 +364,9 @@ export default function ChannelPage() {
         <div>
           <div className="flex items-center gap-3 mb-1">
             <div className={`w-3 h-3 rounded-full ${config.accent}`} />
-            <h1 className="text-2xl font-bold text-slate-900">{config.label}</h1>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">{config.label}</h1>
           </div>
-          <p className="text-slate-500 text-sm">{config.description}</p>
+          <p className="text-[var(--text-secondary)] text-sm">{config.description}</p>
         </div>
         <Button
           onClick={handleGenerate}
@@ -397,8 +396,8 @@ export default function ChannelPage() {
               onClick={() => handleTabChange(tab.key)}
               className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
                 activeTab === tab.key
-                  ? "bg-[var(--surface-card)] text-slate-900 shadow-sm"
-                  : "text-slate-500 hover:text-slate-700"
+                  ? "bg-[var(--surface-card)] text-[var(--text-primary)] shadow-sm"
+                  : "text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               }`}
             >
               {tab.label}
@@ -415,13 +414,13 @@ export default function ChannelPage() {
           <div className="flex bg-[var(--surface-elevated)] p-1 rounded-lg">
             <button 
               onClick={() => setViewMode("list")} 
-              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "list" ? "bg-[var(--surface-card)] shadow-sm" : "text-slate-500"}`}
+              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "list" ? "bg-[var(--surface-card)] shadow-sm" : "text-[var(--text-secondary)]"}`}
             >
               Liste
             </button>
             <button 
               onClick={() => setViewMode("calendar")} 
-              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "calendar" ? "bg-[var(--surface-card)] shadow-sm" : "text-slate-500"}`}
+              className={`px-3 py-1 rounded-md text-sm font-medium ${viewMode === "calendar" ? "bg-[var(--surface-card)] shadow-sm" : "text-[var(--text-secondary)]"}`}
             >
               Takvim
             </button>

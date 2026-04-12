@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
+import { generateWithGemini } from "@/lib/gemini";
 
 export async function POST(req: NextRequest) {
   if (!validateApiRequest(req)) return unauthorizedResponse();
@@ -13,11 +14,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Eksik parametreler (leadId, format, language gerekli)" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
-    }
-    
     // 1. Fetch Lead
     const { data: lead, error: fetchError } = await supabaseAdmin
       .from("leads")
@@ -29,7 +25,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
     }
 
-    // 2. Call Claude
+    // 2. Call Gemini
     const systemPrompt = "Sen GrafikCem Creative Studio adına yazan bir iş geliştirme uzmanısın. GrafikCem; logo tasarımı, sosyal medya yönetimi, web tasarımı ve AI görsel üretimi hizmetleri sunan İstanbul merkezli bir freelance tasarım stüdyosudur.";
 
     let formatRules = "";
@@ -61,30 +57,7 @@ KURALLAR:
 3. SADECE mesaj metnini döndür, hiçbir markdown veya onaylama cümlesi yazma. (Eğer format email ise Subject: ... kısmı en üstte olmalı).
 `;
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1500,
-        system: systemPrompt,
-        messages: [{ role: "user", content: promptText }],
-      }),
-    });
-
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    let generatedText = response.content[0].type === 'text' ? response.content[0].text : "";
-    generatedText = generatedText.trim();
+    const generatedText = (await generateWithGemini(promptText, 'creative', systemPrompt)).trim();
 
     // 3. Save to lead_contacts and update lead status
     const { data: contactInsert, error: contactError } = await supabaseAdmin

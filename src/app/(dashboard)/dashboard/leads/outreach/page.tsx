@@ -103,7 +103,7 @@ function OutreachContent() {
       {/* LEFT PANEL: Lead List */}
       <div className="w-1/3 bg-[var(--surface-elevated)] dark:bg-[var(--surface-raised)] rounded-2xl border border-[var(--border-subtle)] dark:border-slate-800 flex flex-col hidden lg:flex">
          <div className="p-4 border-b border-[var(--border-subtle)] dark:border-slate-800">
-           <h2 className="font-bold text-lg text-slate-800 dark:text-white">Bu Haftanın Görevleri</h2>
+           <h2 className="font-bold text-lg text-[var(--text-primary)] dark:text-white">Bu Haftanın Görevleri</h2>
            <p className="text-xs text-[var(--text-tertiary)] mt-1">İletişim kurulacak veya kurulmuş {leads.length} lead</p>
          </div>
          <div className="flex-1 overflow-y-auto p-3 space-y-2">
@@ -116,7 +116,7 @@ function OutreachContent() {
                 className={`w-full text-left p-3 rounded-xl transition ${selectedLead?.id === lead.id ? 'bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800' : 'hover:bg-[var(--surface-card)] hover:bg-[var(--surface-elevated)] border border-transparent'}`}
               >
                 <div className="flex justify-between items-start mb-1">
-                  <span className="font-semibold text-slate-800 dark:text-white line-clamp-1">{lead.business_name}</span>
+                  <span className="font-semibold text-[var(--text-primary)] dark:text-white line-clamp-1">{lead.business_name}</span>
                   {lead.status === "contacted" ? <CheckCircle2 className="w-4 h-4 text-emerald-500" /> : <div className="w-2 h-2 rounded-full bg-amber-500 mt-1.5" />}
                 </div>
                 <div className="text-xs text-[var(--text-tertiary)] flex justify-between">
@@ -193,7 +193,7 @@ function OutreachContent() {
                {/* Output Area */}
                <div className="relative flex-1">
                  <textarea 
-                   className="w-full h-full min-h-[300px] p-5 bg-[var(--surface-elevated)] dark:bg-[var(--surface-raised)] border border-[var(--border-subtle)] dark:border-[var(--border-subtle)] rounded-xl resize-none focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-[var(--text-secondary)]"
+                   className="w-full h-full min-h-[300px] p-5 bg-[var(--surface-elevated)] dark:bg-[var(--surface-raised)] border border-[var(--border-subtle)] dark:border-[var(--border-subtle)] rounded-xl resize-none focus:ring-2 focus:ring-blue-500 text-[var(--text-primary)] dark:text-[var(--text-secondary)]"
                    placeholder="Zekice yazılmış kişiselleştirilmiş mesajınız burada belirecek..."
                    value={generatedText}
                    onChange={(e) => setGeneratedText(e.target.value)}
@@ -208,7 +208,7 @@ function OutreachContent() {
                </div>
                
                <div className="mt-4 flex justify-end gap-3">
-                 <button onClick={handleMarkContacted} className="px-5 py-2 bg-[var(--surface-elevated)] hover:bg-[var(--success-subtle)] text-slate-700 hover:text-[var(--success)] dark:bg-[var(--surface-overlay)] dark:text-[var(--text-primary)] hover:bg-emerald-900/50 rounded-lg text-sm font-medium transition flex items-center gap-2">
+                 <button onClick={handleMarkContacted} className="px-5 py-2 bg-[var(--surface-elevated)] hover:bg-[var(--success-subtle)] text-[var(--text-primary)] hover:text-[var(--success)] dark:bg-[var(--surface-overlay)] dark:text-[var(--text-primary)] hover:bg-emerald-900/50 rounded-lg text-sm font-medium transition flex items-center gap-2">
                    <CheckCircle2 className="w-4 h-4" /> Seçiliyi İletişim Kuruldu İşaretle
                  </button>
                </div>

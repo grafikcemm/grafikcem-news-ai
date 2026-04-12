@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 
 export async function POST(req: Request) {
   try {
@@ -11,11 +12,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "leadId is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
-    }
-    
     // 1. Fetch Lead
     const { data: lead, error: fetchError } = await supabaseAdmin
       .from("leads")
@@ -27,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Lead not found" }, { status: 404 });
     }
 
-    // 2. Call Claude API
+    // 2. Call Gemini API
     const systemPrompt = "Sen bir dijital pazarlama ve tasarım danışmanısın.";
 
     const promptText = `
@@ -60,30 +56,12 @@ LEAD BİLGİLERİ:
 }
 `;
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1000,
-        system: systemPrompt,
-        messages: [{ role: "user", content: promptText }],
-      }),
-    });
+    const text = await generateWithGemini(promptText, 'analytical', systemPrompt);
+    const parsedJson = parseAIJSON<any>(text);
 
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
+    if (!parsedJson) {
+      throw new Error("Gemini returned invalid or empty JSON for lead analysis");
     }
-
-    const response = await anthropicRes.json();
-    const rawOutput = response.content[0].type === 'text' ? response.content[0].text : "";
-    const parsedJson = parseClaudeJSON<any>(rawOutput);
 
     // 3. Update Supabase
     const { data: updatedLead, error: updateError } = await supabaseAdmin

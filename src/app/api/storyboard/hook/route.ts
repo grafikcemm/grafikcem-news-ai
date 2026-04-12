@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { parseClaudeJSON } from "@/lib/parse-claude";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -9,11 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Eksik parametre" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured (ANTHROPIC_API_KEY)" }, { status: 500 });
-    }
-
     const systemPrompt = `Sen GrafikCem (@grafikcem) için viral sosyal medya kancaları (hook) yazan bir içerik stratejistisin.
 GrafikCem stili hook'lar şunlara odaklanır:
 - Tasarım araçları, kaynaklar ve AI prompt tavsiyeleri
@@ -21,6 +18,7 @@ GrafikCem stili hook'lar şunlara odaklanır:
 - Carousel için: 'Part 1/7' serisi formatı
 - Reel için: İlk 0-3 saniye izleyiciyi çeken görsel hook ağırlığı (metin sadece destekleyici)
 - Her zaman kaynak veya araç öneren, eğitici ve otoriter bir ton`;
+
     const userPrompt = `İçerik: ${topic}, Platform: ${platform}, Format: ${format}, Ton: ${tone}. GrafikCem tarzına uygun 3 farklı hook üret, her biri farklı psikolojik tetikleyici kullansın. SADECE JSON döndür, başka hiçbir şey yazma:
 {
   "hooks": [
@@ -30,41 +28,17 @@ GrafikCem stili hook'lar şunlara odaklanır:
   ]
 }`;
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 1024,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+    const text = await generateWithGemini(userPrompt, 'creative', systemPrompt);
+    const parsed = parseAIJSON<any>(text);
 
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-    
-    let parsed;
-    try {
-      parsed = parseClaudeJSON<any>(rawText);
-    } catch {
-      console.error("Claude JSON Parse Error:", rawText);
+    if (!parsed) {
+      console.error("Gemini returned invalid or empty JSON for hooks:", text);
       return NextResponse.json({ error: "AI geçersiz format döndürdü" }, { status: 500 });
     }
 
     return NextResponse.json(parsed);
-  } catch (err) {
+  } catch (err: any) {
     console.error("Hook generate error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: "Internal server error: " + (err.message || "") }, { status: 500 });
   }
 }

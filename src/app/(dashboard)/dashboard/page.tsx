@@ -13,7 +13,7 @@ import { FileTextIcon } from "lucide-react";
 interface NewsItem { id: string; title: string; summary: string; viral_score: number; fetched_at: string; sources?: { name: string }[] | { name: string } | null; }
 interface ContentItem { id: string; title: string; platform: string; format: string; status: string; scheduled_date: string; }
 interface FocusTask { id: string; title: string; priority: number; frequency: string; is_completed: boolean; completed_at: string | null; }
-interface Lead { id: string; company_name: string; sector: string; score: number; status: string; assigned_day?: string; }
+interface Lead { id: string; company_name: string; sector: string; potential_score: number; status: string; assigned_day?: string; }
 interface TweetDraft { id: string; text?: string; content?: string; platform?: string; status: string; }
 
 function getGreeting() {
@@ -91,7 +91,7 @@ export default function DashboardPage() {
       const { data: lQueue } = await supabase.from("leads")
         .select("*")
         .in("status", ["discovered", "researched"])
-        .order("score", { ascending: false })
+        .order("potential_score", { ascending: false })
         .limit(4);
       if (lQueue) setLeadQueue(lQueue as Lead[]);
 
@@ -165,7 +165,7 @@ export default function DashboardPage() {
             <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
             <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Sistem aktif</span>
           </div>
-          <h1 className="text-display" style={{ marginBottom: 4 }}>Daily Command<br />Center 🎯</h1>
+          <h1 className="text-display" style={{ marginBottom: 4 }}>{greeting}</h1>
           <p style={{ fontSize: 14, color: "var(--text-tertiary)" }}>Bugün, {getFormattedDate()}</p>
         </div>
         <Link href="/dashboard/news-pool" style={{ fontSize: 12, color: "var(--accent)" }}>See all →</Link>
@@ -264,7 +264,7 @@ export default function DashboardPage() {
         <div className="gradient-border" style={{ padding: 24 }}>
           <div className="flex justify-between items-center mb-[16px]">
             <span className="text-label">ULAŞIM</span>
-            {todayLead && <span style={{ fontSize: 24, fontWeight: 800, color: "var(--success)" }}>{todayLead.score}</span>}
+            {todayLead && <span style={{ fontSize: 24, fontWeight: 800, color: "var(--success)" }}>{todayLead.potential_score}</span>}
           </div>
           {loading ? (
             <div style={{ height: 80, background: "var(--surface-overlay)", borderRadius: "var(--radius-md)", opacity: 0.2 }} className="animate-pulse" />
@@ -334,7 +334,7 @@ export default function DashboardPage() {
                 <span className="text-label" style={{ flexShrink: 0 }}>{item.sector}</span>
                 <span style={{ color: "var(--text-primary)", fontWeight: 500 }} className="truncate">{item.company_name}</span>
               </div>
-              <ScoreBadge score={item.score} className="shrink-0" />
+              <ScoreBadge score={item.potential_score} className="shrink-0" />
             </div>
           ))}
         </div>

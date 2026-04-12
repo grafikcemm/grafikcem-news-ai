@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { generateWithGemini } from "@/lib/gemini";
+import { parseAIJSON } from "@/lib/parse-ai";
 
-import { parseClaudeJSON } from "@/lib/parse-claude";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -10,11 +11,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Eksik parametre" }, { status: 400 });
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Anthropic API key not configured" }, { status: 500 });
-    }
-    
     const systemPrompt = `Sen GrafikCem (@grafikcem) için içerik üretiyorsun.
 GrafikCem'in içerik stili:
 - MİKROFON YOK: Tüm reels'ler sessiz veya müzik overlay ile çekilir, seslendirme yoktur. Metin overlay veya caption ile anlatım yapılır.
@@ -51,35 +47,11 @@ GrafikCem'in içerik stili:
   }
 }`;
 
-    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey!,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
+    const text = await generateWithGemini(userPrompt, 'creative', systemPrompt);
+    const parsed = parseAIJSON<any>(text);
 
-    if (!anthropicRes.ok) {
-      const errorText = await anthropicRes.text();
-      console.error("Claude API Error Status:", anthropicRes.status, errorText);
-      throw new Error(`Claude API Error: ${anthropicRes.status}`);
-    }
-
-    const response = await anthropicRes.json();
-    const rawText = response.content[0].type === "text" ? response.content[0].text : "";
-    
-    let parsed;
-    try {
-      parsed = parseClaudeJSON<any>(rawText);
-    } catch {
-      console.error("Claude JSON Parse Error:", rawText);
+    if (!parsed) {
+      console.error("Gemini returned invalid or empty JSON for storyboard:", text);
       return NextResponse.json({ error: "AI geçersiz format döndürdü" }, { status: 500 });
     }
 

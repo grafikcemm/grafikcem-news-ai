@@ -247,14 +247,14 @@ function TweetGeneratorContent() {
               {showOptions && (
                 <div className="space-y-4 p-4 bg-[var(--surface-elevated)] rounded-lg border border-[var(--border-subtle)]">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-slate-700">A/B Testi Üret</span>
+                    <span className="text-sm font-medium text-[var(--text-primary)]">A/B Testi Üret</span>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input type="checkbox" checked={abMode} onChange={() => setAbMode(!abMode)} className="sr-only peer" />
                       <div className="w-9 h-5 bg-[var(--surface-elevated)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--surface-card)] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-sm font-medium text-slate-700">Dil Seçimi</span>
+                    <span className="text-sm font-medium text-[var(--text-primary)]">Dil Seçimi</span>
                     <div className="flex gap-2">
                       {["tr", "en", "bilingual"].map((l) => (
                         <button
@@ -270,7 +270,7 @@ function TweetGeneratorContent() {
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-sm font-medium text-slate-700">Ton / Tarz</span>
+                    <span className="text-sm font-medium text-[var(--text-primary)]">Ton / Tarz</span>
                     <select
                       value={tone}
                       onChange={(e) => setTone(e.target.value)}
@@ -403,7 +403,7 @@ function TweetGeneratorContent() {
 
                   {/* Tweet content */}
                   <div className="bg-[var(--surface-elevated)] rounded-xl p-4 mb-4 relative">
-                    <p className="text-sm text-slate-800 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
                       {draft.content}
                     </p>
                     {draft.tweet_type === "thread" &&
@@ -413,7 +413,7 @@ function TweetGeneratorContent() {
                           {draft.thread_tweets.map((tweet, j) => (
                             <div key={j} className="flex gap-2">
                               <span className="text-xs text-[var(--text-tertiary)] shrink-0 mt-0.5">{j + 1}.</span>
-                              <p className="text-sm text-slate-700">{tweet}</p>
+                              <p className="text-sm text-[var(--text-primary)]">{tweet}</p>
                             </div>
                           ))}
                         </div>

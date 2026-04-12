@@ -16,6 +16,7 @@ interface NewsItem {
   id: string;
   title: string;
   title_tr: string | null;
+  summary_tr: string | null;
   title_original: string | null;
   summary: string;
   full_summary_tr: string | null;
@@ -327,10 +328,21 @@ export default function NewsPoolPage() {
                         fontWeight: item.is_read ? 400 : 500,
                         color: item.is_read ? "var(--text-secondary)" : "var(--text-primary)",
                         lineHeight: 1.4,
-                        marginBottom: 6,
+                        marginBottom: 4,
                       }}
                     >
                       {item.title_tr || item.title}
+                    </p>
+                    <p
+                      className="line-clamp-2"
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-tertiary)",
+                        lineHeight: 1.4,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {item.summary_tr || item.summary}
                     </p>
                     <div className="flex items-center gap-[8px]">
                       <ScoreBar score={item.viral_score} />
