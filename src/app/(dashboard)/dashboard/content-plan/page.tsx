@@ -90,10 +90,6 @@ export default function ContentPlanPage() {
     else alert("İçerik takvime eklendi!");
   };
 
-  const handleStoryboard = (c: PlanContent) => {
-    // Navigating to storyboard with params
-    router.push(`/dashboard/storyboard?title=${encodeURIComponent(c.title)}&format=${encodeURIComponent(c.format)}`);
-  };
 
   const DAYS = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma'];
 
@@ -150,9 +146,8 @@ export default function ContentPlanPage() {
                           {c.why}
                         </div>
 
-                        <div className="mt-auto grid grid-cols-2 gap-2">
+                        <div className="mt-auto">
                            <Button size="sm" onClick={() => addSingleToCalendar(c)} className="w-full text-[10px] bg-[var(--surface-overlay)] hover:bg-[var(--surface-elevated)] text-[var(--text-primary)] border border-[var(--border-default)] h-7 rounded-[var(--radius-md)]">Takvime Ekle</Button>
-                           <Button size="sm" onClick={() => handleStoryboard(c)} className="w-full text-[10px] bg-transparent border border-[var(--accent)] text-[var(--accent)] hover:bg-[var(--accent)] hover:text-white h-7 rounded-[var(--radius-md)]">Storyboard</Button>
                         </div>
                      </CardContent>
                    </Card>

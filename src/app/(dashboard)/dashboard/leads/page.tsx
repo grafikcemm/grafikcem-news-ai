@@ -397,9 +397,7 @@ export default function LeadsPage() {
 
             {/* Actions */}
             <div className="mt-auto" style={{ padding: 20, borderTop: "1px solid var(--border-subtle)" }}>
-              <Link href={`/dashboard/leads/outreach?leadId=${selectedLead.id}`}>
-                <Button className="w-full" style={{ marginBottom: 8 }}>DM Yaz</Button>
-              </Link>
+              <Button className="w-full" style={{ marginBottom: 8 }} onClick={() => toast.info("Bu özellik yakında eklenecek.")}>DM Yaz</Button>
               <Button variant="secondary" className="w-full" style={{ marginBottom: 8 }}>E-posta Yaz</Button>
               <Button variant="ghost" className="w-full" onClick={() => {
                 toast.promise(analyzeSingleLead(selectedLead.id), {

@@ -56,7 +56,6 @@ const navGroups: NavGroup[] = [
     title: "CONTENT",
     items: [
       { label: "Haber Havuzu", href: "/dashboard/news-pool", icon: <Newspaper size={15} /> },
-      { label: "Storyboard", href: "/dashboard/storyboard", icon: <LayoutGrid size={15} /> },
       { label: "Tweet Üretici", href: "/tweet-generator", icon: <Twitter size={15} /> },
       { label: "Quote & Reply", href: "/dashboard/quote-reply", icon: <MessageSquare size={15} /> },
     ],
@@ -72,13 +71,11 @@ const navGroups: NavGroup[] = [
     title: "LEADS",
     items: [
       { label: "Lead Havuzu", href: "/dashboard/leads", icon: <Users size={15} /> },
-      { label: "Haftalık Ulaşım", href: "/dashboard/leads/weekly", icon: <CalendarClock size={15} /> },
     ],
   },
   {
     title: "OUTREACH",
     items: [
-      { label: "İletişim Merkezi", href: "/dashboard/leads/outreach", icon: <Send size={15} /> },
       { label: "Rakip Takip", href: "/dashboard/competitors", icon: <DollarSign size={15} /> },
     ],
   },

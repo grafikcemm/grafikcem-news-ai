@@ -17,60 +17,118 @@ import { supabase } from "@/lib/supabase";
 const HISTORY_KEY = "prompt_studio_history";
 const MAX_HISTORY = 20;
 
-function VariationCard({ variation, onCopy, onSave }: { variation: Variation; onCopy: (text: string) => void; onSave: (text: string) => void }) {
-  const [copied, setCopied] = useState(false);
+function ResultDisplay({ 
+  result, 
+  onCopyAll, 
+  onCopyPrompt,
+  onSave 
+}: { 
+  result: any; 
+  onCopyAll: () => void; 
+  onCopyPrompt: (text: string) => void;
+  onSave: (text: string) => void;
+}) {
+  const [copiedAll, setCopiedAll] = useState(false);
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [copiedNeg, setCopiedNeg] = useState(false);
 
-  const handleCopy = async () => {
-    const fullText = variation.negative_prompt
-      ? `${variation.prompt}\n\n${variation.negative_prompt}`
-      : variation.prompt;
-    await onCopy(fullText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopyAll = async () => {
+    await onCopyAll();
+    setCopiedAll(true);
+    setTimeout(() => setCopiedAll(false), 2000);
+  };
+
+  const handleCopyPrompt = async () => {
+    await onCopyPrompt(result.prompt);
+    setCopiedPrompt(true);
+    setTimeout(() => setCopiedPrompt(false), 2000);
+  };
+
+  const handleCopyNeg = async () => {
+    await onCopyPrompt(result.negative_prompt);
+    setCopiedNeg(true);
+    setTimeout(() => setCopiedNeg(false), 2000);
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-5 hover:border-slate-600 transition-colors">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-lg">{variation.icon}</span>
-          <span className="font-semibold text-white text-sm">{variation.label}</span>
-        </div>
-        <span className="text-[10px] font-medium text-[var(--text-tertiary)] bg-[var(--surface-overlay)] rounded-full px-2 py-0.5 whitespace-nowrap">
-          {variation.best_for}
-        </span>
-      </div>
-
-      <div className="flex-1">
-        <p className="text-sm font-mono text-[var(--text-primary)] leading-relaxed whitespace-pre-wrap break-words">
-          {variation.prompt}
-        </p>
-        {variation.negative_prompt && (
-          <p className="mt-3 text-xs font-mono text-[var(--text-tertiary)] leading-relaxed">
-            {variation.negative_prompt}
-          </p>
-        )}
-      </div>
-
-      <div className="flex gap-2 mt-1">
+    <div className="space-y-6">
+      {/* Top Action */}
+      <div className="flex justify-end">
         <button
-          onClick={handleCopy}
-          className={`flex-1 flex items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold transition-all ${
-            copied
-              ? "bg-[#C8F135]/20 text-[#C8F135] border border-[#C8F135]/40"
-              : "bg-[var(--surface-overlay)] text-[var(--text-secondary)] hover:bg-[var(--surface-overlay)] hover:text-white border border-slate-600/40 hover:border-slate-500"
+          onClick={handleCopyAll}
+          className={`px-6 py-2 rounded-lg text-sm font-bold transition-all flex items-center gap-2 ${
+            copiedAll 
+              ? "bg-[#C8F135]/20 text-[#C8F135] border border-[#C8F135]/40" 
+              : "bg-[#C8F135] text-black hover:bg-[#d4f54a]"
           }`}
         >
-          {copied ? "✅ Kopyalandı!" : "📋 Kopyala"}
+          {copiedAll ? "✅ JSON Kopyalandı" : "📋 Tüm JSON'u Kopyala"}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Main Prompt Area */}
+        <div className="space-y-4 lg:col-span-2">
+          <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Main Prompt</span>
+              <button onClick={handleCopyPrompt} className="text-[10px] text-[#C8F135] hover:underline">
+                {copiedPrompt ? "Kopyalandı!" : "Kopyala"}
+              </button>
+            </div>
+            <textarea
+              readOnly
+              value={result.prompt}
+              className="w-full bg-transparent border-none text-lg font-mono text-white focus:ring-0 resize-none h-32 leading-relaxed"
+            />
+          </div>
+        </div>
+
+        {/* Negative Prompt */}
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-6 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Negative Prompt</span>
+            <button onClick={handleCopyNeg} className="text-[10px] text-[#C8F135] hover:underline">
+              {copiedNeg ? "Kopyalandı!" : "Kopyala"}
+            </button>
+          </div>
+          <p className="text-sm font-mono text-[var(--text-secondary)] leading-relaxed">
+            {result.negative_prompt}
+          </p>
+        </div>
+
+        {/* Details Chips */}
+        <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-elevated)]/50 p-6 space-y-4">
+          <span className="text-xs font-bold text-[var(--text-tertiary)] uppercase tracking-wider block">Generation Details</span>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "Style", value: result.style },
+              { label: "Aspect Ratio", value: result.aspect_ratio },
+              { label: "Lighting", value: result.lighting },
+              { label: "Camera", value: result.camera },
+              { label: "Mood", value: result.mood },
+              { label: "Model", value: result.model_suggestion }
+            ].map((chip) => (
+              <div key={chip.label} className="bg-[var(--surface-overlay)] border border-slate-700/50 rounded-full px-3 py-1.5 flex flex-col">
+                <span className="text-[9px] text-[var(--text-tertiary)] font-bold uppercase">{chip.label}</span>
+                <span className="text-xs text-[#C8F135] font-medium">{chip.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom Actions */}
+      <div className="flex flex-col sm:flex-row gap-4 pt-4">
+        <button
+          onClick={handleCopyPrompt}
+          className="flex-1 bg-[var(--surface-elevated)] text-white border border-slate-700 rounded-xl py-4 font-bold text-sm hover:bg-[var(--surface-card)] transition-all flex items-center justify-center gap-2"
+        >
+          {copiedPrompt ? "✅ Prompt Kopyalandı" : "📋 Sadece Prompt'u Kopyala"}
         </button>
         <button
-          onClick={() => {
-            const fullText = variation.negative_prompt
-              ? `${variation.prompt}\n\n${variation.negative_prompt}`
-              : variation.prompt;
-            onSave(fullText);
-          }}
-          className="flex flex-1 items-center justify-center gap-2 rounded-lg py-2 text-xs font-semibold bg-[var(--surface-elevated)] text-white hover:bg-[var(--surface-card)]/10 transition-colors border border-white/10"
+          onClick={() => onSave(result.prompt)}
+          className="flex-1 bg-transparent text-[var(--text-secondary)] border border-dashed border-slate-700 rounded-xl py-4 font-bold text-sm hover:border-[#C8F135]/40 hover:text-white transition-all"
         >
           Kütüphaneye Kaydet
         </button>
@@ -112,7 +170,7 @@ export default function PromptStudioPage() {
   const [selectedAiModel, setSelectedAiModel] = useState("Genel");
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [variations, setVariations] = useState<Variation[] | null>(null);
+  const [result, setResult] = useState<any | null>(null);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveText, setSaveText] = useState("");
@@ -144,7 +202,7 @@ export default function PromptStudioPage() {
       return;
     }
     setLoading(true);
-    setVariations(null);
+    setResult(null);
     try {
       const res = await fetch("/api/prompt-studio/generate", {
         method: "POST",
@@ -156,12 +214,12 @@ export default function PromptStudioPage() {
         throw new Error(err.error || "Üretim başarısız");
       }
       const data = await res.json();
-      setVariations(data.variations);
+      setResult(data.result);
       saveToHistory({
         id: Date.now().toString(),
         mode: selectedMode,
         userInput,
-        variations: data.variations,
+        variations: [data.result], // Wrapping in array to maintain history compatibility if needed
         createdAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -183,7 +241,7 @@ export default function PromptStudioPage() {
   const handleHistoryReuse = (entry: HistoryEntry) => {
     setSelectedMode(entry.mode);
     setUserInput(entry.userInput);
-    setVariations(entry.variations);
+    setResult(entry.variations ? entry.variations[0] : null);
     textareaRef.current?.focus();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -226,17 +284,17 @@ export default function PromptStudioPage() {
           <p className="mt-1 text-sm text-[var(--text-tertiary)]">Ham fikrinden → Hazır İngilizce prompt</p>
         </div>
 
-        {/* Mode Selector */}
+        {/* Mode Selector (Simplified/Hidden as we are pivoting to JSON) */}
         <div className="overflow-x-auto">
           <div className="flex gap-1.5 p-1.5 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-xl w-fit">
-            {MODES_CONFIG.map((config) => (
+            {MODES_CONFIG.filter(m => m.id === "image_video").map((config) => (
               <ModeButton
                 key={config.id}
                 config={config}
                 active={selectedMode === config.id}
                 onClick={() => {
                   setSelectedMode(config.id);
-                  setVariations(null);
+                  setResult(null);
                 }}
               />
             ))}
@@ -297,28 +355,25 @@ export default function PromptStudioPage() {
         </div>
 
         {/* Results */}
-        {variations && variations.length > 0 && (
+        {result && (
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
               <span className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                {activeMode.icon} {activeMode.label} — 3 Varyasyon
+                {activeMode.icon} {activeMode.label} — AI Prompt
               </span>
               <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {variations.map((v, i) => (
-                <VariationCard 
-                  key={i} 
-                  variation={v} 
-                  onCopy={handleCopy} 
-                  onSave={(t) => {
-                    setSaveText(t);
-                    setSaveModalOpen(true);
-                  }}
-                />
-              ))}
-            </div>
+            
+            <ResultDisplay 
+              result={result}
+              onCopyAll={() => handleCopy(JSON.stringify(result, null, 2))}
+              onCopyPrompt={(t) => handleCopy(t)}
+              onSave={(t) => {
+                setSaveText(t);
+                setSaveModalOpen(true);
+              }}
+            />
           </div>
         )}
 
