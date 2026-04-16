@@ -133,20 +133,44 @@ async function handler(request: NextRequest) {
     const itemsToProcess = newItems.slice(0, 3);
     console.log(`[fetch-news] Processing ${itemsToProcess.length} items`);
 
-    // Insert new items
-    const { data: inserted, error: insertError } = await supabaseAdmin
-      .from("news_items")
-      .upsert(itemsToProcess, { onConflict: 'url', ignoreDuplicates: true })
-      .select("id, title, summary, url, published_at, category");
+    const validItemsToInsert = [];
 
-    if (insertError || !inserted) {
-      console.error("Insert error:", insertError);
-      return NextResponse.json({ error: "Failed to insert news items" }, { status: 500 });
-    }
-
-    // 5. Scoring & Translation Loop
-    for (const item of inserted) {
+    // 5. Scoring, Filter & Translation Loop BEFORE Insert
+    for (const item of itemsToProcess) {
       try {
+        // Viral Filter Step
+        const filterPrompt = `Aşağıdaki haberi değerlendir.
+
+Başlık: ${item.title}
+Özet: ${item.summary}
+
+Şu kriterlere göre 0-100 arasında viral_score ver:
+
+YÜKSEk SKOR (70-100) için:
+- Büyük AI model lansmanı veya güncellemesi
+- AI'ın bir mesleği veya sektörü etkilediği haberler
+- Araştırmacı veya pratik kullanıcılar için önemli bulgular
+- Tartışmalı veya sürpriz gelişmeler
+- "Bu değiştirir" niteliğinde gelişmeler
+
+DÜŞÜK SKOR (0-40) için:
+- Şirket haberleri (yatırım, birleşme - AI ile ilgisi yoksa)
+- Akademik makale özetleri (pratik değeri düşük)
+- Bölgesel/yerel haberler
+- Ürün güncellemeleri (minor features)
+- Sponsorlu veya reklam içerikli haberler
+
+SADECE JSON formatında yanıt ver:
+{"viral_score": 50, "category": "ai_model", "worth_fetching": true}`;
+
+        const filterResultText = await generateWithGemini(filterPrompt, 'analytical');
+        const filterData = parseAIJSON<{viral_score: number, category: string, worth_fetching: boolean}>(filterResultText);
+
+        if (!filterData || filterData.worth_fetching === false) {
+           console.log(`[fetch-news] Skipped (worth_fetching=false): ${item.title}`);
+           continue;
+        }
+
         // Translation Step
         const translationPrompt = `
 Aşağıdaki haber başlığını ve özetini Türkçeye çevir.
@@ -163,35 +187,39 @@ SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
         const translationText = await generateWithGemini(translationPrompt, 'analytical');
         const translation = parseAIJSON<{title_tr: string, summary_tr: string}>(translationText);
 
-        // Scoring Step
-        const scoringPrompt = buildScoringUserPrompt([item]);
-        const scoreResultText = await generateWithGemini(scoringPrompt, 'analytical', VIRAL_SCORING_SYSTEM_PROMPT);
-        const scoreData = parseAIJSON<any>(scoreResultText);
-        
-        const score = Array.isArray(scoreData) ? scoreData[0] : (scoreData?.scores?.[0] || scoreData);
-
-        // Update with both translation and score
-        await supabaseAdmin
-          .from("news_items")
-          .update({
-            title_tr: translation?.title_tr || null,
-            summary_tr: translation?.summary_tr || null,
-            title_original: item.title,
-            viral_score: score?.score || 0,
-            viral_reason: score?.reason || "",
-            category: score?.category || item.category,
-          })
-          .eq("id", item.id);
+        validItemsToInsert.push({
+           ...item,
+           title_tr: translation?.title_tr || null,
+           summary_tr: translation?.summary_tr || null,
+           title_original: item.title,
+           viral_score: filterData.viral_score || 0,
+           category: filterData.category || item.category
+        });
 
       } catch (err) {
         console.error(`[fetch-news] Processing error for ${item.title}:`, err);
       }
     }
 
+    if (validItemsToInsert.length === 0) {
+      return NextResponse.json({ message: "No valid items after filter", count: 0 });
+    }
+
+    // Insert only worth fetching items
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("news_items")
+      .upsert(validItemsToInsert, { onConflict: 'url', ignoreDuplicates: true })
+      .select("id, title, summary, url, published_at, category");
+
+    if (insertError) {
+      console.error("Insert error:", insertError);
+      return NextResponse.json({ error: "Failed to insert news items" }, { status: 500 });
+    }
+
     return NextResponse.json({
-      message: "Fetch complete",
+      message: "Fetch and filter complete",
       processed: itemsToProcess.length,
-      inserted: inserted.length,
+      inserted: inserted?.length || 0,
     });
   } catch (err) {
     console.error("Cron fetch-news error:", err);

@@ -48,15 +48,13 @@ interface ArticleData {
 
 const categories = [
   { value: "all", label: "Hepsi" },
-  { value: "unread", label: "Okunmadı" },
-  { value: "ai_news", label: "AI" },
-  { value: "design", label: "Design" },
-  { value: "automation", label: "Otomasyon" },
-  { value: "dev_tools", label: "Dev Tools" },
-  { value: "turkish", label: "Türkçe" },
-  { value: "turkish_eco", label: "Türk Ekosistem" },
-  { value: "tool_update", label: "Araç Güncellemeleri" },
+  { value: "ai_model", label: "🤖 AI Model" },
+  { value: "ai_tool", label: "🛠️ AI Araç" },
+  { value: "ai_impact", label: "💥 AI Etki" },
+  { value: "ai_research", label: "🔬 Araştırma" },
+  { value: "turkish", label: "🇹🇷 Türkiye" },
 ];
+
 
 function ScoreBar({ score }: { score: number }) {
   const color = score <= 40 ? "var(--danger)" : score <= 70 ? "var(--warning)" : "var(--success)";
@@ -93,13 +91,7 @@ export default function NewsPoolPage() {
         .order("fetched_at", { ascending: false })
         .limit(50);
 
-      if (activeCategory === "unread") {
-        query = query.eq("is_read", false);
-      } else if (activeCategory === "turkish_eco") {
-        query = query.eq("custom_tag", "turkish_eco");
-      } else if (activeCategory === "tool_update") {
-        query = query.eq("custom_tag", "tool_update");
-      } else if (activeCategory !== "all") {
+      if (activeCategory !== "all") {
         query = query.eq("category", activeCategory);
       }
 

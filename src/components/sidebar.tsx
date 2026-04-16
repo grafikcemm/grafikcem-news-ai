@@ -58,6 +58,7 @@ const navGroups: NavGroup[] = [
       { label: "Haber Havuzu", href: "/dashboard/news-pool", icon: <Newspaper size={15} /> },
       { label: "Tweet Üretici", href: "/tweet-generator", icon: <Twitter size={15} /> },
       { label: "Quote & Reply", href: "/dashboard/quote-reply", icon: <MessageSquare size={15} /> },
+      { label: "Carousel Planlayıcı", href: "/dashboard/carousel-planner", icon: <span style={{ fontSize: 15, display: "inline-block", transform: "translateY(-1px)" }}>🎠</span> },
     ],
   },
   {

@@ -166,11 +166,17 @@ function ModeButton({ config, active, onClick }: { config: ModeConfig; active: b
 }
 
 export default function PromptStudioPage() {
+  const [activeTab, setActiveTab] = useState<"text" | "image">("text");
   const [selectedMode, setSelectedMode] = useState<Mode>("image_video");
   const [selectedAiModel, setSelectedAiModel] = useState("Genel");
   const [userInput, setUserInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any | null>(null);
+  
+  // Image state
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [saveText, setSaveText] = useState("");
@@ -219,13 +225,64 @@ export default function PromptStudioPage() {
         id: Date.now().toString(),
         mode: selectedMode,
         userInput,
-        variations: [data.result], // Wrapping in array to maintain history compatibility if needed
+        variations: [data.result],
         createdAt: new Date().toISOString(),
       });
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Bir hata oluştu");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("Görsel 10MB'dan küçük olmalıdır.");
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAnalyzeImage = async () => {
+    if (!imagePreview) {
+      toast.error("Lütfen bir görsel seçin");
+      return;
+    }
+    setLoading(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/prompt-studio/analyze-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          imageBase64: imagePreview,
+          mimeType: imageFile?.type 
+        }),
+      });
+      if (!res.ok) {
+        throw new Error("Görsel analizi başarısız oldu");
+      }
+      const data = await res.json();
+      setResult(data.analysis);
+      saveToHistory({
+        id: Date.now().toString(),
+        mode: "image_video",
+        userInput: "Görsel analizi",
+        variations: [data.analysis],
+        createdAt: new Date().toISOString(),
+      });
+    } catch (err) {
+       toast.error(err instanceof Error ? err.message : "Bir hata oluştu");
+    } finally {
+       setLoading(false);
     }
   };
 
@@ -279,9 +336,26 @@ export default function PromptStudioPage() {
       <div className="max-w-6xl mx-auto space-y-8">
 
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Prompt Studio</h1>
-          <p className="mt-1 text-sm text-[var(--text-tertiary)]">Ham fikrinden → Hazır İngilizce prompt</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Prompt Studio</h1>
+            <p className="mt-1 text-sm text-[var(--text-tertiary)]">Ham fikrinden → Hazır İngilizce prompt</p>
+          </div>
+          
+          <div className="flex bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-lg p-1 w-fit">
+            <button 
+              onClick={() => { setActiveTab("text"); setResult(null); }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "text" ? "bg-[var(--surface-elevated)] text-white shadow-sm" : "text-[var(--text-secondary)] hover:text-white"}`}
+            >
+              Fikirden Üret
+            </button>
+            <button 
+              onClick={() => { setActiveTab("image"); setResult(null); }}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === "image" ? "bg-[var(--surface-elevated)] text-white shadow-sm" : "text-[var(--text-secondary)] hover:text-white"}`}
+            >
+              Görselden Analiz Et
+            </button>
+          </div>
         </div>
 
         {/* Mode Selector (Simplified/Hidden as we are pivoting to JSON) */}
@@ -301,58 +375,82 @@ export default function PromptStudioPage() {
           </div>
         </div>
 
-        {/* Input */}
-        <div className="space-y-3">
-          
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-medium text-[var(--text-secondary)]">Hangi model için?</span>
-            <select
-              value={selectedAiModel}
-              onChange={(e) => setSelectedAiModel(e.target.value)}
-              className="bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-md text-sm text-[var(--text-primary)] px-3 py-1 focus:outline-none focus:border-[#C8F135]/40"
-            >
-              {["Genel", "Midjourney", "Sora", "Kling", "Stable Diffusion", "Ideogram"].map((m) => (
-                <option key={m} value={m}>{m}</option>
-              ))}
-            </select>
-          </div>
+        {/* Input Area */}
+        {activeTab === "text" ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-sm font-medium text-[var(--text-secondary)]">Hangi model için?</span>
+              <select
+                value={selectedAiModel}
+                onChange={(e) => setSelectedAiModel(e.target.value)}
+                className="bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-md text-sm text-[var(--text-primary)] px-3 py-1 focus:outline-none focus:border-[#C8F135]/40"
+              >
+                {["Genel", "Midjourney", "Sora", "Kling", "Stable Diffusion", "Ideogram"].map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
 
-          <div className="relative">
-            <textarea
-              ref={textareaRef}
-              value={userInput}
-              onChange={(e) => setUserInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate();
-              }}
-              placeholder={`${activeMode.icon} Türkçe fikrini yaz...\n(örn: kırmızı bir spor araba yağmurlu gecede hızla gidiyor)`}
-              rows={4}
-              maxLength={1000}
-              className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-5 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#C8F135]/40 focus:ring-1 focus:ring-[#C8F135]/20 resize-none transition-colors font-mono"
-            />
-            <div className="absolute bottom-3 right-4 text-xs text-[var(--text-secondary)]">
-              {userInput.length}/1000
+            <div className="relative">
+              <textarea
+                ref={textareaRef}
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) handleGenerate();
+                }}
+                placeholder={`${activeMode.icon} Türkçe fikrini yaz...\n(örn: kırmızı bir spor araba yağmurlu gecede hızla gidiyor)`}
+                rows={4}
+                maxLength={1000}
+                className="w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-5 py-4 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#C8F135]/40 focus:ring-1 focus:ring-[#C8F135]/20 resize-none transition-colors font-mono"
+              />
+              <div className="absolute bottom-3 right-4 text-xs text-[var(--text-secondary)]">
+                {userInput.length}/1000
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-[var(--text-secondary)]">⌘+Enter ile üret</p>
+              <button
+                onClick={handleGenerate}
+                disabled={loading || !userInput.trim()}
+                className="flex items-center gap-2 rounded-xl bg-[#C8F135] px-6 py-2.5 text-sm font-bold text-[var(--text-primary)] hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {loading ? "Üretiliyor..." : "Üret →"}
+              </button>
             </div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-[var(--text-secondary)]">⌘+Enter ile üret</p>
-            <button
-              onClick={handleGenerate}
-              disabled={loading || !userInput.trim()}
-              className="flex items-center gap-2 rounded-xl bg-[#C8F135] px-6 py-2.5 text-sm font-bold text-[var(--text-primary)] hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        ) : (
+          <div className="space-y-4">
+            <label 
+              className="flex flex-col items-center justify-center w-full h-64 border-2 border-dashed border-[var(--border-default)] rounded-xl bg-[var(--surface-raised)] hover:bg-[var(--surface-elevated)] hover:border-[var(--text-secondary)] transition-all cursor-pointer relative overflow-hidden"
             >
-              {loading ? (
-                <>
-                  <span className="inline-block w-4 h-4 border-2 border-slate-900/30 border-t-slate-900 rounded-full animate-spin" />
-                  Üretiliyor...
-                </>
+              <input type="file" className="hidden" accept="image/jpeg, image/png, image/webp" onChange={handleImageUpload} />
+              {imagePreview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imagePreview} alt="Preview" className="absolute inset-0 w-full h-full object-contain" />
               ) : (
-                <>Üret →</>
+                <div className="flex flex-col items-center gap-3">
+                  <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[var(--text-tertiary)]">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline>
+                  </svg>
+                  <p className="text-sm font-medium text-[var(--text-secondary)]">Görseli sürükle veya tıkla</p>
+                  <p className="text-xs text-[var(--text-tertiary)]">JPG, PNG, WEBP (Max 10MB)</p>
+                </div>
               )}
-            </button>
+            </label>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={handleAnalyzeImage}
+                disabled={loading || !imagePreview}
+                className="flex items-center gap-2 rounded-xl bg-[#C8F135] px-6 py-2.5 text-sm font-bold text-[var(--text-primary)] hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {loading ? "Analiz Ediliyor..." : "Bu Görseli Analiz Et →"}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Results */}
         {result && (
@@ -360,8 +458,11 @@ export default function PromptStudioPage() {
             <div className="flex items-center gap-3">
               <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
               <span className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                {activeMode.icon} {activeMode.label} — AI Prompt
+                {activeTab === "image" ? "Görsel Analizi Sonucu" : `${activeMode.icon} ${activeMode.label} — AI Prompt`}
               </span>
+              {activeTab === "image" && result?.confidence_score && (
+                 <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded ml-2">Score: {result.confidence_score}</span>
+              )}
               <div className="h-px flex-1 bg-[var(--surface-elevated)]" />
             </div>
             
