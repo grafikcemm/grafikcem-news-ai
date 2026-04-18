@@ -19,7 +19,9 @@ interface Lead {
   estimated_price_min?: number;
   estimated_price_max?: number;
   ai_analysis?: string;
-  phone?: string;
+  contact_phone?: string;
+  rating?: number;
+  review_count?: number;
   created_at: string;
 }
 
@@ -230,12 +232,17 @@ export default function LeadMap({ leads, onSelectLead }: LeadMapProps) {
           />
           {filteredLeads.map((lead) => {
             const baseCoords = CITY_COORDS[lead.city] || [41.0082, 28.9784];
-            // Add deterministic pseudo-random offset based on lead.id
-            const seed = lead.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-            const latOffset = (Math.sin(seed) * 0.08); // Slightly larger spread for better visibility
-            const lngOffset = (Math.cos(seed) * 0.08);
             
-            const position: [number, number] = [baseCoords[0] + latOffset, baseCoords[1] + lngOffset];
+            // Seeded random offset for stable but varied distribution
+            const seededOffset = (id: string, index: number) => {
+              const hash = id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+              return ((hash * (index + 1)) % 100) / 1000 - 0.05;
+            };
+
+            const position: [number, number] = [
+              baseCoords[0] + seededOffset(lead.id, 0),
+              baseCoords[1] + seededOffset(lead.id, 1)
+            ];
             const color = STATUS_COLORS[lead.status] || STATUS_COLORS.discovered;
 
             return (

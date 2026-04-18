@@ -47,7 +47,9 @@ interface Lead {
   estimated_price_min?: number;
   estimated_price_max?: number;
   ai_analysis?: string;
-  phone?: string;
+  contact_phone?: string;
+  rating?: number;
+  review_count?: number;
   created_at: string;
 }
 
@@ -191,7 +193,8 @@ export default function LeadsPage() {
 İşletme: ${selectedLead.business_name}
 Sektör: ${selectedLead.sector}
 Şehir: ${selectedLead.city}${selectedLead.district ? ', ' + selectedLead.district : ''}
-📞 Tel: ${selectedLead.phone || 'Belirtilmemiş'}
+📞 Tel: ${selectedLead.contact_phone || 'Belirtilmemiş'}
+⭐ Google Puanı: ${selectedLead.rating || 'Belirtilmemiş'} (${selectedLead.review_count || 0} yorum)
 
 📊 Potansiyel Skor: ${selectedLead.potential_score}/100
 
@@ -449,8 +452,13 @@ ${selectedLead.ai_analysis ? selectedLead.ai_analysis.substring(0, 100) : 'Eksik
                   {selectedLead.city}{selectedLead.district ? ` / ${selectedLead.district}` : ""}
                 </span>
               </div>
-              {selectedLead.phone && (
-                <p style={{ fontSize: 13, color: "var(--accent)", marginBottom: 4 }}>{selectedLead.phone}</p>
+              {selectedLead.contact_phone && (
+                <p style={{ fontSize: 13, color: "var(--accent)", marginBottom: 4 }}>{selectedLead.contact_phone}</p>
+              )}
+              {selectedLead.rating && (
+                <p style={{ fontSize: 12, color: "var(--warning)", marginBottom: 8 }}>
+                  ⭐ {selectedLead.rating} ({selectedLead.review_count} yorum)
+                </p>
               )}
               <StatusChip
                 status={(selectedLead.status as any) || "draft"}

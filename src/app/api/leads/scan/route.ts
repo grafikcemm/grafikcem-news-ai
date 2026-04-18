@@ -71,13 +71,20 @@ export async function POST(req: Request) {
 
         // Fetch Details for website and phone
         const detailsRes = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_phone_number,website,formatted_address&key=${GOOGLE_MAPS_API_KEY}&language=tr`
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_phone_number,website,formatted_address,rating,user_ratings_total,business_status,opening_hours&key=${GOOGLE_MAPS_API_KEY}&language=tr`
         );
         const detailsData = await detailsRes.json();
         const d = detailsData.result || {};
 
+        // Phone requirement
+        const phone = d.formatted_phone_number;
+        if (!phone) {
+          console.log(`Telefon yok, atlanıyor: ${place.name}`);
+          continue;
+        }
+
         const has_website = !!d.website;
-        const potential_score = has_website ? 40 : 75;
+        const potential_score = has_website ? 50 : 80;
 
         // Parsing city from formatted_address if missing
         let cityStr = city || "Bilinmeyen Şehir";
@@ -93,10 +100,12 @@ export async function POST(req: Request) {
           sector: q.sector,
           city: cityStr,
           website_url: d.website || null,
-          contact_phone: d.formatted_phone_number || null,
+          contact_phone: phone,
           google_maps_place_id: placeId,
           has_website,
           potential_score,
+          rating: d.rating || null,
+          review_count: d.user_ratings_total || 0,
           status: "discovered",
           updated_at: new Date().toISOString()
         };
