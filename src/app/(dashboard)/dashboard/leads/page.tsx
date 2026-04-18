@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import {
@@ -14,11 +15,24 @@ import {
   Calendar,
   Zap,
   X,
+  Map as MapIcon,
+  List,
+  Copy,
+  Check
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { StatusChip } from "@/components/ui/status-chip";
 import { ScoreBadge } from "@/components/ui/score-badge";
+
+const LeadMap = dynamic(() => import("@/components/leads/LeadMap"), { 
+  ssr: false,
+  loading: () => <div className="h-full w-full flex items-center justify-center bg-[var(--surface-base)] text-[var(--text-tertiary)]">Harita yükleniyor...</div>
+});
+
+const JarvisChat = dynamic(() => import("@/components/leads/JarvisChat"), { 
+  ssr: false 
+});
 
 interface Lead {
   id: string;
@@ -52,6 +66,7 @@ const statusFilters = [
   { value: "researched", label: "Araştırıldı" },
   { value: "contacted", label: "İletişime Geçildi" },
   { value: "won", label: "Kazanıldı" },
+  { value: "lost", label: "Kaybedildi" },
 ];
 
 function ScoreColor(score: number): string {
@@ -64,6 +79,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState("all");
+  const [view, setView] = useState<'list' | 'map'>('list');
 
   const [scanModalOpen, setScanModalOpen] = useState(false);
   const [scanSectors, setScanSectors] = useState<string[]>([]);
@@ -72,6 +88,7 @@ export default function LeadsPage() {
   const [isScanning, setIsScanning] = useState(false);
 
   const [isAnalyzingAll, setIsAnalyzingAll] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Slide panel
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -89,8 +106,20 @@ export default function LeadsPage() {
     loadLeads();
   }, []);
 
-  const handleScan = async () => {
-    if (scanSectors.length === 0) {
+  const stats = useMemo(() => {
+    const total = leads.length;
+    const revenue = leads.reduce((acc, curr) => acc + (curr.estimated_price_min || 0), 0);
+    const avgScore = total > 0 ? Math.round(leads.reduce((acc, curr) => acc + (curr.potential_score || 0), 0) / total) : 0;
+    const activePipeline = leads.filter(l => ['contacted', 'proposal_sent', 'pitched'].includes(l.status)).length;
+    
+    return { total, revenue, avgScore, activePipeline };
+  }, [leads]);
+
+  const handleScan = async (sectors?: string[], city?: string) => {
+    const finalSectors = sectors || scanSectors;
+    const finalCity = city !== undefined ? city : scanCity;
+
+    if (finalSectors.length === 0) {
       toast.error("Lütfen en az 1 sektör seçin");
       return;
     }
@@ -99,7 +128,7 @@ export default function LeadsPage() {
       const res = await fetch("/api/leads/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sectors: scanSectors, city: scanCity, limit: scanLimit }),
+        body: JSON.stringify({ sectors: finalSectors, city: finalCity, limit: scanLimit }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -154,6 +183,35 @@ export default function LeadsPage() {
     setIsAnalyzingAll(false);
   };
 
+  const copyWhatsAppSummary = () => {
+    if (!selectedLead) return;
+
+    const summary = `🎯 YENİ LEAD
+
+İşletme: ${selectedLead.business_name}
+Sektör: ${selectedLead.sector}
+Şehir: ${selectedLead.city}${selectedLead.district ? ', ' + selectedLead.district : ''}
+📞 Tel: ${selectedLead.phone || 'Belirtilmemiş'}
+
+📊 Potansiyel Skor: ${selectedLead.potential_score}/100
+
+❌ Eksikler:
+${!selectedLead.has_website ? '• Website yok\n' : ''}${selectedLead.ai_analysis ? '• ' + selectedLead.ai_analysis.substring(0, 100) + '...' : ''}
+
+✅ Önerilen Hizmetler:
+${selectedLead.recommended_services?.map(s => '• ' + s).join('\n') || 'Belirtilmemiş'}
+
+💰 Tahmini: ₺${(selectedLead.estimated_price_min || 0).toLocaleString('tr-TR')} - ₺${(selectedLead.estimated_price_max || 0).toLocaleString('tr-TR')} ₺
+
+📝 Neden İhtiyacı Var:
+${selectedLead.ai_analysis ? selectedLead.ai_analysis.substring(0, 100) : 'Eksik dijital varlıkların tamamlanması gerekiyor.'}`;
+
+    navigator.clipboard.writeText(summary);
+    setCopied(true);
+    toast.success("WhatsApp özeti kopyalandı ✓");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const filtered = leads.filter(l => {
     if (activeFilter === "all") return true;
     return l.status === activeFilter;
@@ -169,6 +227,20 @@ export default function LeadsPage() {
             <p className="text-body" style={{ fontSize: 13 }}>Türkiye genelinde potansiyel müşteriler</p>
           </div>
           <div className="flex items-center gap-[12px]">
+            <div className="flex bg-[var(--surface-elevated)] p-1 rounded-[var(--radius-md)] border border-[var(--border-default)] mr-2">
+              <button 
+                onClick={() => setView('list')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-[12px] font-medium transition-colors ${view === 'list' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-white'}`}
+              >
+                <List size={14} /> LİSTE
+              </button>
+              <button 
+                onClick={() => setView('map')}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-[var(--radius-sm)] text-[12px] font-medium transition-colors ${view === 'map' ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-secondary)] hover:text-white'}`}
+              >
+                <MapIcon size={14} /> HARİTA
+              </button>
+            </div>
             <Button variant="ghost" size="sm" onClick={handleAnalyzeAll} disabled={isAnalyzingAll || loading}>
               <Zap className="w-[14px] h-[14px]" /> AI ile Analiz Et
             </Button>
@@ -179,115 +251,151 @@ export default function LeadsPage() {
           </div>
         </div>
 
-        {/* Filter pills */}
-        <div className="flex flex-wrap gap-[8px]" style={{ marginTop: 16 }}>
-          {statusFilters.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setActiveFilter(f.value)}
-              style={{
-                padding: "5px 14px",
-                borderRadius: 999,
-                fontSize: 12,
-                fontWeight: 500,
-                background: activeFilter === f.value ? "var(--accent-subtle)" : "var(--surface-elevated)",
-                color: activeFilter === f.value ? "var(--accent)" : "var(--text-secondary)",
-                border: `1px solid ${activeFilter === f.value ? "var(--accent-muted)" : "var(--border-default)"}`,
-                cursor: "pointer",
-                transition: "all 0.15s",
-              }}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div style={{ padding: "0 40px", flex: 1 }}>
-        {/* Table Header */}
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: "3fr 1fr 1fr 1fr 120px",
-            background: "var(--surface-raised)",
-            border: "1px solid var(--border-subtle)",
-            borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
-            padding: "12px 20px",
-          }}
-        >
-          <span className="text-label">İşletme</span>
-          <span className="text-label">Sektör</span>
-          <span className="text-label">Şehir</span>
-          <span className="text-label">Skor</span>
-          <span className="text-label">Aksiyon</span>
+        {/* Stats Bar */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
+            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-4 px-5">
+              <p className="font-mono text-[10px] text-[var(--accent)] mb-1">[LD]</p>
+              <p className="text-label text-[11px] mb-2 tracking-widest uppercase">TOPLAM LEAD</p>
+              <p className="text-[28px] font-bold text-[var(--text-primary)] font-mono">{stats.total}</p>
+            </div>
+            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-4 px-5">
+              <p className="font-mono text-[10px] text-[var(--accent)] mb-1">[$]</p>
+              <p className="text-label text-[11px] mb-2 tracking-widest uppercase">POTANSİYEL GELİR</p>
+              <p className="text-[28px] font-bold text-[var(--text-primary)] font-mono">₺{stats.revenue.toLocaleString('tr-TR')}</p>
+            </div>
+            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-4 px-5">
+              <p className="font-mono text-[10px] text-[var(--accent)] mb-1">[AVG]</p>
+              <p className="text-label text-[11px] mb-2 tracking-widest uppercase">ORTALAMA SKOR</p>
+              <p className="text-[28px] font-bold text-[var(--text-primary)] font-mono">{stats.avgScore}</p>
+            </div>
+            <div className="bg-[var(--surface-card)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-4 px-5">
+              <p className="font-mono text-[10px] text-[var(--accent)] mb-1">[RT]</p>
+              <p className="text-label text-[11px] mb-2 tracking-widest uppercase">AKTİF PIPELINE</p>
+              <p className="text-[28px] font-bold text-[var(--text-primary)] font-mono">{stats.activePipeline}</p>
+            </div>
         </div>
 
-        {/* Table Rows */}
-        {loading ? (
-          <div style={{ padding: 40, textAlign: "center", color: "var(--text-tertiary)" }}>Yükleniyor...</div>
-        ) : filtered.length === 0 ? (
-          <div style={{
-            padding: 40,
-            textAlign: "center",
-            color: "var(--text-tertiary)",
-            background: "var(--surface-card)",
-            border: "1px solid var(--border-subtle)",
-            borderTop: "none",
-            borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
-          }}>
-            Lead havuzu boş. Türkiye genelinde sektör bazlı tara.
-          </div>
-        ) : (
-          <div>
-            {filtered.map((lead, idx) => (
-              <div
-                key={lead.id}
-                className="grid cursor-pointer transition-colors duration-100"
-                onClick={() => setSelectedLead(lead)}
+        {/* Filter pills - only in list view */}
+        {view === 'list' && (
+          <div className="flex flex-wrap gap-[8px]" style={{ marginTop: 24 }}>
+            {statusFilters.map(f => (
+              <button
+                key={f.value}
+                onClick={() => setActiveFilter(f.value)}
                 style={{
-                  gridTemplateColumns: "3fr 1fr 1fr 1fr 120px",
-                  background: "var(--surface-card)",
-                  borderLeft: "1px solid var(--border-subtle)",
-                  borderRight: "1px solid var(--border-subtle)",
-                  borderBottom: "1px solid var(--border-subtle)",
-                  padding: "14px 20px",
-                  alignItems: "center",
-                  borderRadius: idx === filtered.length - 1 ? "0 0 var(--radius-lg) var(--radius-lg)" : 0,
+                  padding: "5px 14px",
+                  borderRadius: 999,
+                  fontSize: 12,
+                  fontWeight: 500,
+                  background: activeFilter === f.value ? "var(--accent-subtle)" : "var(--surface-elevated)",
+                  color: activeFilter === f.value ? "var(--accent)" : "var(--text-secondary)",
+                  border: `1px solid ${activeFilter === f.value ? "var(--accent-muted)" : "var(--border-default)"}`,
+                  cursor: "pointer",
+                  transition: "all 0.15s",
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-elevated)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface-card)"; }}
               >
-                <div className="flex items-center gap-[8px]">
-                  <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{lead.business_name}</span>
-                  {lead.has_website && <Globe className="w-[12px] h-[12px]" style={{ color: "var(--accent)" }} />}
-                </div>
-                <div>
-                  <span style={{
-                    fontSize: 11,
-                    padding: "2px 8px",
-                    background: "var(--surface-elevated)",
-                    borderRadius: "var(--radius-sm)",
-                    color: "var(--text-secondary)",
-                  }}>
-                    {lead.sector}
-                  </span>
-                </div>
-                <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{lead.city}</span>
-                <div className="flex items-center gap-[8px]">
-                  <span style={{ fontSize: 16, fontWeight: 700, color: ScoreColor(lead.potential_score) }}>{lead.potential_score || 0}</span>
-                  <div style={{ width: 30, height: 3, background: "var(--surface-overlay)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ width: `${lead.potential_score || 0}%`, height: "100%", background: ScoreColor(lead.potential_score), borderRadius: 2 }} />
-                  </div>
-                </div>
-                <div className="flex items-center gap-[4px]">
-                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); }}>DM Yaz</Button>
-                </div>
-              </div>
+                {f.label}
+              </button>
             ))}
           </div>
         )}
       </div>
+
+      {/* Main Content Areas */}
+      <div style={{ padding: "0 40px", flex: 1, marginBottom: 40 }}>
+        {view === 'list' ? (
+          <>
+            {/* Table Header */}
+            <div
+              className="grid"
+              style={{
+                gridTemplateColumns: "3fr 1fr 1fr 1fr 120px",
+                background: "var(--surface-raised)",
+                border: "1px solid var(--border-subtle)",
+                borderRadius: "var(--radius-lg) var(--radius-lg) 0 0",
+                padding: "12px 20px",
+              }}
+            >
+              <span className="text-label">İşletme</span>
+              <span className="text-label">Sektör</span>
+              <span className="text-label">Şehir</span>
+              <span className="text-label">Skor</span>
+              <span className="text-label">Aksiyon</span>
+            </div>
+
+            {/* Table Rows */}
+            {loading ? (
+              <div style={{ padding: 40, textAlign: "center", color: "var(--text-tertiary)" }}>Yükleniyor...</div>
+            ) : filtered.length === 0 ? (
+              <div style={{
+                padding: 40,
+                textAlign: "center",
+                color: "var(--text-tertiary)",
+                background: "var(--surface-card)",
+                border: "1px solid var(--border-subtle)",
+                borderTop: "none",
+                borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
+              }}>
+                Lead havuzu boş. Türkiye genelinde sektör bazlı tara.
+              </div>
+            ) : (
+              <div>
+                {filtered.map((lead, idx) => (
+                  <div
+                    key={lead.id}
+                    className="grid cursor-pointer transition-colors duration-100"
+                    onClick={() => setSelectedLead(lead)}
+                    style={{
+                      gridTemplateColumns: "3fr 1fr 1fr 1fr 120px",
+                      background: "var(--surface-card)",
+                      borderLeft: "1px solid var(--border-subtle)",
+                      borderRight: "1px solid var(--border-subtle)",
+                      borderBottom: "1px solid var(--border-subtle)",
+                      padding: "14px 20px",
+                      alignItems: "center",
+                      borderRadius: idx === filtered.length - 1 ? "0 0 var(--radius-lg) var(--radius-lg)" : 0,
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-elevated)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface-card)"; }}
+                  >
+                    <div className="flex items-center gap-[8px]">
+                      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{lead.business_name}</span>
+                      {lead.has_website && <Globe className="w-[12px] h-[12px]" style={{ color: "var(--accent)" }} />}
+                    </div>
+                    <div>
+                      <span style={{
+                        fontSize: 11,
+                        padding: "2px 8px",
+                        background: "var(--surface-elevated)",
+                        borderRadius: "var(--radius-sm)",
+                        color: "var(--text-secondary)",
+                      }}>
+                        {lead.sector}
+                      </span>
+                    </div>
+                    <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{lead.city}</span>
+                    <div className="flex items-center gap-[8px]">
+                      <span style={{ fontSize: 16, fontWeight: 700, color: ScoreColor(lead.potential_score) }}>{lead.potential_score || 0}</span>
+                      <div style={{ width: 30, height: 3, background: "var(--surface-overlay)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ width: `${lead.potential_score || 0}%`, height: "100%", background: ScoreColor(lead.potential_score), borderRadius: 2 }} />
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-[4px]">
+                      <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); }}>DM Yaz</Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="h-[600px] border border-[var(--border-default)] rounded-[var(--radius-lg)] overflow-hidden">
+            <LeadMap leads={leads} onSelectLead={(lead) => setSelectedLead(lead)} />
+          </div>
+        )}
+      </div>
+
+      <JarvisChat onScanCommand={(sector, city) => handleScan([sector], city)} leads={leads} />
 
       {/* Slide-in Panel */}
       {selectedLead && (
@@ -390,13 +498,21 @@ export default function LeadsPage() {
               <div style={{ margin: "16px 20px" }}>
                 <p className="text-label" style={{ marginBottom: 4 }}>TAHMİNİ FİYAT</p>
                 <p style={{ fontSize: 18, fontWeight: 700, color: "var(--text-primary)" }}>
-                  {selectedLead.estimated_price_min ? `${(selectedLead.estimated_price_min / 1000).toFixed(0)}k` : "?"} — {selectedLead.estimated_price_max ? `${(selectedLead.estimated_price_max / 1000).toFixed(0)}k ₺` : "?"}
+                  ₺{(selectedLead.estimated_price_min || 0).toLocaleString('tr-TR')} — ₺{(selectedLead.estimated_price_max || 0).toLocaleString('tr-TR')}
                 </p>
               </div>
             )}
 
             {/* Actions */}
             <div className="mt-auto" style={{ padding: 20, borderTop: "1px solid var(--border-subtle)" }}>
+              <Button 
+                variant="ghost" 
+                className={`w-full mb-3 flex items-center justify-center gap-2 group transition-all ${copied ? 'bg-green-500/10 text-green-500 border-green-500/20' : ''}`} 
+                onClick={copyWhatsAppSummary}
+              >
+                {copied ? <Check size={16} /> : <Copy size={16} className="group-hover:scale-110 transition-transform" />}
+                {copied ? "Kopyalandı ✓" : "📋 WhatsApp Özeti Kopyala"}
+              </Button>
               <Button className="w-full" style={{ marginBottom: 8 }} onClick={() => toast.info("Bu özellik yakında eklenecek.")}>DM Yaz</Button>
               <Button variant="secondary" className="w-full" style={{ marginBottom: 8 }}>E-posta Yaz</Button>
               <Button variant="ghost" className="w-full" onClick={() => {
@@ -477,7 +593,7 @@ export default function LeadsPage() {
 
             <div className="flex justify-end gap-3" style={{ marginTop: 32 }}>
               <Button variant="ghost" onClick={() => setScanModalOpen(false)}>İptal</Button>
-              <Button onClick={handleScan} disabled={isScanning}>
+              <Button onClick={() => handleScan()} disabled={isScanning}>
                 {isScanning ? <RefreshCcw className="w-[14px] h-[14px] mr-2 animate-spin" /> : null}
                 {isScanning ? "Taranıyor..." : "Taramayı Başlat"}
               </Button>
