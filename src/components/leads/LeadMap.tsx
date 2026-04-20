@@ -23,6 +23,8 @@ interface Lead {
   rating?: number;
   review_count?: number;
   google_maps_place_id?: string;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
 }
 
@@ -55,9 +57,15 @@ const CITY_COORDS: Record<string, [number, number]> = {
 };
 
 const getCoords = (
-  lead: any,
+  lead: Lead,
   baseCoords: [number, number]
 ): [number, number] => {
+  // Gerçek koordinat varsa direkt kullan
+  if (lead.latitude && lead.longitude) {
+    return [lead.longitude, lead.latitude]
+  }
+
+  // Yoksa şehir merkezi + küçük offset (fallback)
   const id = lead.google_maps_place_id || lead.id || ''
   let hashLng = 2166136261
   let hashLat = 2246822519
@@ -68,8 +76,9 @@ const getCoords = (
     hashLat ^= (char * 31)
     hashLat = Math.imul(hashLat, 2246822519)
   }
-  const offsetLng = ((Math.abs(hashLng) % 100000) / 100000 - 0.5) * 0.08
-  const offsetLat = ((Math.abs(hashLat) % 100000) / 100000 - 0.5) * 0.08
+  // Offset maksimum 2km (0.04 derece)
+  const offsetLng = ((Math.abs(hashLng) % 100000) / 100000 - 0.5) * 0.04
+  const offsetLat = ((Math.abs(hashLat) % 100000) / 100000 - 0.5) * 0.04
   return [baseCoords[0] + offsetLng, baseCoords[1] + offsetLat]
 }
 

@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       console.log(`Bölge taranıyor: ${q.query}`);
 
       const placesRes = await fetch(
-        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q.query)}&key=${GOOGLE_MAPS_API_KEY}&language=tr&region=tr`
+        `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(q.query)}&key=${GOOGLE_MAPS_API_KEY}&language=tr&region=tr&fields=formatted_address,name,rating,user_ratings_total,place_id,geometry`
       );
 
       const placesData = await placesRes.json();
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
 
         // Fetch Details for website and phone
         const detailsRes = await fetch(
-          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_phone_number,website,formatted_address,rating,user_ratings_total,business_status,opening_hours&key=${GOOGLE_MAPS_API_KEY}&language=tr`
+          `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_phone_number,website,formatted_address,geometry,rating,user_ratings_total,business_status,opening_hours&key=${GOOGLE_MAPS_API_KEY}&language=tr`
         );
         const detailsData = await detailsRes.json();
         const d = detailsData.result || {};
@@ -102,6 +102,8 @@ export async function POST(req: Request) {
           website_url: d.website || null,
           contact_phone: phone,
           google_maps_place_id: placeId,
+          latitude: d.geometry?.location?.lat || null,
+          longitude: d.geometry?.location?.lng || null,
           has_website,
           potential_score,
           rating: d.rating || null,
