@@ -22,6 +22,7 @@ interface Lead {
   contact_phone?: string;
   rating?: number;
   review_count?: number;
+  google_maps_place_id?: string;
   created_at: string;
 }
 
@@ -31,22 +32,46 @@ interface LeadMapProps {
 }
 
 const CITY_COORDS: Record<string, [number, number]> = {
-  'İstanbul': [41.0082, 28.9784],
-  'Ankara': [39.9334, 32.8597],
-  'İzmir': [38.4237, 27.1428],
-  'Antalya': [36.8969, 30.7133],
-  'Bursa': [40.1885, 29.0610],
-  'Adana': [37.0000, 35.3213],
-  'Konya': [37.8746, 32.4932],
-  'Gaziantep': [37.0662, 37.3825],
-  'Mersin': [36.8000, 34.6415],
-  'Trabzon': [41.0015, 39.7267],
-  'Samsun': [41.2867, 36.3319],
-  'Denizli': [37.7765, 29.0875],
-  'Kayseri': [38.7312, 35.4826],
-  'Eskişehir': [39.7767, 30.5206],
-  'Diyarbakır': [37.9144, 40.2106],
+  'İstanbul': [28.9784, 41.0082],
+  'Ankara': [32.8597, 39.9334],
+  'İzmir': [27.1428, 38.4237],
+  'Antalya': [30.6934, 36.9081],
+  'Bursa': [29.0610, 40.1885],
+  'Adana': [35.3213, 37.0000],
+  'Konya': [32.4932, 37.8746],
+  'Gaziantep': [37.3825, 37.0662],
+  'Mersin': [34.6415, 36.8121],
+  'Trabzon': [39.7267, 41.0015],
+  'Samsun': [36.3319, 41.2867],
+  'Denizli': [29.0875, 37.7765],
+  'Kayseri': [35.4826, 38.7312],
+  'Eskişehir': [30.5206, 39.7767],
+  'Diyarbakır': [40.2106, 37.9144],
+  'Kocaeli': [29.9187, 40.7654],
+  'Malatya': [38.3191, 38.3552],
+  'Kahramanmaraş': [36.9213, 37.5858],
+  'Erzurum': [41.2769, 39.9055],
+  'Van': [43.4022, 38.4942],
 };
+
+const getCoords = (
+  lead: any,
+  baseCoords: [number, number]
+): [number, number] => {
+  const id = lead.google_maps_place_id || lead.id || ''
+  let hashLng = 2166136261
+  let hashLat = 2246822519
+  for (let i = 0; i < id.length; i++) {
+    const char = id.charCodeAt(i)
+    hashLng ^= char
+    hashLng = Math.imul(hashLng, 16777619)
+    hashLat ^= (char * 31)
+    hashLat = Math.imul(hashLat, 2246822519)
+  }
+  const offsetLng = ((Math.abs(hashLng) % 100000) / 100000 - 0.5) * 0.08
+  const offsetLat = ((Math.abs(hashLat) % 100000) / 100000 - 0.5) * 0.08
+  return [baseCoords[0] + offsetLng, baseCoords[1] + offsetLat]
+}
 
 const STATUS_COLORS: Record<string, string> = {
   discovered: '#60a5fa',
@@ -231,18 +256,9 @@ export default function LeadMap({ leads, onSelectLead }: LeadMapProps) {
             attribution='&copy; OpenStreetMap &copy; CARTO'
           />
           {filteredLeads.map((lead) => {
-            const baseCoords = CITY_COORDS[lead.city] || [41.0082, 28.9784];
-            
-            // Seeded random offset for stable but varied distribution
-            const seededOffset = (id: string, index: number) => {
-              const hash = id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-              return ((hash * (index + 1)) % 100) / 1000 - 0.05;
-            };
-
-            const position: [number, number] = [
-              baseCoords[0] + seededOffset(lead.id, 0),
-              baseCoords[1] + seededOffset(lead.id, 1)
-            ];
+            const baseCoords = CITY_COORDS[lead.city] ?? CITY_COORDS['İstanbul'];
+            const [lng, lat] = getCoords(lead, baseCoords);
+            const position: [number, number] = [lat, lng];
             const color = STATUS_COLORS[lead.status] || STATUS_COLORS.discovered;
 
             return (

@@ -28,6 +28,17 @@ function ResultDisplay({
   onCopyPrompt: (text: string) => void;
   onSave: (text: string) => void;
 }) {
+  const safeRender = (value: any): string => {
+    if (value === null || value === undefined) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "number") return String(value);
+    if (typeof value === "object")
+      return Object.values(value)
+        .filter((v) => v !== null && v !== undefined)
+        .map((v) => (typeof v === "object" ? JSON.stringify(v) : String(v)))
+        .join(" · ");
+    return String(value);
+  };
   const [copiedAll, setCopiedAll] = useState(false);
   const [copiedPrompt, setCopiedPrompt] = useState(false);
   const [copiedNeg, setCopiedNeg] = useState(false);
@@ -111,7 +122,7 @@ function ResultDisplay({
             ].map((chip) => (
               <div key={chip.label} className="bg-[var(--surface-overlay)] border border-slate-700/50 rounded-full px-3 py-1.5 flex flex-col">
                 <span className="text-[9px] text-[var(--text-tertiary)] font-bold uppercase">{chip.label}</span>
-                <span className="text-xs text-[#C8F135] font-medium">{chip.value}</span>
+                <span className="text-xs text-[#C8F135] font-medium">{safeRender(chip.value)}</span>
               </div>
             ))}
           </div>
