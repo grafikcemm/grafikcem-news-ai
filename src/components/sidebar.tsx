@@ -69,12 +69,6 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    title: "LEADS",
-    items: [
-      { label: "Lead Havuzu", href: "/dashboard/leads", icon: <Users size={15} /> },
-    ],
-  },
-  {
     title: "OUTREACH",
     items: [
       { label: "Rakip Takip", href: "/dashboard/competitors", icon: <DollarSign size={15} /> },

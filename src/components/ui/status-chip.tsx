@@ -1,7 +1,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-export type StatusType = "draft" | "active" | "done" | "pending" | "discovered" | "researched" | "contacted" | "won" | "lost" | "published";
+export type StatusType = "draft" | "active" | "done" | "pending" | "published";
 
 interface StatusChipProps extends React.HTMLAttributes<HTMLDivElement> {
   status: StatusType;
@@ -13,11 +13,6 @@ const statusConfig: Record<StatusType, { class: string, defaultLabel: string }> 
   active: { class: "bg-[var(--info-subtle)] text-[var(--info)]", defaultLabel: "Aktif" },
   done: { class: "bg-[var(--success-subtle)] text-[var(--success)]", defaultLabel: "Tamamlandı" },
   pending: { class: "bg-[var(--warning-subtle)] text-[var(--warning)]", defaultLabel: "Bekliyor" },
-  discovered: { class: "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]", defaultLabel: "Keşfedildi" },
-  researched: { class: "bg-[var(--info-subtle)] text-[var(--info)]", defaultLabel: "Araştırıldı" },
-  contacted: { class: "bg-[var(--warning-subtle)] text-[var(--warning)]", defaultLabel: "İletişime Geçildi" },
-  won: { class: "bg-[var(--success-subtle)] text-[var(--success)]", defaultLabel: "Kazanıldı" },
-  lost: { class: "bg-[var(--danger-subtle)] text-[var(--danger)]", defaultLabel: "Kaybedildi" },
   published: { class: "bg-[var(--success-subtle)] text-[var(--success)]", defaultLabel: "Yayınlandı" },
 };
 

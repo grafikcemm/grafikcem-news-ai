@@ -3,10 +3,6 @@
     {
       "path": "/api/cron/fetch-news",
       "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/daily-lead-scan",
-      "schedule": "0 6 * * *"
     }
   ]
 }

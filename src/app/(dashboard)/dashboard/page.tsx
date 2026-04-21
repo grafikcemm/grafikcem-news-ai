@@ -13,7 +13,6 @@ import { FileTextIcon } from "lucide-react";
 interface NewsItem { id: string; title: string; summary: string; viral_score: number; fetched_at: string; sources?: { name: string }[] | { name: string } | null; }
 interface ContentItem { id: string; title: string; platform: string; format: string; status: string; scheduled_date: string; }
 interface FocusTask { id: string; title: string; priority: number; frequency: string; is_completed: boolean; completed_at: string | null; }
-interface Lead { id: string; company_name: string; sector: string; potential_score: number; status: string; assigned_day?: string; }
 interface TweetDraft { id: string; text?: string; content?: string; platform?: string; status: string; }
 
 function getGreeting() {
@@ -39,10 +38,7 @@ export default function DashboardPage() {
 
   const [focusTasks, setFocusTasks] = useState<FocusTask[]>([]);
   const [opportunityNews, setOpportunityNews] = useState<NewsItem | null>(null);
-  const [todayLead, setTodayLead] = useState<Lead | null>(null);
-
   const [contentQueue, setContentQueue] = useState<TweetDraft[]>([]);
-  const [leadQueue, setLeadQueue] = useState<Lead[]>([]);
   const [thisWeek, setThisWeek] = useState<ContentItem[]>([]);
 
   const [trendingNews, setTrendingNews] = useState<NewsItem[]>([]);
@@ -72,13 +68,6 @@ export default function DashboardPage() {
         .limit(1);
       if (opNews && opNews.length > 0) setOpportunityNews(opNews[0] as unknown as NewsItem);
 
-      // 3. Today's Lead
-      const todayIso = new Date().toISOString().split('T')[0];
-      const { data: tLead } = await supabase.from("leads")
-        .select("*")
-        .eq("assigned_day", todayIso)
-        .limit(1);
-      if (tLead && tLead.length > 0) setTodayLead(tLead[0] as Lead);
 
       // 4. Content Queue (drafts pending)
       const { data: drafts } = await supabase.from("tweet_drafts")
@@ -87,13 +76,6 @@ export default function DashboardPage() {
         .limit(4);
       if (drafts) setContentQueue(drafts as TweetDraft[]);
 
-      // 5. Lead Queue (discovered or researched)
-      const { data: lQueue } = await supabase.from("leads")
-        .select("*")
-        .in("status", ["discovered", "researched"])
-        .order("potential_score", { ascending: false })
-        .limit(4);
-      if (lQueue) setLeadQueue(lQueue as Lead[]);
 
       // 6. This week contents
       const now = new Date();
@@ -260,34 +242,6 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* Card 3 — Bugünün Lead'i */}
-        <div className="gradient-border" style={{ padding: 24 }}>
-          <div className="flex justify-between items-center mb-[16px]">
-            <span className="text-label">ULAŞIM</span>
-            {todayLead && <span style={{ fontSize: 24, fontWeight: 800, color: "var(--success)" }}>{todayLead.potential_score}</span>}
-          </div>
-          {loading ? (
-            <div style={{ height: 80, background: "var(--surface-overlay)", borderRadius: "var(--radius-md)", opacity: 0.2 }} className="animate-pulse" />
-          ) : !todayLead ? (
-            <div className="flex flex-col items-center justify-center text-center" style={{ padding: "16px 0" }}>
-              <p style={{ fontSize: 13, color: "var(--text-tertiary)", marginBottom: 12 }}>Lead havuzu boş. Türkiye genelinde sektör bazlı tara.</p>
-              <Link href="/dashboard/leads"><Button variant="ghost" size="sm">Sektör Tara →</Button></Link>
-            </div>
-          ) : (
-            <div className="flex flex-col justify-between flex-1">
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 }}>{todayLead.company_name}</h3>
-                <div className="flex items-center gap-[8px]">
-                  <StatusChip status="pending" label={todayLead.sector} />
-                </div>
-              </div>
-              <div className="flex gap-[8px]" style={{ marginTop: 16 }}>
-                <Button variant="default" size="sm">DM Yaz →</Button>
-                <Link href="/dashboard/leads"><Button variant="ghost" size="sm">Daha Fazla →</Button></Link>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* 5.4 Work Queues */}
@@ -316,28 +270,6 @@ export default function DashboardPage() {
           ))}
         </div>
 
-        {/* Lead Sırası */}
-        <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 20 }}>
-          <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
-            <span className="text-label">LEAD SIRASI</span>
-            <Link href="/dashboard/leads" style={{ fontSize: 11, color: "var(--accent)" }}>Tümü →</Link>
-          </div>
-          {loading ? <div className="animate-pulse" style={{ height: 40, background: "var(--surface-elevated)", borderRadius: "var(--radius-md)", opacity: 0.2 }} />
-           : leadQueue.length === 0 ? (
-            <div className="flex items-center justify-between">
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Lead havuzu boş</span>
-              <Link href="/dashboard/leads" style={{ fontSize: 13, color: "var(--accent)" }}>Sektör Tara →</Link>
-            </div>
-          ) : leadQueue.map(item => (
-            <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--border-subtle)", fontSize: 13 }} className="flex items-center justify-between last:border-0">
-              <div className="flex items-center gap-[8px] min-w-0 flex-1 mr-2">
-                <span className="text-label" style={{ flexShrink: 0 }}>{item.sector}</span>
-                <span style={{ color: "var(--text-primary)", fontWeight: 500 }} className="truncate">{item.company_name}</span>
-              </div>
-              <ScoreBadge score={item.potential_score} className="shrink-0" />
-            </div>
-          ))}
-        </div>
 
         {/* Bu Hafta */}
         <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 20 }}>
