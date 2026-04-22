@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
       channel: body.channel,
       content: body.content,
       format: body.format,
+      tweet_type: body.format === "thread" ? "thread" : "single",
       status: body.status ?? "pending",
       metadata: normalizeMetadata(body.metadata),
     };
