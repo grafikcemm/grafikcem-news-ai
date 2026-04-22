@@ -49,6 +49,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "@grafikcem", href: "/channels/grafikcem", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-grafikcem)"}} /> },
       { label: "@maskulenkod", href: "/channels/maskulenkod", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-maskulenkod)"}} /> },
+      { label: "@sporhaberleri", href: "/channels/sporhaberleri", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-sporhaberleri)"}} /> },
       { label: "LinkedIn", href: "/channels/linkedin", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-linkedin)"}} /> },
     ],
   },

@@ -1,10 +1,14 @@
-import { GoogleGenerativeAI, GenerationConfig } from '@google/generative-ai'
+import { GoogleGenerativeAI, GenerationConfig } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(
   process.env.GOOGLE_GEMINI_API_KEY!
-)
+);
 
-export const GEMINI_MODEL = 'gemini-3-flash-preview'
+export { genAI };
+
+export const GEMINI_MODEL = "gemini-3-flash-preview";
+export const GEMINI_STANDARD = "gemini-3-flash-preview";
+export const GEMINI_FAST = "gemini-3-flash-preview";
 
 const CONFIGS: Record<string, GenerationConfig> = {
   creative: {
@@ -22,28 +26,29 @@ const CONFIGS: Record<string, GenerationConfig> = {
     topP: 0.90,
     maxOutputTokens: 8192,
   },
-}
+};
 
 export async function generateWithGemini(
   prompt: string,
-  mode: 'creative' | 'analytical' | 'planning' = 'creative',
-  systemPrompt?: string
+  mode: "creative" | "analytical" | "planning" = "creative",
+  systemPrompt?: string,
+  modelName = GEMINI_MODEL
 ): Promise<string> {
   try {
     const model = genAI.getGenerativeModel({
-      model: GEMINI_MODEL,
+      model: modelName,
       generationConfig: CONFIGS[mode],
       systemInstruction: systemPrompt,
-    })
+    });
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    const text = response.text()
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const text = response.text();
 
-    if (!text) throw new Error('Empty response from Gemini')
-    return text
+    if (!text) throw new Error("Empty response from Gemini");
+    return text;
   } catch (err) {
-    console.error('Gemini API error:', err)
-    throw err
+    console.error("Gemini API error:", err);
+    throw err;
   }
 }

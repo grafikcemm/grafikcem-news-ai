@@ -1,484 +1,1072 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { ChangeEvent, DragEvent, ReactNode, Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Separator } from "@/components/ui/separator";
+import {
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  ExternalLink,
+  Globe,
+  ImagePlus,
+  Link2,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Save,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ACCOUNT_CONFIGS,
+  CHARACTER_OPTIONS,
+  FORMAT_CONFIGS,
+  KNOWLEDGE_OPTIONS,
+  LANGUAGE_OPTIONS,
+  MODE_OPTIONS,
+  SPORTS_THEMES,
+  ThreadTweet,
+  TONE_OPTIONS,
+  TweetAccount,
+  TweetCharacter,
+  TweetFormat,
+  TweetKnowledge,
+  TweetLanguage,
+  TweetMode,
+  TweetTone,
+} from "@/lib/tweet-engine";
 
-interface NewsItem {
-  id: string;
+interface SearchSource {
   title: string;
-  summary: string;
   url: string;
-  category: string;
-  viral_score: number;
-  viral_reason: string;
-  sources?: { name: string };
+  snippet: string;
 }
 
-interface TweetDraft {
+interface WebSearchResponse {
+  summary: string;
+  sources: SearchSource[];
+  totalSources: number;
+  webContext: string;
+}
+
+interface ViralReference {
   id: string;
-  content: string;
-  tweet_type: string;
-  thread_tweets: string[] | null;
-  ai_score: number;
-  status: string;
-  score_reason?: string;
-  pattern_used?: string | null;
+  tweet_text: string;
+  format: string | null;
 }
 
-const FORMATS = [
-  { id: "mikro", label: "Mikro", desc: "Max 100 karakter", icon: "⚡" },
-  { id: "standard", label: "Standard", desc: "240-270 karakter", icon: "💬" },
-  { id: "hook", label: "Hook", desc: "FOMO / Provokasyon", icon: "🎣" },
-  { id: "liste", label: "Liste", desc: "Numaralı format", icon: "📋" },
-  { id: "thread_mini", label: "Thread Mini", desc: "3 tweet", icon: "🧵" },
-  { id: "thread_orta", label: "Thread Orta", desc: "5 tweet", icon: "🧵🧵" },
-  { id: "thread_uzun", label: "Thread Uzun", desc: "10 tweet", icon: "📖" },
-  { id: "thunder", label: "Thunder ⚡", desc: "MAX VİRAL", icon: "🔥" },
-];
-
-export default function TweetGeneratorPage() {
-  return (
-    <Suspense fallback={<div className="p-8"><Skeleton className="h-96 w-full" /></div>}>
-      <TweetGeneratorContent />
-    </Suspense>
-  );
+interface DraftNewsItem {
+  title: string | null;
+  summary: string | null;
 }
 
-function TweetGeneratorContent() {
+const TOPIC_LIMIT = 280;
+const FILE_LIMIT_BYTES = 5 * 1024 * 1024;
+
+function getDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function formatThreadBlock(thread: ThreadTweet[]) {
+  return thread.map((item) => `${item.step}/ ${item.text}`).join("\n\n");
+}
+
+function TweetGeneratorScreen() {
   const searchParams = useSearchParams();
-  const newsIdParam = searchParams.get("news_id");
+  const newsId = searchParams.get("news_id");
+  const accountParam = searchParams.get("account");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const [newsItem, setNewsItem] = useState<NewsItem | null>(null);
-  const [drafts, setDrafts] = useState<TweetDraft[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [newsId, setNewsId] = useState(newsIdParam || "");
-  const [selectedFormat, setSelectedFormat] = useState<string>("standard");
-  const [abMode, setAbMode] = useState(false);
-  const [tone, setTone] = useState<string>("");
-  const [language, setLanguage] = useState<string>("tr");
-  const [showOptions, setShowOptions] = useState(false);
+  const [activeAccount, setActiveAccount] = useState<TweetAccount>("grafikcem");
+  const [mode, setMode] = useState<TweetMode>("tweet");
+  const [topic, setTopic] = useState("");
+  const [selectedFormat, setSelectedFormat] = useState<TweetFormat>("spark");
+  const [advancedOpen, setAdvancedOpen] = useState(true);
+  const [character, setCharacter] = useState<TweetCharacter>(ACCOUNT_CONFIGS.grafikcem.defaults.character);
+  const [tone, setTone] = useState<TweetTone>(ACCOUNT_CONFIGS.grafikcem.defaults.tone);
+  const [knowledge, setKnowledge] = useState<TweetKnowledge>(ACCOUNT_CONFIGS.grafikcem.defaults.knowledge);
+  const [language, setLanguage] = useState<TweetLanguage>(ACCOUNT_CONFIGS.grafikcem.defaults.language);
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+
+  const [stage, setStage] = useState<"idle" | "searching" | "generating">("idle");
+  const [webSearch, setWebSearch] = useState<WebSearchResponse | null>(null);
+  const [showSources, setShowSources] = useState(false);
+  const [singleTweet, setSingleTweet] = useState("");
+  const [threadTweets, setThreadTweets] = useState<ThreadTweet[]>([]);
+  const [references, setReferences] = useState<ViralReference[]>([]);
+  const [referencesOpen, setReferencesOpen] = useState(false);
+  const [referenceInput, setReferenceInput] = useState("");
+  const [referenceSaving, setReferenceSaving] = useState(false);
+  const [savingDraft, setSavingDraft] = useState(false);
+
+  const [sportsHeadline, setSportsHeadline] = useState("");
+  const [sportsSubjects, setSportsSubjects] = useState("");
+  const [sportsTheme, setSportsTheme] = useState<(typeof SPORTS_THEMES)[number]>("Dramatik");
+  const [sportsPrompt, setSportsPrompt] = useState<Record<string, string> | null>(null);
+  const [sportsPromptLoading, setSportsPromptLoading] = useState(false);
+
+  const activeConfig = ACCOUNT_CONFIGS[activeAccount];
+  const selectedFormatConfig = FORMAT_CONFIGS.find((item) => item.id === selectedFormat) ?? FORMAT_CONFIGS[0];
+  const isThread = selectedFormat === "thread";
+  const advancedSummary = [character, tone, knowledge].map((item) => `[${item}]`).join(" • ");
 
   useEffect(() => {
-    if (newsIdParam) {
-      setNewsId(newsIdParam);
-      loadNewsAndDrafts(newsIdParam);
+    if (!accountParam) return;
+    if (accountParam in ACCOUNT_CONFIGS) {
+      setActiveAccount(accountParam as TweetAccount);
     }
-  }, [newsIdParam]);
+  }, [accountParam]);
 
-  async function loadNewsAndDrafts(id: string) {
-    setLoading(true);
-    try {
-      const { data: news } = await supabase
+  useEffect(() => {
+    const defaults = ACCOUNT_CONFIGS[activeAccount].defaults;
+    setCharacter(defaults.character);
+    setTone(defaults.tone);
+    setKnowledge(defaults.knowledge);
+    setLanguage(defaults.language);
+  }, [activeAccount]);
+
+  useEffect(() => {
+    async function loadSeedNews() {
+      if (!newsId) return;
+
+      const { data } = await supabase
         .from("news_items")
-        .select("*, sources(name)")
-        .eq("id", id)
-        .single();
+        .select("title, summary")
+        .eq("id", newsId)
+        .maybeSingle();
 
-      if (news) setNewsItem(news as NewsItem);
-
-      const { data: existingDrafts } = await supabase
-        .from("tweet_drafts")
-        .select("*")
-        .eq("news_id", id)
-        .eq("status", "pending")
-        .order("ai_score", { ascending: false });
-
-      if (existingDrafts) setDrafts(existingDrafts as TweetDraft[]);
-    } catch (err) {
-      console.error("Load error:", err);
-    } finally {
-      setLoading(false);
+      if (data) {
+        const news = data as DraftNewsItem;
+        setTopic([news.title, news.summary].filter(Boolean).join("\n\n").slice(0, TOPIC_LIMIT));
+      }
     }
+
+    loadSeedNews();
+  }, [newsId]);
+
+  useEffect(() => {
+    fetchReferences(activeAccount);
+  }, [activeAccount]);
+
+  async function fetchReferences(account: TweetAccount) {
+    try {
+      const res = await fetch(`/api/tweet/references?account=${account}`);
+      const data = await res.json();
+      if (res.ok) {
+        setReferences(data.references ?? []);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  function resetResultState() {
+    setSingleTweet("");
+    setThreadTweets([]);
+  }
+
+  function handleTopicChange(event: ChangeEvent<HTMLTextAreaElement>) {
+    setTopic(event.target.value.slice(0, TOPIC_LIMIT));
+  }
+
+  function validateFile(file: File) {
+    const isImage = ["image/jpeg", "image/png"].includes(file.type);
+    if (!isImage) {
+      toast.error("Sadece JPG veya PNG yükleyebilirsin.");
+      return false;
+    }
+
+    if (file.size > FILE_LIMIT_BYTES) {
+      toast.error("Görsel en fazla 5MB olabilir.");
+      return false;
+    }
+
+    return true;
+  }
+
+  function attachFile(file: File | null) {
+    if (!file) return;
+    if (!validateFile(file)) return;
+    setAttachedFile(file);
+  }
+
+  function onFileChange(event: ChangeEvent<HTMLInputElement>) {
+    attachFile(event.target.files?.[0] ?? null);
+  }
+
+  function onDropFile(event: DragEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    setIsDraggingFile(false);
+    attachFile(event.dataTransfer.files?.[0] ?? null);
   }
 
   async function handleGenerate() {
-    if (!newsId) return;
-    setGenerating(true);
+    if (!topic.trim()) {
+      toast.error("Önce bir konu veya fikir yaz.");
+      return;
+    }
+
+    resetResultState();
+    setWebSearch(null);
+    setShowSources(false);
+    setStage("searching");
+
     try {
-      const res = await fetch("/api/tweet/generate", {
+      const searchRes = await fetch("/api/tweet/web-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ news_id: newsId, format: selectedFormat, abMode, tone, language }),
+        body: JSON.stringify({ query: topic.trim() }),
+      });
+      const searchData = await searchRes.json();
+
+      if (!searchRes.ok) {
+        throw new Error(searchData.error || "Web araştırması başarısız.");
+      }
+
+      setWebSearch(searchData);
+      setShowSources(true);
+      setStage("generating");
+
+      const generateRes = await fetch("/api/tweet/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          format: selectedFormat,
+          character,
+          tone,
+          knowledge,
+          language,
+          account: activeAccount,
+          webContext: searchData.webContext,
+          mode,
+        }),
+      });
+
+      const generateData = await generateRes.json();
+
+      if (!generateRes.ok) {
+        throw new Error(generateData.error || "Tweet üretimi başarısız.");
+      }
+
+      if (selectedFormat === "thread") {
+        setThreadTweets(generateData.thread ?? []);
+      } else {
+        setSingleTweet(generateData.tweet ?? "");
+      }
+
+      toast.success(selectedFormat === "thread" ? "Thread hazır." : "Tweet hazır.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Bir hata oluştu.";
+      toast.error(message);
+      setStage("idle");
+      return;
+    }
+
+    setStage("idle");
+  }
+
+  async function saveDraft() {
+    const content = isThread ? JSON.stringify(threadTweets) : singleTweet.trim();
+
+    if (!content) {
+      toast.error("Önce bir çıktı üret.");
+      return;
+    }
+
+    setSavingDraft(true);
+    try {
+      const res = await fetch("/api/tweet/drafts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channel: activeAccount,
+          content,
+          format: isThread ? "thread" : selectedFormat,
+          status: "pending",
+          metadata: {
+            mode,
+            character,
+            tone,
+            knowledge,
+            language,
+            sources: webSearch?.sources ?? [],
+            imageName: attachedFile?.name ?? null,
+          },
+        }),
       });
       const data = await res.json();
-      if (res.ok && data.options) {
-        setDrafts(data.options);
-        const fmt = FORMATS.find((f) => f.id === selectedFormat);
-        toast.success(`${fmt?.label || "Tweet"} formatında üretildi!`);
-        if (!newsItem) await loadNewsAndDrafts(newsId);
-      } else {
-        toast.error(data.error || "Tweet üretimi başarısız");
+
+      if (!res.ok) {
+        throw new Error(data.error || "Kaydetme başarısız.");
       }
-    } catch {
-      toast.error("Bir hata oluştu");
+
+      toast.success(isThread ? "Thread kaydedildi." : `${activeConfig.handle} için taslak kaydedildi.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Kaydetme başarısız.");
     } finally {
-      setGenerating(false);
+      setSavingDraft(false);
     }
   }
 
-  async function handleApprove(draftId: string) {
+  async function addReference() {
+    if (!referenceInput.trim()) {
+      toast.error("Referans tweet metni ekle.");
+      return;
+    }
+
+    setReferenceSaving(true);
     try {
-      await supabase.from("tweet_drafts").update({ status: "approved" }).eq("id", draftId);
-      setDrafts((prev) => prev.map((d) => (d.id === draftId ? { ...d, status: "approved" } : d)));
-      toast.success("Taslak onaylandı!");
-    } catch {
-      toast.error("Onaylama başarısız");
+      const res = await fetch("/api/tweet/references", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: activeAccount,
+          tweetText: referenceInput.trim(),
+          format: selectedFormat,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Referans eklenemedi.");
+      }
+
+      setReferenceInput("");
+      await fetchReferences(activeAccount);
+      toast.success("Viral referans eklendi.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Referans eklenemedi.");
+    } finally {
+      setReferenceSaving(false);
     }
   }
 
-  async function handleReject(draftId: string) {
+  async function deleteReference(id: string) {
     try {
-      await supabase.from("tweet_drafts").update({ status: "rejected" }).eq("id", draftId);
-      setDrafts((prev) => prev.map((d) => (d.id === draftId ? { ...d, status: "rejected" } : d)));
-      toast.info("Taslak reddedildi");
-    } catch {
-      toast.error("İşlem başarısız");
+      const res = await fetch(`/api/tweet/references?id=${id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Referans silinemedi.");
+      }
+
+      setReferences((prev) => prev.filter((item) => item.id !== id));
+      toast.success("Referans kaldırıldı.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Referans silinemedi.");
     }
   }
 
-  function copyToClipboard(text: string) {
-    navigator.clipboard.writeText(text);
-    toast.success("Kopyalandı!");
+  async function generateSportsPrompt() {
+    if (!sportsHeadline.trim()) {
+      toast.error("Önce haber başlığı yaz.");
+      return;
+    }
+
+    setSportsPromptLoading(true);
+    try {
+      const res = await fetch("/api/tweet/sports-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          headline: sportsHeadline,
+          subjects: sportsSubjects,
+          theme: sportsTheme,
+        }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Prompt üretilemedi.");
+      }
+
+      setSportsPrompt(data.result ?? null);
+      toast.success("Spor görsel promptu hazır.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Prompt üretilemedi.");
+    } finally {
+      setSportsPromptLoading(false);
+    }
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Tweet Üretici</h1>
-        <p className="text-[var(--text-tertiary)] text-sm mt-1">
-          12 viral pattern + 8 format — AI ile tweet seçenekleri üret
-        </p>
-      </div>
+    <div className="p-4 lg:p-8 text-[var(--text-primary)]">
+      <div className="mx-auto max-w-7xl space-y-6">
+        <div className="rounded-[28px] border border-white/8 bg-[radial-gradient(circle_at_top_left,rgba(249,115,22,0.18),transparent_30%),linear-gradient(180deg,rgba(17,24,39,0.96),rgba(8,11,18,0.98))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)]">
+          <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.3em] text-orange-300">// Tweet Üretici</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight">XPatla benzeri yeni tweet motoru</h1>
+            </div>
 
-      {/* Format Selector */}
-      <div>
-        <p className="text-sm font-medium text-[var(--text-secondary)] mb-2">Format Seç</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {FORMATS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setSelectedFormat(f.id)}
-              className={`p-2 rounded-lg border text-left transition-all ${
-                selectedFormat === f.id
-                  ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                  : "border-[var(--border-subtle)] hover:border-[var(--border-default)] bg-[var(--surface-card)]"
-              }`}
-            >
-              <div className="text-lg">{f.icon}</div>
-              <div className="text-xs font-medium">{f.label}</div>
-              <div className="text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{f.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+            <div className="min-w-[280px] rounded-2xl border border-white/10 bg-white/5 p-3">
+              <p className="mb-2 text-[11px] uppercase tracking-[0.24em] text-[var(--text-tertiary)]">Aktif Hesap</p>
+              <Select value={activeAccount} onValueChange={(value) => setActiveAccount(value as TweetAccount)}>
+                <SelectTrigger className="h-12 w-full border-white/10 bg-black/20 text-[var(--text-primary)]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="border-white/10 bg-[var(--surface-card)] text-[var(--text-primary)]">
+                  {Object.values(ACCOUNT_CONFIGS).map((account) => (
+                    <SelectItem key={account.id} value={account.id}>
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: account.color }}
+                        />
+                        <span className="flex flex-col">
+                          <span>{account.handle} — {account.name}</span>
+                          <span className="text-xs text-[var(--text-tertiary)]">{account.description}</span>
+                        </span>
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
-      <div className="grid lg:grid-cols-5 gap-6">
-        {/* Left panel — News detail */}
-        <div className="lg:col-span-2 space-y-4">
-          <Card className="border-0 shadow-sm bg-[var(--surface-card)] sticky top-4">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-[var(--text-primary)]">Haber Detayı</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {loading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-6 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                </div>
-              ) : newsItem ? (
-                <>
-                  <h3 className="font-semibold text-[var(--text-primary)]">{newsItem.title}</h3>
-                  <p className="text-sm text-[var(--text-tertiary)] leading-relaxed">{newsItem.summary}</p>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      {newsItem.sources?.name}
-                    </Badge>
-                    <Badge
-                      className={`text-xs ${
-                        newsItem.viral_score >= 80
-                          ? "bg-[var(--success-subtle)] text-[var(--success)]"
-                          : newsItem.viral_score >= 60
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-[var(--surface-elevated)] text-[var(--text-tertiary)]"
-                      }`}
-                    >
-                      Viral: {newsItem.viral_score}
-                    </Badge>
+          <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-5">
+              <div className="rounded-[24px] border border-white/10 bg-black/15 p-4">
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {MODE_OPTIONS.map((item) => (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setMode(item.id)}
+                        className={cn(
+                          "rounded-full border px-4 py-2 text-sm transition",
+                          mode === item.id
+                            ? "border-orange-400 bg-orange-500/15 text-orange-200"
+                            : "border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20 hover:text-[var(--text-primary)]"
+                        )}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
                   </div>
-                  {newsItem.viral_reason && (
-                    <p className="text-xs text-violet-500 italic">{newsItem.viral_reason}</p>
-                  )}
-                  <a
-                    href={newsItem.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-blue-500 hover:underline inline-flex items-center gap-1"
-                  >
-                    Kaynağı aç ↗
-                  </a>
-                </>
-              ) : (
-                <div className="text-center py-8 text-[var(--text-tertiary)] text-sm">
-                  <p>Tweet üretmek için bir haber seçin</p>
-                  <p className="mt-2 text-xs">Haber Havuzu&apos;ndan bir haber seçip &quot;Tweet Üret&quot; butonuna tıklayın</p>
+                  <div className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--text-tertiary)]">
+                    Fast • ~1 kredi
+                  </div>
                 </div>
-              )}
 
-              <Separator />
+                <div className="relative">
+                  <Textarea
+                    value={topic}
+                    onChange={handleTopicChange}
+                    placeholder="Konu veya fikir yaz, viral tweetler üret"
+                    className="min-h-[220px] resize-none rounded-[20px] border-white/10 bg-[rgba(3,7,18,0.75)] px-5 py-5 text-[15px] leading-7 text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+                  />
+                  <span className="absolute right-4 top-4 rounded-full border border-white/10 bg-black/30 px-3 py-1 text-xs text-[var(--text-secondary)]">
+                    {topic.length}/{TOPIC_LIMIT}
+                  </span>
+                </div>
 
-              <div className="flex items-center justify-between">
                 <button
                   type="button"
-                  onClick={() => setShowOptions(!showOptions)}
-                  className="text-xs font-semibold text-blue-500 flex items-center gap-1"
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDraggingFile(true);
+                  }}
+                  onDragLeave={() => setIsDraggingFile(false)}
+                  onDrop={onDropFile}
+                  className={cn(
+                    "mt-4 flex w-full items-center justify-between rounded-[18px] border border-dashed px-4 py-4 text-left transition",
+                    isDraggingFile
+                      ? "border-orange-400 bg-orange-500/10"
+                      : "border-white/10 bg-white/5 hover:border-white/20"
+                  )}
                 >
-                  {showOptions ? "Gelişmiş Seçenekleri Gizle" : "Gelişmiş Seçenekler"}
-                </button>
-              </div>
-
-              {showOptions && (
-                <div className="space-y-4 p-4 bg-[var(--surface-elevated)] rounded-lg border border-[var(--border-subtle)]">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-[var(--text-primary)]">A/B Testi Üret</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={abMode} onChange={() => setAbMode(!abMode)} className="sr-only peer" />
-                      <div className="w-9 h-5 bg-[var(--surface-elevated)] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-[var(--surface-card)] after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                  </div>
-                  <div className="space-y-1">
-                    <span className="text-sm font-medium text-[var(--text-primary)]">Dil Seçimi</span>
-                    <div className="flex gap-2">
-                      {["tr", "en", "bilingual"].map((l) => (
-                        <button
-                          key={l}
-                          onClick={() => setLanguage(l)}
-                          className={`flex-1 py-1 rounded text-xs font-medium border ${
-                            language === l ? "bg-[var(--surface-raised)] text-white" : "text-[var(--text-secondary)] bg-[var(--surface-card)] hover:bg-[var(--surface-elevated)]"
-                          }`}
-                        >
-                          {l.toUpperCase()}
-                        </button>
-                      ))}
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-2xl bg-white/8 p-3">
+                      <ImagePlus className="size-4 text-orange-300" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[var(--text-primary)]">Görsel ekle (opsiyonel)</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">Drag-drop, max 5MB, JPG/PNG</p>
                     </div>
                   </div>
-                  <div className="space-y-1">
-                    <span className="text-sm font-medium text-[var(--text-primary)]">Ton / Tarz</span>
-                    <select
-                      value={tone}
-                      onChange={(e) => setTone(e.target.value)}
-                      className="w-full text-sm rounded-md border-[var(--border-subtle)] p-2 outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">Otomatik (Haber türüne göre)</option>
-                      <option value="Ciddi ve Analitik">Ciddi ve Analitik</option>
-                      <option value="Eğlenceli ve Heyecanlı">Eğlenceli ve Heyecanlı</option>
-                      <option value="Hikayesel (Storytelling)">Hikayesel</option>
-                      <option value="Provokatif / Tartışma Çıkarıcı">Provokatif / Tartışma</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 text-xs text-indigo-600 bg-indigo-50 rounded-lg p-2">
-                <span>{FORMATS.find((f) => f.id === selectedFormat)?.icon}</span>
-                <span>Format: <strong>{FORMATS.find((f) => f.id === selectedFormat)?.label}</strong></span>
-              </div>
-
-              <div className="space-y-2">
-                <Button
-                  onClick={handleGenerate}
-                  disabled={generating || !newsId}
-                  className={`w-full h-11 text-white ${
-                    !newsId
-                      ? "bg-[var(--surface-overlay)] cursor-not-allowed opacity-100 hover:bg-[var(--surface-overlay)]"
-                      : "bg-linear-to-r from-blue-500 to-violet-500 hover:from-blue-600 hover:to-violet-600"
-                  }`}
-                >
-                  {generating ? (
-                    <span className="flex items-center gap-2">
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" className="opacity-25" />
-                        <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
-                      </svg>
-                      AI Üretiyor...
-                    </span>
+                  {attachedFile ? (
+                    <div className="text-right">
+                      <p className="text-sm text-[var(--text-primary)]">{attachedFile.name}</p>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setAttachedFile(null);
+                        }}
+                        className="text-xs text-orange-300"
+                      >
+                        Kaldır
+                      </button>
+                    </div>
                   ) : (
-                    `${FORMATS.find((f) => f.id === selectedFormat)?.label || "Tweet"} Üret`
+                    <span className="text-xs text-[var(--text-tertiary)]">Dosya seç</span>
                   )}
-                </Button>
-                {!newsId && (
-                  <p className="text-xs text-center text-red-500 font-medium">
-                    Lütfen Haber Havuzu&apos;ndan bir haber seçin
-                  </p>
-                )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={onFileChange}
+                />
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        {/* Right panel — Tweet options */}
-        <div className="lg:col-span-3 space-y-4">
-          {loading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <Skeleton key={i} className="h-48 w-full rounded-xl" />
-              ))}
-            </div>
-          ) : drafts.length === 0 ? (
-            <Card className="border-0 shadow-sm bg-[var(--surface-card)]">
-              <CardContent className="p-12 text-center text-[var(--text-tertiary)]">
-                <div className="w-16 h-16 rounded-2xl bg-[var(--surface-elevated)] flex items-center justify-center mx-auto mb-4">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-secondary)]"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg>
+              <div className="rounded-[24px] border border-white/10 bg-black/10 p-4">
+                <div className="mb-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex flex-wrap gap-2">
+                    {FORMAT_CONFIGS.map((format) => (
+                      <button
+                        key={format.id}
+                        type="button"
+                        onClick={() => setSelectedFormat(format.id)}
+                        className={cn(
+                          "rounded-full border px-4 py-2 text-sm transition",
+                          selectedFormat === format.id
+                            ? "border-orange-400 bg-orange-500 text-black"
+                            : "border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20 hover:text-[var(--text-primary)]"
+                        )}
+                      >
+                        {format.label}
+                      </button>
+                    ))}
+                    <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm text-[var(--text-secondary)]">···</span>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-[var(--text-tertiary)]">
+                      {selectedFormatConfig.rangeLabel}
+                    </span>
+                    <Button
+                      onClick={handleGenerate}
+                      disabled={stage !== "idle"}
+                      className="rounded-full bg-orange-500 px-5 text-black hover:bg-orange-400"
+                    >
+                      {stage === "searching" ? (
+                        <>
+                          <LoaderCircle className="size-4 animate-spin" />
+                          Web'de araştırılıyor...
+                        </>
+                      ) : stage === "generating" ? (
+                        <>
+                          <LoaderCircle className="size-4 animate-spin" />
+                          Tweet üretiliyor...
+                        </>
+                      ) : (
+                        "Üret"
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <p className="font-medium text-[var(--text-tertiary)]">Henüz tweet seçeneği yok</p>
-                <p className="text-xs text-[var(--text-tertiary)] mt-1">Bir haber seçip format belirleyerek üret butonuna tıklayın</p>
-              </CardContent>
-            </Card>
-          ) : (
-            drafts.map((draft, i) => (
-              <Card
-                key={draft.id}
-                className={`border-0 shadow-sm bg-[var(--surface-card)] ${
-                  draft.status === "approved"
-                    ? "ring-2 ring-blue-500/30"
-                    : draft.status === "rejected"
-                    ? "opacity-50"
-                    : ""
-                }`}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-[var(--text-tertiary)]">Seçenek {i + 1}</span>
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${
-                          draft.tweet_type === "thread"
-                            ? "border-violet-300 text-violet-600"
-                            : "border-blue-300 text-blue-600"
-                        }`}
-                      >
-                        {draft.tweet_type === "thread" ? "Thread" : "Single"}
-                      </Badge>
-                      {draft.pattern_used && (
-                        <Badge className="text-[10px] bg-amber-100 text-amber-700 hover:bg-amber-100">
-                          {draft.pattern_used}
-                        </Badge>
-                      )}
-                      {draft.status !== "pending" && (
-                        <Badge
-                          className={`text-[10px] ${
-                            draft.status === "approved"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-red-100 text-red-600"
-                          }`}
-                        >
-                          {draft.status === "approved" ? "Onaylandı" : "Reddedildi"}
-                        </Badge>
-                      )}
+
+                <div className="rounded-[18px] border border-white/10 bg-white/5 p-4">
+                  <button
+                    type="button"
+                    onClick={() => setAdvancedOpen((prev) => !prev)}
+                    className="flex w-full items-center justify-between text-left"
+                  >
+                    <div>
+                      <p className="font-mono text-sm text-[var(--text-primary)]">
+                        {advancedOpen ? "∧" : "∨"} GELİŞMİŞ AYARLAR • {advancedSummary} • [{language}]
+                      </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-xs ${
-                          draft.content.length > 280 ? "text-red-500 font-semibold" : "text-[var(--text-tertiary)]"
-                        }`}
-                      >
-                        {draft.content.length} kar
-                        {draft.content.length > 280 && " ⚠"}
-                      </span>
-                      <span className="text-xs font-bold text-violet-500">AI: {draft.ai_score}</span>
+                    {advancedOpen ? <ChevronUp className="size-4 text-[var(--text-tertiary)]" /> : <ChevronDown className="size-4 text-[var(--text-tertiary)]" />}
+                  </button>
+
+                  {advancedOpen && (
+                    <div className="mt-4 space-y-4">
+                      <SettingRow
+                        title="KARAKTER"
+                        value={character}
+                        options={CHARACTER_OPTIONS}
+                        onSelect={(value) => setCharacter(value as TweetCharacter)}
+                      />
+                      <SettingRow
+                        title="TON"
+                        value={tone}
+                        options={TONE_OPTIONS}
+                        onSelect={(value) => setTone(value as TweetTone)}
+                      />
+                      <SettingRow
+                        title="KNOWLEDGE"
+                        value={knowledge}
+                        options={KNOWLEDGE_OPTIONS}
+                        onSelect={(value) => setKnowledge(value as TweetKnowledge)}
+                      />
+                      <SettingRow
+                        title="DİL"
+                        value={language}
+                        options={LANGUAGE_OPTIONS}
+                        onSelect={(value) => setLanguage(value as TweetLanguage)}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              <Card className="overflow-hidden border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.94),rgba(2,6,23,0.94))]">
+                <CardContent className="p-5">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="size-3 rounded-full"
+                      style={{ backgroundColor: activeConfig.color }}
+                    />
+                    <div>
+                      <p className="text-sm font-medium">{activeConfig.handle} — {activeConfig.name}</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">{activeConfig.description}</p>
                     </div>
                   </div>
 
-                  {draft.score_reason && (
-                    <p className="text-[10px] text-[var(--text-tertiary)] italic mb-2">{draft.score_reason}</p>
-                  )}
+                  {webSearch ? (
+                    <div className="mt-5 space-y-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowSources((prev) => !prev)}
+                        className="flex w-full items-center justify-between rounded-[18px] border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <Globe className="size-4 text-emerald-300" />
+                          <div>
+                            <p className="text-sm font-medium">🔍 {webSearch.totalSources} kaynak analiz edildi</p>
+                            <p className="text-xs text-emerald-100/70">Tweet için kısa araştırma özeti hazır</p>
+                          </div>
+                        </div>
+                        {showSources ? <ChevronUp className="size-4 text-emerald-200" /> : <ChevronDown className="size-4 text-emerald-200" />}
+                      </button>
 
-                  {/* Tweet content */}
-                  <div className="bg-[var(--surface-elevated)] rounded-xl p-4 mb-4 relative">
-                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
-                      {draft.content}
-                    </p>
-                    {draft.tweet_type === "thread" &&
-                      draft.thread_tweets &&
-                      Array.isArray(draft.thread_tweets) && (
-                        <div className="mt-3 space-y-2 border-t border-[var(--border-subtle)] pt-3">
-                          {draft.thread_tweets.map((tweet, j) => (
-                            <div key={j} className="flex gap-2">
-                              <span className="text-xs text-[var(--text-tertiary)] shrink-0 mt-0.5">{j + 1}.</span>
-                              <p className="text-sm text-[var(--text-primary)]">{tweet}</p>
-                            </div>
-                          ))}
+                      {showSources && (
+                        <div className="space-y-2 rounded-[18px] border border-white/10 bg-black/15 p-3">
+                          {webSearch.sources.map((source) => {
+                            const domain = getDomain(source.url);
+                            return (
+                              <a
+                                key={source.url}
+                                href={source.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex items-center gap-3 rounded-2xl border border-white/8 bg-white/5 px-3 py-3 transition hover:border-white/15"
+                              >
+                                <img
+                                  src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+                                  alt=""
+                                  className="size-4 rounded-sm"
+                                />
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate text-sm">{source.title}</p>
+                                  <p className="truncate text-xs text-[var(--text-tertiary)]">{domain}</p>
+                                </div>
+                                <ExternalLink className="size-3.5 text-[var(--text-tertiary)]" />
+                              </a>
+                            );
+                          })}
+                          <p className="rounded-2xl bg-white/5 px-3 py-3 text-xs leading-6 text-[var(--text-secondary)]">
+                            {webSearch.summary}
+                          </p>
                         </div>
                       )}
-                  </div>
-                  
-                  {/* Hashtag Suggestions Extract Option */}
-                  {draft.content.includes("#") && (
-                    <div className="flex flex-wrap gap-1 mb-4">
-                      {Array.from(new Set(draft.content.match(/#[\wçğıöşüÇĞİÖŞÜ]+/g) || [])).map(tag => (
-                        <span key={tag} className="text-xs text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full cursor-pointer hover:bg-blue-100">
-                          {tag}
-                        </span>
-                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-[18px] border border-dashed border-white/10 bg-black/10 p-5 text-sm text-[var(--text-tertiary)]">
+                      Konu yazıp üret dediğinde önce web taraması başlayacak, sonra kaynaklı tweet çıkacak.
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {draft.status === "pending" && (
-                      <>
-                        <Button
-                          size="sm"
-                          onClick={() => handleApprove(draft.id)}
-                          className="bg-emerald-500 hover:bg-emerald-600 text-white"
-                        >
-                          ✓ Onayla
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleReject(draft.id)}
-                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        >
-                          ✕ Reddet
-                        </Button>
-                      </>
+                  <div className="mt-5 rounded-[18px] border border-white/10 bg-black/10 p-4">
+                    <button
+                      type="button"
+                      onClick={() => setReferencesOpen((prev) => !prev)}
+                      className="flex w-full items-center justify-between text-left"
+                    >
+                      <div>
+                        <p className="text-sm font-medium">📌 Viral Referanslar ({references.length} tweet)</p>
+                        <p className="text-xs text-[var(--text-tertiary)]">
+                          Yazım kalıbını, cümle yapısını ve tonu referans alır. İçerik kopyalanmaz.
+                        </p>
+                      </div>
+                      {referencesOpen ? <ChevronUp className="size-4 text-[var(--text-tertiary)]" /> : <ChevronDown className="size-4 text-[var(--text-tertiary)]" />}
+                    </button>
+
+                    {referencesOpen && (
+                      <div className="mt-4 space-y-3">
+                        <Textarea
+                          value={referenceInput}
+                          onChange={(event) => setReferenceInput(event.target.value)}
+                          placeholder="Viral tweet yapıştır..."
+                          className="min-h-[110px] border-white/10 bg-black/20"
+                        />
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-xs text-[var(--text-tertiary)]">Maksimum 10 referans / hesap</span>
+                          <Button
+                            onClick={addReference}
+                            disabled={referenceSaving || references.length >= 10}
+                            variant="outline"
+                            className="border-white/10"
+                          >
+                            {referenceSaving ? <LoaderCircle className="size-4 animate-spin" /> : <Plus className="size-4" />}
+                            Ekle
+                          </Button>
+                        </div>
+
+                        <div className="space-y-2">
+                          {references.map((reference) => (
+                            <div key={reference.id} className="rounded-[18px] border border-white/8 bg-white/5 p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-sm leading-6 text-[var(--text-secondary)]">{reference.tweet_text}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteReference(reference.id)}
+                                  className="rounded-full border border-white/10 p-2 text-[var(--text-tertiary)] transition hover:border-red-400/40 hover:text-red-300"
+                                >
+                                  <Trash2 className="size-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          {references.length === 0 && (
+                            <p className="rounded-2xl border border-dashed border-white/8 px-4 py-6 text-sm text-[var(--text-tertiary)]">
+                              Bu hesap için henüz referans yok.
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyToClipboard(draft.content)}
-                      className="text-xs ml-auto"
-                    >
-                      Kopyala
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        window.open(
-                          `https://twitter.com/intent/tweet?text=${encodeURIComponent(draft.content)}`,
-                          "_blank"
-                        )
-                      }
-                      className="text-xs bg-[var(--surface-raised)] hover:bg-[var(--surface-elevated)] text-white"
-                    >
-                      X&apos;te Paylaş
-                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
+
+              {activeAccount === "sporhaberleri" && (
+                <Card className="border-white/10 bg-[linear-gradient(180deg,rgba(6,78,59,0.28),rgba(2,6,23,0.94))]">
+                  <CardContent className="space-y-4 p-5">
+                    <div>
+                      <p className="text-sm font-medium">📸 Haber Görseli Üret</p>
+                      <p className="text-xs text-[var(--text-tertiary)]">
+                        Bu promptu Midjourney, Ideogram veya DALL-E’ye yapıştır.
+                      </p>
+                    </div>
+
+                    <Input
+                      value={sportsHeadline}
+                      onChange={(event) => setSportsHeadline(event.target.value)}
+                      placeholder="Haber başlığı"
+                      className="border-white/10 bg-black/20"
+                    />
+                    <Input
+                      value={sportsSubjects}
+                      onChange={(event) => setSportsSubjects(event.target.value)}
+                      placeholder="Takımlar / kişiler (opsiyonel)"
+                      className="border-white/10 bg-black/20"
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      {SPORTS_THEMES.map((theme) => (
+                        <button
+                          key={theme}
+                          type="button"
+                          onClick={() => setSportsTheme(theme)}
+                          className={cn(
+                            "rounded-full border px-4 py-2 text-sm transition",
+                            sportsTheme === theme
+                              ? "border-emerald-300 bg-emerald-300 text-black"
+                              : "border-white/10 bg-white/5 text-[var(--text-secondary)]"
+                          )}
+                        >
+                          {theme}
+                        </button>
+                      ))}
+                    </div>
+
+                    <Button
+                      onClick={generateSportsPrompt}
+                      disabled={sportsPromptLoading}
+                      className="w-full rounded-full bg-emerald-400 text-black hover:bg-emerald-300"
+                    >
+                      {sportsPromptLoading ? <LoaderCircle className="size-4 animate-spin" /> : <ImagePlus className="size-4" />}
+                      Prompt Üret
+                    </Button>
+
+                    {sportsPrompt && (
+                      <div className="rounded-[18px] border border-white/10 bg-black/15 p-4">
+                        <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-[var(--text-secondary)]">
+                          {JSON.stringify(sportsPrompt, null, 2)}
+                        </pre>
+                        <Button
+                          variant="outline"
+                          className="mt-3 border-white/10"
+                          onClick={() => {
+                            navigator.clipboard.writeText(JSON.stringify(sportsPrompt, null, 2));
+                            toast.success("Prompt JSON kopyalandı.");
+                          }}
+                        >
+                          <Copy className="size-4" />
+                          Kopyala
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </div>
         </div>
+
+        {singleTweet && !isThread && (
+          <ResultCard
+            title="Tekli Tweet"
+            description={selectedFormatConfig.description}
+            charCount={singleTweet.length}
+            sources={webSearch?.sources ?? []}
+            onCopy={() => {
+              navigator.clipboard.writeText(singleTweet);
+              toast.success("Tweet kopyalandı.");
+            }}
+            onSave={saveDraft}
+            onRegenerate={handleGenerate}
+            savingDraft={savingDraft}
+          >
+            <Textarea
+              value={singleTweet}
+              onChange={(event) => setSingleTweet(event.target.value)}
+              className="min-h-[240px] resize-none border-white/10 bg-black/20 text-[15px] leading-7"
+            />
+          </ResultCard>
+        )}
+
+        {isThread && threadTweets.length > 0 && (
+          <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(2,6,23,0.96))] p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-sm font-medium">Thread Builder</p>
+                <p className="text-xs text-[var(--text-tertiary)]">Her tweet ayrı kartta düzenlenebilir.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  className="border-white/10"
+                  onClick={() => {
+                    navigator.clipboard.writeText(formatThreadBlock(threadTweets));
+                    toast.success("Tüm thread kopyalandı.");
+                  }}
+                >
+                  <Copy className="size-4" />
+                  Tümünü Kopyala
+                </Button>
+                <Button variant="outline" className="border-white/10" onClick={handleGenerate}>
+                  <RefreshCw className="size-4" />
+                  Tekrar Üret
+                </Button>
+                <Button onClick={saveDraft} disabled={savingDraft} className="bg-orange-500 text-black hover:bg-orange-400">
+                  {savingDraft ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+                  Thread'i Kaydet
+                </Button>
+              </div>
+            </div>
+
+            {webSearch?.sources?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {webSearch.sources.map((source) => (
+                  <a
+                    key={source.url}
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--text-secondary)]"
+                  >
+                    <Link2 className="size-3.5" />
+                    {getDomain(source.url)}
+                  </a>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              {threadTweets.map((tweet, index) => (
+                <Card key={tweet.step} className="border-white/10 bg-black/15">
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-orange-500 px-2.5 py-1 text-xs font-semibold text-black">
+                          {index + 1}/
+                        </span>
+                        <span className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.2em] text-[var(--text-tertiary)]">
+                          {tweet.type}
+                        </span>
+                      </div>
+                      <span className={cn("text-xs", tweet.text.length > 280 ? "text-red-300" : "text-[var(--text-tertiary)]")}>
+                        {tweet.text.length}/280
+                      </span>
+                    </div>
+
+                    <Textarea
+                      value={tweet.text}
+                      onChange={(event) => {
+                        const next = [...threadTweets];
+                        next[index] = { ...next[index], text: event.target.value };
+                        setThreadTweets(next);
+                      }}
+                      className="min-h-[180px] resize-none border-white/10 bg-black/20 text-sm leading-7"
+                    />
+
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-white/10"
+                        onClick={() => {
+                          navigator.clipboard.writeText(tweet.text);
+                          toast.success(`${tweet.step}. tweet kopyalandı.`);
+                        }}
+                      >
+                        <Copy className="size-3.5" />
+                        Kopyala
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+function SettingRow({
+  title,
+  value,
+  options,
+  onSelect,
+}: {
+  title: string;
+  value: string;
+  options: Array<{ value: string; description: string }>;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold tracking-[0.24em] text-[var(--text-tertiary)]">{title}</p>
+      <div className="flex flex-wrap gap-2">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onSelect(option.value)}
+            className={cn(
+              "rounded-full border px-3 py-2 text-sm transition",
+              option.value === value
+                ? "border-orange-400 bg-orange-500/15 text-orange-200"
+                : "border-white/10 bg-white/5 text-[var(--text-secondary)] hover:border-white/20 hover:text-[var(--text-primary)]"
+            )}
+            title={option.description}
+          >
+            {option.value}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResultCard({
+  title,
+  description,
+  charCount,
+  sources,
+  onCopy,
+  onSave,
+  onRegenerate,
+  savingDraft,
+  children,
+}: {
+  title: string;
+  description: string;
+  charCount: number;
+  sources: SearchSource[];
+  onCopy: () => void;
+  onSave: () => void;
+  onRegenerate: () => void;
+  savingDraft: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(2,6,23,0.96))] p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p className="text-lg font-semibold">{title}</p>
+          <p className="text-sm text-[var(--text-tertiary)]">{description}</p>
+        </div>
+        <span className={cn("rounded-full px-3 py-1 text-xs", charCount > 280 ? "bg-red-500/15 text-red-200" : "bg-white/5 text-[var(--text-secondary)]")}>
+          {charCount} karakter
+        </span>
+      </div>
+
+      {sources.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {sources.map((source) => (
+            <a
+              key={source.url}
+              href={source.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-[var(--text-secondary)]"
+            >
+              <Link2 className="size-3.5" />
+              {getDomain(source.url)}
+            </a>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-4">{children}</div>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        <Button variant="outline" className="border-white/10" onClick={onCopy}>
+          <Copy className="size-4" />
+          Kopyala
+        </Button>
+        <Button onClick={onSave} disabled={savingDraft} className="bg-orange-500 text-black hover:bg-orange-400">
+          {savingDraft ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />}
+          Kaydet
+        </Button>
+        <Button variant="outline" className="border-white/10" onClick={onRegenerate}>
+          <RefreshCw className="size-4" />
+          Tekrar Üret
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default function TweetGeneratorPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-sm text-[var(--text-tertiary)]">Tweet motoru yükleniyor...</div>}>
+      <TweetGeneratorScreen />
+    </Suspense>
   );
 }
