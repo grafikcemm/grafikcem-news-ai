@@ -126,7 +126,26 @@ function TweetGeneratorScreen() {
   const activeConfig = ACCOUNT_CONFIGS[activeAccount];
   const selectedFormatConfig = FORMAT_CONFIGS.find((item) => item.id === selectedFormat) ?? FORMAT_CONFIGS[0];
   const isThread = selectedFormat === "thread";
-  const advancedSummary = [character, tone, knowledge].map((item) => `[${item}]`).join(" • ");
+
+  const TONE_LABELS: Record<string, string> = {
+    Natural: "Doğal",
+    Raw: "Ham",
+    Polished: "Cilalı",
+    Unhinged: "Çılgın",
+  };
+
+  const KNOWLEDGE_LABELS: Record<string, string> = {
+    insider: "İçeriden",
+    contrarian: "Karşı Görüş",
+    hidden: "Gizli Bilgi",
+    expert: "Uzman",
+  };
+
+  const advancedSummary = [
+    character,
+    TONE_LABELS[tone] || tone,
+    KNOWLEDGE_LABELS[knowledge] || knowledge,
+  ].map((item) => `[${item}]`).join(" • ");
 
   useEffect(() => {
     if (!accountParam) return;
@@ -285,22 +304,22 @@ function TweetGeneratorScreen() {
   }
 
   async function saveDraft() {
-    const content = isThread ? JSON.stringify(threadTweets) : singleTweet.trim();
+    const tweetText = isThread ? JSON.stringify(threadTweets) : singleTweet.trim();
 
-    if (!content) {
+    if (!tweetText) {
       toast.error("Önce bir çıktı üret.");
       return;
     }
 
     setSavingDraft(true);
     try {
-      const res = await fetch("/api/tweet/drafts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { error } = await supabase
+        .from("tweet_drafts")
+        .insert({
           channel: activeAccount,
-          content,
+          content: tweetText,
           format: isThread ? "thread" : selectedFormat,
+          tweet_type: isThread ? "thread" : "single",
           status: "pending",
           metadata: {
             mode,
@@ -311,15 +330,15 @@ function TweetGeneratorScreen() {
             sources: webSearch?.sources ?? [],
             imageName: attachedFile?.name ?? null,
           },
-        }),
-      });
-      const data = await res.json();
+          created_at: new Date().toISOString(),
+        });
 
-      if (!res.ok) {
-        throw new Error(data.error || "Kaydetme başarısız.");
+      if (error) {
+        console.error("Tweet kayıt hatası:", error);
+        throw new Error("Kayıt başarısız: " + error.message);
       }
 
-      toast.success(isThread ? "Thread kaydedildi." : `${activeConfig.handle} için taslak kaydedildi.`);
+      toast.success("Tweet kaydedildi ✓");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Kaydetme başarısız.");
     } finally {
@@ -609,12 +628,14 @@ function TweetGeneratorScreen() {
                         title="TON"
                         value={tone}
                         options={TONE_OPTIONS}
+                        labels={TONE_LABELS}
                         onSelect={(value) => setTone(value as TweetTone)}
                       />
                       <SettingRow
                         title="KNOWLEDGE"
                         value={knowledge}
                         options={KNOWLEDGE_OPTIONS}
+                        labels={KNOWLEDGE_LABELS}
                         onSelect={(value) => setKnowledge(value as TweetKnowledge)}
                       />
                       <SettingRow
@@ -961,11 +982,13 @@ function SettingRow({
   title,
   value,
   options,
+  labels,
   onSelect,
 }: {
   title: string;
   value: string;
   options: Array<{ value: string; description: string }>;
+  labels?: Record<string, string>;
   onSelect: (value: string) => void;
 }) {
   return (
@@ -985,7 +1008,7 @@ function SettingRow({
             )}
             title={option.description}
           >
-            {option.value}
+            {labels?.[option.value] || option.value}
           </button>
         ))}
       </div>

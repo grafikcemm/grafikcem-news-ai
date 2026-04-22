@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { Copy, ExternalLink, ImagePlus, LoaderCircle, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -258,18 +259,25 @@ export default function ChannelPage() {
 
   useEffect(() => {
     async function load() {
+      const channelId = channel;
+      console.log("Channel ID:", channelId);
       setLoading(true);
       try {
-        if (channel === "linkedin") {
-          const res = await fetch(`/api/channels/${channel}/content?status=all`);
+        if (channelId === "linkedin") {
+          const res = await fetch(`/api/channels/${channelId}/content?status=all`);
           const data = await res.json();
           if (!res.ok) throw new Error(data.error || "İçerikler yüklenemedi.");
           setLinkedinItems(data.content || []);
         } else {
-          const res = await fetch(`/api/tweet/drafts?channel=${channel}`);
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.error || "Taslaklar yüklenemedi.");
-          setDrafts((data.drafts || []).filter((item: TweetDraftItem) => item.status !== "rejected"));
+          const { data, error } = await supabase
+            .from("tweet_drafts")
+            .select("*")
+            .eq("channel", channelId)
+            .neq("status", "rejected")
+            .order("created_at", { ascending: false });
+
+          if (error) throw new Error(error.message);
+          setDrafts(data || []);
         }
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Yükleme başarısız.");
