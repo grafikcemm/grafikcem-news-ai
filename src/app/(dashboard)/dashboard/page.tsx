@@ -60,7 +60,7 @@ export default function DashboardPage() {
         supabase.from('news_items').select('*', { count: 'exact', head: true })
           .gte('fetched_at', today + 'T00:00:00Z'),
         supabase.from('tweet_drafts').select('channel').eq('status', 'pending'),
-        supabase.from('news_items').select('title_tr, title, source_name, fetched_at')
+        supabase.from('news_items').select('title_tr, title, fetched_at, sources(name)')
           .order('fetched_at', { ascending: false }).limit(1).single(),
         supabase.from('content_items').select('*', { count: 'exact', head: true })
           .gte('scheduled_date', today)
@@ -80,7 +80,7 @@ export default function DashboardPage() {
         draftsByChannel: draftsMap,
         latestNews: latest ? {
           title: latest.title_tr || latest.title,
-          source: latest.source_name || "Kaynak",
+          source: (latest.sources as any)?.name || "Kaynak",
           time: timeAgo
         } : null,
         weekContentCount: calendarRes.count || 0,
