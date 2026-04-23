@@ -57,7 +57,7 @@ const categories = [
 
 
 function ScoreBar({ score }: { score: number }) {
-  const color = score <= 40 ? "var(--danger)" : score <= 70 ? "var(--warning)" : "var(--success)";
+  const color = score >= 90 ? "#ef4444" : score >= 75 ? "var(--accent)" : "var(--text-tertiary)";
   return (
     <div style={{ width: 40, height: 3, background: "var(--surface-overlay)", borderRadius: 2, overflow: "hidden" }}>
       <div style={{ width: `${score}%`, height: "100%", background: color, borderRadius: 2 }} />
@@ -89,7 +89,7 @@ export default function NewsPoolPage() {
         .from("news_items")
         .select("*, sources(name)")
         .order("fetched_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (activeCategory !== "all") {
         query = query.eq("category", activeCategory);
@@ -175,6 +175,14 @@ export default function NewsPoolPage() {
 
   const uniqueSources = Array.from(new Set(news.map(n => n.sources?.name).filter(Boolean))) as string[];
 
+  // Stats calculation
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayNews = news.filter(n => new Date(n.fetched_at) >= today);
+  const todayCount = todayNews.length;
+  const avgScore = todayCount > 0 ? Math.round(todayNews.reduce((a, b) => a + (b.viral_score || 0), 0) / todayCount) : 0;
+  const maxScore = todayCount > 0 ? Math.max(...todayNews.map(n => n.viral_score || 0)) : 0;
+
   return (
     <div className="flex flex-col lg:flex-row" style={{ height: "calc(100vh - 56px)" }}>
       {/* LEFT PANEL — List */}
@@ -187,6 +195,22 @@ export default function NewsPoolPage() {
           className="shrink-0"
           style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-raised)" }}
         >
+          {/* Stats Bar */}
+          <div style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "12px",
+            marginBottom: "12px",
+            fontSize: "11px",
+            color: "var(--text-tertiary)",
+            fontFamily: "var(--font-mono)"
+          }}>
+            <span>Bugün: <strong style={{ color: "var(--text-primary)" }}>{todayCount}/5</strong> haber</span>
+            <span>|</span>
+            <span>Ort. Skor: <strong style={{ color: "var(--text-primary)" }}>{avgScore}</strong></span>
+            <span>|</span>
+            <span>En Yüksek: <strong style={{ color: "var(--text-primary)" }}>{maxScore}</strong></span>
+          </div>
           {/* Search */}
           <div className="flex items-center gap-[8px]" style={{
             background: "var(--surface-elevated)",

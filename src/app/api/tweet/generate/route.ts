@@ -6,6 +6,7 @@ import {
   ACCOUNT_CONFIGS,
   buildTweetInstruction,
   clampText,
+  getFormatConfig,
   ThreadTweet,
   TweetAccount,
   TweetCharacter,
@@ -64,48 +65,21 @@ function buildSinglePrompt({
   mode,
   webContext,
   references,
+  account,
 }: GenerateBody & {
   mode: TweetMode;
   references: string[];
 }) {
-  const referenceBlock = references.length
-    ? `VIRAL REFERANS TWEET'LER (yalnızca ritim ve kalıp için):
-${references.map((item) => `---\n${item}`).join("\n")}
-
-Bu tweet'lerin cümle yapısını, ritim ve akışını referans al.
-İçeriklerini kopyalama, sadece yazım kalıbını kullan.
-`
-    : "";
-
-  const webBlock = webContext?.trim()
-    ? `ARAŞTIRMA VERİLERİ (gerçek kaynaklardan):
-${clampText(webContext, 2200)}
-
-Bu verileri kullanarak tweet üret. Gerçek rakam ve bilgileri dahil et.
-`
-    : "";
+  const formatConfig = getFormatConfig(format);
+  const persona = ACCOUNT_CONFIGS[account].systemPrompt;
 
   return `
+${persona} — ${ACCOUNT_CONFIGS[account].handle} için tweet yaz. Türkçe. ${format} formatı. ${tone} ton. ${knowledge} bilgi. Karakter: ${character}. Max ${formatConfig.maxChars} karakter.
 Konu: ${topic}
-${buildTweetInstruction(mode, format)}
-
-AYARLAR:
-- Karakter: ${character}
-- Ton: ${tone}
-- Knowledge lens: ${knowledge}
-- ${buildLanguageRule(language)}
-
-${webBlock}
-${referenceBlock}
-Kurallar:
-- Çıkış yalın, insani ve akışkan olsun.
-- Robotik girişler ve genel geçer sonuç cümleleri kullanma.
-- İçeriği kopyalama, özgün fikir kur.
-- Eğer veri verildiyse rakamları yanlış uydurma.
-
-SADECE geçerli JSON döndür:
-{"text":"tweet metni"}
-  `.trim();
+${webContext ? `Veri: ${clampText(webContext, 300)}` : ""}
+${references.length ? `Ritim: ${references.join(" | ")}` : ""}
+JSON: {"text":""}
+`.trim();
 }
 
 function buildThreadPrompt({
@@ -118,31 +92,13 @@ function buildThreadPrompt({
   language,
   references,
 }: GenerateBody & { references: string[] }) {
+  const persona = ACCOUNT_CONFIGS[account].systemPrompt;
   return `
-Şu konu için 5 tweetlik ${language === "English" ? "English" : "Türkçe"} thread üret.
-
+${persona} — ${ACCOUNT_CONFIGS[account].handle} için 5 tweetlik thread. Türkçe. ${tone} ton. ${knowledge} bilgi.
 Konu: ${topic}
-Hesap: ${ACCOUNT_CONFIGS[account].handle} — ${ACCOUNT_CONFIGS[account].description}
-Karakter: ${character}
-Ton: ${tone}
-Knowledge: ${knowledge}
-Dil: ${language}
-Web verileri: ${webContext ? clampText(webContext, 2200) : "Yok"}
-Viral referanslar: ${references.length ? references.join(" || ") : "Yok"}
-
-THREAD YAPISI:
-1. Tweet: Hook — okuyucuyu yakala, merak uyandır
-2-4. Tweetler: Value — bilgi, fikir, gerçek, veri
-5. Tweet: CTA veya güçlü kapanış cümlesi
-
-KURAL:
-- Her tweet bağımsız okunabilmeli ama zincir akışı bozulmamalı.
-- İçerikleri kopyalama.
-- Rakam varsa uydurma değil, verilen araştırmadan yararlan.
-
-SADECE JSON array döndür, başka hiçbir şey yazma:
-[{"step":1,"type":"hook","text":"..."},{"step":2,"type":"value","text":"..."},{"step":3,"type":"value","text":"..."},{"step":4,"type":"value","text":"..."},{"step":5,"type":"cta","text":"..."}]
-  `.trim();
+${webContext ? `Veri: ${clampText(webContext, 300)}` : ""}
+JSON array: [{"step":1,"type":"hook","text":""},...]
+`.trim();
 }
 
 async function getReferenceTweets(account: TweetAccount) {

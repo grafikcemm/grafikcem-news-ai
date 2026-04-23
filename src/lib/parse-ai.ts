@@ -5,22 +5,28 @@ export function parseAIJSON<T = any>(text: string): T | null {
       .replace(/```\n?/g, '')
       .trim()
 
-    const start = cleaned.indexOf('{')
-    const end = cleaned.lastIndexOf('}')
+    const startBrace = cleaned.indexOf('{')
+    const startBracket = cleaned.indexOf('[')
 
-    if (start === -1 || end === -1) {
-      const arrStart = cleaned.indexOf('[')
-      const arrEnd = cleaned.lastIndexOf(']')
-      if (arrStart !== -1 && arrEnd !== -1) {
-        return JSON.parse(cleaned.slice(arrStart, arrEnd + 1))
+    // If array starts before object, or no object exists
+    if (startBracket !== -1 && (startBrace === -1 || startBracket < startBrace)) {
+      const endBracket = cleaned.lastIndexOf(']')
+      if (endBracket !== -1) {
+        return JSON.parse(cleaned.slice(startBracket, endBracket + 1))
       }
-      throw new Error('No JSON structure found')
     }
 
-    return JSON.parse(cleaned.slice(start, end + 1))
+    const startBraceActual = cleaned.indexOf('{')
+    const endBrace = cleaned.lastIndexOf('}')
+
+    if (startBraceActual !== -1 && endBrace !== -1) {
+      return JSON.parse(cleaned.slice(startBraceActual, endBrace + 1))
+    }
+
+    throw new Error('No JSON structure found')
   } catch (err) {
     console.error('parseAIJSON failed:', err)
-    console.error('Raw text:', text.slice(0, 200))
+    console.error('Raw text:', text.slice(0, 500))
     return null
   }
 }

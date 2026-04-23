@@ -237,6 +237,8 @@ function TweetGeneratorScreen() {
     attachFile(event.dataTransfer.files?.[0] ?? null);
   }
 
+  const resultRef = useRef<HTMLDivElement | null>(null);
+
   async function handleGenerate() {
     if (!topic.trim()) {
       toast.error("Önce bir konu veya fikir yaz.");
@@ -293,6 +295,11 @@ function TweetGeneratorScreen() {
       }
 
       toast.success(selectedFormat === "thread" ? "Thread hazır." : "Tweet hazır.");
+
+      // Scroll to result
+      setTimeout(() => {
+        resultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Bir hata oluştu.";
       toast.error(message);
@@ -857,29 +864,31 @@ function TweetGeneratorScreen() {
         </div>
 
         {singleTweet && !isThread && (
-          <ResultCard
-            title="Tekli Tweet"
-            description={selectedFormatConfig.description}
-            charCount={singleTweet.length}
-            sources={webSearch?.sources ?? []}
-            onCopy={() => {
-              navigator.clipboard.writeText(singleTweet);
-              toast.success("Tweet kopyalandı.");
-            }}
-            onSave={saveDraft}
-            onRegenerate={handleGenerate}
-            savingDraft={savingDraft}
-          >
-            <Textarea
-              value={singleTweet}
-              onChange={(event) => setSingleTweet(event.target.value)}
-              className="min-h-[240px] resize-none border-white/10 bg-black/20 text-[15px] leading-7"
-            />
-          </ResultCard>
+          <div ref={resultRef}>
+            <ResultCard
+              title="Tekli Tweet"
+              description={selectedFormatConfig.description}
+              charCount={singleTweet.length}
+              sources={webSearch?.sources ?? []}
+              onCopy={() => {
+                navigator.clipboard.writeText(singleTweet);
+                toast.success("Tweet kopyalandı.");
+              }}
+              onSave={saveDraft}
+              onRegenerate={handleGenerate}
+              savingDraft={savingDraft}
+            >
+              <Textarea
+                value={singleTweet}
+                onChange={(event) => setSingleTweet(event.target.value)}
+                className="min-h-[240px] resize-none border-white/10 bg-black/20 text-[15px] leading-7"
+              />
+            </ResultCard>
+          </div>
         )}
 
         {isThread && threadTweets.length > 0 && (
-          <div className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(2,6,23,0.96))] p-5">
+          <div ref={resultRef} className="space-y-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(17,24,39,0.96),rgba(2,6,23,0.96))] p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-sm font-medium">Thread Builder</p>

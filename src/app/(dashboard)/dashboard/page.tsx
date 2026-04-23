@@ -2,338 +2,226 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { ScoreBadge } from "@/components/ui/score-badge";
-import { StatusChip } from "@/components/ui/status-chip";
-import { EmptyState } from "@/components/ui/empty-state";
-import { startOfWeek, endOfWeek } from "date-fns";
+import { 
+  NewspaperIcon, 
+  PenToolIcon, 
+  LayoutIcon, 
+  ImageIcon,
+  ArrowRightIcon 
+} from "lucide-react";
 import Link from "next/link";
-import { FileTextIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-interface NewsItem { id: string; title: string; summary: string; viral_score: number; fetched_at: string; sources?: { name: string }[] | { name: string } | null; }
-interface ContentItem { id: string; title: string; platform: string; format: string; status: string; scheduled_date: string; }
-interface FocusTask { id: string; title: string; priority: number; frequency: string; is_completed: boolean; completed_at: string | null; }
-interface TweetDraft { id: string; text?: string; content?: string; platform?: string; status: string; }
-
-function getGreeting() {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Günaydın, Ali Cem. 🌅";
-  if (hour < 18) return "İyi günler, Ali Cem. ☀️";
-  return "İyi akşamlar, Ali Cem. 🌙";
+interface DashboardStats {
+  todayNewsCount: number;
+  totalPendingDrafts: number;
+  draftsByChannel: Record<string, number>;
+  latestNews: {
+    title: string;
+    source: string;
+    time: string;
+  } | null;
+  weekContentCount: number;
 }
-
-function getFormattedDate() {
-  return new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', weekday: 'long' });
-}
-
-const PLATFORM_DOT: Record<string, string> = {
-  "@grafikcem": "#E879A0",
-  "@maskulenkod": "#60A5FA",
-  "LinkedIn": "#34D399",
-};
 
 export default function DashboardPage() {
-  const [greeting] = useState(getGreeting());
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<DashboardStats>({
+    todayNewsCount: 0,
+    totalPendingDrafts: 0,
+    draftsByChannel: {},
+    latestNews: null,
+    weekContentCount: 0,
+  });
 
-  const [focusTasks, setFocusTasks] = useState<FocusTask[]>([]);
-  const [opportunityNews, setOpportunityNews] = useState<NewsItem | null>(null);
-  const [contentQueue, setContentQueue] = useState<TweetDraft[]>([]);
-  const [thisWeek, setThisWeek] = useState<ContentItem[]>([]);
+  const greeting = (() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Günaydın";
+    if (hour < 18) return "İyi Günler";
+    return "İyi Akşamlar";
+  })();
 
-  const [trendingNews, setTrendingNews] = useState<NewsItem[]>([]);
-  const [newsCount, setNewsCount] = useState(0);
-  const [avgScore, setAvgScore] = useState(0);
+  const todayTR = new Date().toLocaleDateString("tr-TR", {
+    day: "numeric",
+    month: "long",
+    weekday: "long",
+  });
 
   useEffect(() => {
-    fetchDashboard();
+    fetchDashboardData();
   }, []);
 
-  async function fetchDashboard() {
+  async function fetchDashboardData() {
     setLoading(true);
     try {
-      // 1. Focus Tasks (priority = 1)
-      const { data: tasks } = await supabase.from("focus_tasks")
-        .select("*")
-        .eq("priority", 1)
-        .eq("frequency", "daily")
-        .order("is_completed", { ascending: true })
-        .limit(5);
-      if (tasks) setFocusTasks(tasks as FocusTask[]);
+      const today = new Date().toISOString().split('T')[0];
 
-      // 2. Opportunity News (Max 1)
-      const { data: opNews } = await supabase.from("news_items")
-        .select("id, title, summary, viral_score, fetched_at, sources(name)")
-        .order("viral_score", { ascending: false })
-        .limit(1);
-      if (opNews && opNews.length > 0) setOpportunityNews(opNews[0] as unknown as NewsItem);
+      const [newsTodayRes, draftsRes, latestNewsRes, calendarRes] = await Promise.all([
+        supabase.from('news_items').select('*', { count: 'exact', head: true })
+          .gte('fetched_at', today + 'T00:00:00Z'),
+        supabase.from('tweet_drafts').select('channel').eq('status', 'pending'),
+        supabase.from('news_items').select('title_tr, title, source_name, fetched_at')
+          .order('fetched_at', { ascending: false }).limit(1).single(),
+        supabase.from('content_items').select('*', { count: 'exact', head: true })
+          .gte('scheduled_date', today)
+      ]);
 
+      const draftsMap: Record<string, number> = {};
+      draftsRes.data?.forEach(d => {
+        draftsMap[d.channel] = (draftsMap[d.channel] || 0) + 1;
+      });
 
-      // 4. Content Queue (drafts pending)
-      const { data: drafts } = await supabase.from("tweet_drafts")
-        .select("*")
-        .eq("status", "pending")
-        .limit(4);
-      if (drafts) setContentQueue(drafts as TweetDraft[]);
+      const latest = latestNewsRes.data;
+      const timeAgo = latest ? formatTimeAgo(new Date(latest.fetched_at)) : "";
 
-
-      // 6. This week contents
-      const now = new Date();
-      const sOfWeek = startOfWeek(now, { weekStartsOn: 1 }).toISOString();
-      const eOfWeek = endOfWeek(now, { weekStartsOn: 1 }).toISOString();
-      const { data: upData } = await supabase.from("content_items")
-        .select("*")
-        .gte("scheduled_date", sOfWeek)
-        .lte("scheduled_date", eOfWeek)
-        .order("scheduled_date", { ascending: true })
-        .limit(4);
-      if (upData) setThisWeek(upData as ContentItem[]);
-
-      // 7. Trending News
-      const { data: tNewsData } = await supabase.from("news_items")
-        .select("id, title, summary, viral_score, fetched_at, sources(name)")
-        .gte("viral_score", 50)
-        .order("fetched_at", { ascending: false })
-        .limit(6);
-
-      if (tNewsData && tNewsData.length > 0) {
-        setTrendingNews(tNewsData as unknown as NewsItem[]);
-      } else {
-        // Fallback for sorting if created_at fails
-        const { data: fbNewsData } = await supabase.from("news_items")
-          .select("id, title, summary, viral_score, fetched_at, sources(name)")
-          .gte("viral_score", 50)
-          .order("viral_score", { ascending: false })
-          .limit(6);
-        if (fbNewsData) setTrendingNews(fbNewsData as unknown as NewsItem[]);
-      }
-
-      // 8. Stats
-      const { count } = await supabase.from("news_items").select("*", { count: "exact", head: true });
-      if (count) setNewsCount(count);
-      const { data: avgData } = await supabase.from("news_items").select("viral_score").limit(50);
-      if (avgData && avgData.length > 0) {
-        const avg = Math.round(avgData.reduce((a, b) => a + (b.viral_score || 0), 0) / avgData.length);
-        setAvgScore(avg);
-      }
-
-    } catch (e) {
-      console.error("Dashboard fetch error:", e);
+      setStats({
+        todayNewsCount: newsTodayRes.count || 0,
+        totalPendingDrafts: draftsRes.data?.length || 0,
+        draftsByChannel: draftsMap,
+        latestNews: latest ? {
+          title: latest.title_tr || latest.title,
+          source: latest.source_name || "Kaynak",
+          time: timeAgo
+        } : null,
+        weekContentCount: calendarRes.count || 0,
+      });
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
     } finally {
       setLoading(false);
     }
   }
 
-  const toggleTask = async (task: FocusTask) => {
-    const newVal = !task.is_completed;
-    const dateVal = newVal ? new Date().toISOString() : null;
-
-    setFocusTasks(prev => prev.map(t => t.id === task.id ? { ...t, is_completed: newVal, completed_at: dateVal } : t));
-
-    await supabase.from("focus_tasks")
-       .update({ is_completed: newVal, completed_at: dateVal })
-       .eq("id", task.id);
-  };
-
-  const completedCount = focusTasks.filter(t => t.is_completed).length;
+  function formatTimeAgo(date: Date) {
+    const now = new Date();
+    const diff = Math.floor((now.getTime() - date.getTime()) / 1000 / 60);
+    if (diff < 60) return `${diff} dk önce`;
+    const hours = Math.floor(diff / 60);
+    if (hours < 24) return `${hours} sa önce`;
+    return `${Math.floor(hours / 24)} gün önce`;
+  }
 
   return (
-    <div className="flex flex-col w-full">
-
-      {/* 5.1 Hero */}
-      <div style={{ padding: "32px 40px 24px" }} className="flex flex-col md:flex-row justify-between items-start md:items-end">
-        <div>
-          <div className="flex items-center gap-[8px] mb-[8px]">
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--success)", display: "inline-block" }} />
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>Sistem aktif</span>
-          </div>
-          <h1 className="text-display" style={{ marginBottom: 4 }}>{greeting}</h1>
-          <p style={{ fontSize: 14, color: "var(--text-tertiary)" }}>Bugün, {getFormattedDate()}</p>
-        </div>
-        <Link href="/dashboard/news-pool" style={{ fontSize: 12, color: "var(--accent)" }}>See all →</Link>
+    <div className="flex flex-col w-full h-screen p-6 bg-[var(--surface-base)] overflow-hidden gap-6">
+      {/* SELAMLAMA */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight font-mono text-[var(--text-primary)]">
+          // {greeting}, Ali Cem
+        </h1>
+        <p className="text-sm text-[var(--text-tertiary)] mt-1">{todayTR}</p>
       </div>
 
-      {/* 5.2 Ticker */}
-      <div
-        style={{
-          background: "var(--surface-card)",
-          borderTop: "1px solid var(--border-subtle)",
-          borderBottom: "1px solid var(--border-subtle)",
-          padding: "10px 40px",
-          fontSize: 12,
-          color: "var(--text-secondary)",
-        }}
-        className="flex items-center gap-[16px]"
-      >
-        <span>📰 Bugün: <strong style={{ color: "var(--text-primary)" }}>{newsCount}</strong> haber</span>
-        <span style={{ color: "var(--text-tertiary)" }}>|</span>
-        <span>⚡ Viral Ort: <strong style={{ color: "var(--text-primary)" }}>{avgScore}</strong></span>
-        <span style={{ color: "var(--text-tertiary)" }}>|</span>
-        <span>📋 Bekleyen: <strong style={{ color: "var(--text-primary)" }}>{contentQueue.length}</strong> taslak</span>
+      {/* 2x2 METRİK GRID */}
+      <div className="grid grid-cols-2 grid-rows-2 flex-1 gap-4">
+        {/* KART 1: HABER HAVUZU */}
+        <MetricCard
+          tag="NWS"
+          title="HABER HAVUZU"
+          value={stats.todayNewsCount}
+          subValue="/ 5 günlük limit"
+          link="/news-pool"
+          progress={(stats.todayNewsCount / 5) * 100}
+        />
+
+        {/* KART 2: TWEET TASLAKLARI */}
+        <MetricCard
+          tag="DFT"
+          title="BEKLEYEN TASLAKLAR"
+          value={stats.totalPendingDrafts}
+          subValue={
+            <div className="flex gap-2">
+              <span>@grafikcem: {stats.draftsByChannel.grafikcem || 0}</span>
+              <span className="opacity-20">•</span>
+              <span>@maskulenkod: {stats.draftsByChannel.maskulenkod || 0}</span>
+            </div>
+          }
+          link="/tweet-generator"
+        />
+
+        {/* KART 3: SON HABER */}
+        <MetricCard
+          tag="NEW"
+          title="SON HABER"
+          value={stats.latestNews?.title.slice(0, 60) + (stats.latestNews?.title.length! > 60 ? "..." : "") || "—"}
+          valueClass="text-lg leading-relaxed font-medium"
+          subValue={stats.latestNews ? `${stats.latestNews.source} · ${stats.latestNews.time}` : "Haber yok"}
+          link="/news-pool"
+        />
+
+        {/* KART 4: İÇERİK TAKVİMİ */}
+        <MetricCard
+          tag="CAL"
+          title="BU HAFTA"
+          value={stats.weekContentCount}
+          subValue="planlanmış içerik"
+          link="/dashboard/content-calendar"
+        />
       </div>
 
-      {/* 5.3 Big Cards */}
-      <div style={{ margin: "24px 40px 0" }} className="grid grid-cols-1 lg:grid-cols-3 gap-[20px]">
-
-        {/* Card 1 — Bugünün Önceliği */}
-        <div className="gradient-border glow-accent" style={{ padding: 24, background: "var(--gradient-card)" }}>
-          <div className="flex justify-between items-center mb-[16px]">
-            <span className="text-label">BUGÜN</span>
-            <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{completedCount}/{focusTasks.length}</span>
-          </div>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)", marginBottom: 16 }}>Yapılacaklar</h3>
-          {loading ? (
-            <div style={{ height: 80, background: "var(--surface-overlay)", borderRadius: "var(--radius-md)", opacity: 0.2 }} className="animate-pulse" />
-          ) : focusTasks.length === 0 ? (
-            <p style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Görev yok</p>
-          ) : (
-            <div className="flex flex-col gap-[8px]">
-              {focusTasks.map(t => (
-                <label key={t.id} className="flex items-start gap-[8px] cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={t.is_completed}
-                    onChange={() => toggleTask(t)}
-                    style={{ marginTop: 3, accentColor: "var(--accent)" }}
-                  />
-                  <span style={{
-                    fontSize: 13,
-                    color: "var(--text-primary)",
-                    opacity: t.is_completed ? 0.4 : 1,
-                    textDecoration: t.is_completed ? "line-through" : "none",
-                  }}>
-                    {t.title}
-                  </span>
-                </label>
-              ))}
-            </div>
-          )}
-          {/* Progress bar */}
-          {focusTasks.length > 0 && (
-            <div style={{ marginTop: 16, height: 4, background: "var(--surface-overlay)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${(completedCount / focusTasks.length) * 100}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.3s" }} />
-            </div>
-          )}
-        </div>
-
-        {/* Card 2 — İçerik Fırsatı */}
-        <div className="gradient-border" style={{ padding: 24 }}>
-          <div className="flex justify-between items-center mb-[16px]">
-            <span className="text-label">İÇERİK FIRSATI</span>
-            {opportunityNews && <ScoreBadge score={opportunityNews.viral_score} />}
-          </div>
-          {loading ? (
-            <div style={{ height: 80, background: "var(--surface-overlay)", borderRadius: "var(--radius-md)", opacity: 0.2 }} className="animate-pulse" />
-          ) : !opportunityNews ? (
-            <p style={{ fontSize: 13, color: "var(--text-tertiary)" }}>Henüz haber yok. Sistem her sabah otomatik güncellenir.</p>
-          ) : (
-            <div className="flex flex-col justify-between flex-1">
-              <div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.3, marginBottom: 8 }} className="line-clamp-2">{opportunityNews.title}</h3>
-                <p style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                  {Array.isArray(opportunityNews.sources) ? opportunityNews.sources[0]?.name : (opportunityNews.sources as { name: string } | null)?.name || "Kaynak"}
-                </p>
-              </div>
-              <div className="flex gap-[8px]" style={{ marginTop: 16 }}>
-                <Button variant="default" size="sm">X&apos;e Dönüştür</Button>
-                <Button variant="ghost" size="sm">LinkedIn</Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-      </div>
-
-      {/* 5.4 Work Queues */}
-      <div style={{ margin: "20px 40px 0" }} className="grid grid-cols-1 lg:grid-cols-3 gap-[16px]">
-
-        {/* İçerik Sırası */}
-        <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 20 }}>
-          <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
-            <span className="text-label">İÇERİK SIRASI</span>
-            <Link href="/dashboard/content-calendar" style={{ fontSize: 11, color: "var(--accent)" }}>Tümü →</Link>
-          </div>
-          {loading ? <div className="animate-pulse" style={{ height: 40, background: "var(--surface-elevated)", borderRadius: "var(--radius-md)", opacity: 0.2 }} />
-           : contentQueue.length === 0 ? (
-            <div className="flex items-center justify-between">
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>İçerik havuzu boş</span>
-              <Link href="/dashboard/news-pool" style={{ fontSize: 13, color: "var(--accent)" }}>Haber Havuzu →</Link>
-            </div>
-          ) : contentQueue.map(item => (
-            <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--border-subtle)", fontSize: 13 }} className="flex items-center justify-between last:border-0">
-              <div className="flex items-center gap-[8px] min-w-0 flex-1 mr-2">
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: PLATFORM_DOT[item.platform || "@grafikcem"] || "#E879A0", flexShrink: 0 }} />
-                <span style={{ color: "var(--text-primary)" }} className="truncate">{item.content || item.text || "İçerik"}</span>
-              </div>
-              <Button variant="ghost" size="sm" className="shrink-0">Kopyala</Button>
-            </div>
-          ))}
-        </div>
-
-
-        {/* Bu Hafta */}
-        <div style={{ background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 20 }}>
-          <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
-            <span className="text-label">BU HAFTA</span>
-            <Link href="/dashboard/content-plan" style={{ fontSize: 11, color: "var(--accent)" }}>Tarihler →</Link>
-          </div>
-          {loading ? <div className="animate-pulse" style={{ height: 40, background: "var(--surface-elevated)", borderRadius: "var(--radius-md)", opacity: 0.2 }} />
-           : thisWeek.length === 0 ? (
-            <div className="flex items-center justify-between">
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>Takvim boş. AI haftalık plan oluşturabilir.</span>
-              <Link href="/dashboard/content-plan" style={{ fontSize: 13, color: "var(--accent)" }}>Plan Oluştur →</Link>
-            </div>
-          ) : thisWeek.map(item => {
-            const d = new Date(item.scheduled_date);
-            const dayStr = d.toLocaleDateString('tr-TR', { weekday: 'short' });
-            return (
-              <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--border-subtle)", fontSize: 13 }} className="flex items-center gap-[10px] last:border-0">
-                <span style={{ fontSize: 11, color: "var(--text-tertiary)", width: 28, flexShrink: 0 }}>{dayStr}</span>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: PLATFORM_DOT[item.platform] || "#888", flexShrink: 0 }} />
-                <span style={{ color: "var(--text-primary)" }} className="truncate">{item.title}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 5.5 Gündem */}
-      <div style={{ margin: "20px 40px 32px", background: "var(--surface-card)", border: "1px solid var(--border-subtle)", borderRadius: "var(--radius-lg)", padding: 20 }}>
-        <div className="flex justify-between items-center" style={{ marginBottom: 16 }}>
-          <span className="text-label">GÜNDEM</span>
-          <Link href="/dashboard/news-pool" style={{ fontSize: 11, color: "var(--accent)" }}>Haber Havuzuna Git →</Link>
-        </div>
-
-        {loading ? <div className="animate-pulse" style={{ height: 200, background: "var(--surface-elevated)", borderRadius: "var(--radius-md)", opacity: 0.2 }} /> : trendingNews.length === 0 ? (
-          <EmptyState
-            icon={<FileTextIcon />}
-            title="Henüz Kayıt Yok"
-            description="Henüz haber yok. Sistem her sabah otomatik güncellenir."
-          />
-        ) : (
-          <div className="flex flex-col">
-            {trendingNews.map(item => (
-              <div key={item.id} style={{ padding: "12px 0", borderBottom: "1px solid var(--border-subtle)" }} className="flex items-center justify-between gap-[16px] group last:border-0">
-                <div className="flex items-center gap-[12px] min-w-0 flex-1">
-                  <div style={{ width: 24, height: 24, background: "var(--surface-elevated)", borderRadius: 4, flexShrink: 0 }} className="flex items-center justify-center">
-                    <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>📰</span>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p style={{ fontSize: 13, color: "var(--text-primary)" }} className="truncate">{item.title}</p>
-                    <p style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                      {Array.isArray(item.sources) ? item.sources[0]?.name : (item.sources as { name: string } | null)?.name || "Haber"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-[12px] shrink-0">
-                  <ScoreBadge score={item.viral_score} />
-                  <Button variant="ghost" size="sm" className="hidden sm:inline-flex opacity-0 group-hover:opacity-100 transition-opacity">Üret</Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* HIZLI ERİŞİM */}
+      <div className="grid grid-cols-4 gap-3">
+        <QuickButton label="Haber Havuzu" icon="🔥" href="/news-pool" />
+        <QuickButton label="Tweet Üret" icon="✍️" href="/tweet-generator" />
+        <QuickButton label="Carousel" icon="🎠" href="/dashboard/carousel-planner" />
+        <QuickButton label="Prompt Studio" icon="📸" href="/dashboard/prompt-studio" />
       </div>
     </div>
+  );
+}
+
+function MetricCard({ 
+  tag,
+  title, 
+  value, 
+  subValue, 
+  link,
+  progress,
+  valueClass = "text-[36px]"
+}: { 
+  tag: string;
+  title: string; 
+  value: string | number; 
+  subValue: React.ReactNode; 
+  link: string;
+  progress?: number;
+  valueClass?: string;
+}) {
+  return (
+    <Link href={link} className="group relative bg-[var(--surface-card)] border border-[var(--border-subtle)] rounded-[20px] p-5 flex flex-col justify-between hover:border-[var(--border-default)] transition-all">
+      <div className="space-y-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] text-[var(--accent)]">[{tag}]</span>
+          <p className="text-[11px] uppercase tracking-widest text-[var(--text-tertiary)] font-semibold">{title}</p>
+        </div>
+        <h2 className={cn("font-bold text-[var(--text-primary)] tabular-nums", valueClass)}>
+          {value}
+        </h2>
+        <div className="text-[12px] text-[var(--text-secondary)]">{subValue}</div>
+      </div>
+      
+      {progress !== undefined && (
+        <div className="w-full bg-[var(--border-subtle)] h-[3px] rounded-full mt-4 overflow-hidden">
+          <div 
+            className="bg-[var(--accent)] h-full transition-all duration-700" 
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+        </div>
+      )}
+
+      <div className="absolute bottom-4 right-4 text-[11px] text-[var(--accent)] opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 underline underline-offset-4">
+        Git <ArrowRightIcon size={10} />
+      </div>
+    </Link>
+  );
+}
+
+function QuickButton({ label, icon, href }: { label: string; icon: string; href: string }) {
+  return (
+    <Link href={href}>
+      <div className="bg-[var(--surface-card)] border border-[var(--border-subtle)] hover:border-[var(--accent)] rounded-xl p-3 flex items-center gap-3 transition-all group">
+        <span className="text-lg">{icon}</span>
+        <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)]">{label}</span>
+      </div>
+    </Link>
   );
 }

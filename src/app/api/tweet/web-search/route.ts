@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
-import { genAI, GEMINI_STANDARD } from "@/lib/gemini";
+import { genAI, GEMINI_FAST } from "@/lib/gemini";
 import { clampText } from "@/lib/tweet-engine";
 
 export const maxDuration = 60;
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const model = genAI.getGenerativeModel({
-      model: GEMINI_STANDARD,
+      model: GEMINI_FAST,
       tools: [{ googleSearch: {} } as any],
     });
 
@@ -41,10 +41,11 @@ export async function POST(request: NextRequest) {
     });
 
     const response = await result.response;
-    const summary = clampText(response.text() ?? "", 1400);
+    const summary = clampText(response.text() ?? "", 300);
     const candidate = response.candidates?.[0];
     const groundingMetadata = candidate?.groundingMetadata;
     const chunks = groundingMetadata?.groundingChunks ?? [];
+    
     const sources = uniqueSources(
       chunks
         .map((chunk) => ({
@@ -53,23 +54,14 @@ export async function POST(request: NextRequest) {
           snippet: "",
         }))
         .filter((item) => item.url)
-    )
-      .slice(0, 3)
-      .map((item) => ({
-        ...item,
-        snippet: clampText(summary, 100),
-      }));
+    ).slice(0, 3);
 
-    const compactContext = clampText(
+    const webContext = clampText(
       [
         summary,
-        sources
-          .map((source) => `${source.title} | ${source.url} | ${source.snippet}`)
-          .join("\n"),
-      ]
-        .filter(Boolean)
-        .join("\n\n"),
-      2200
+        sources.map((s) => s.title).join(" | "),
+      ].filter(Boolean).join("\n\n"),
+      300
     );
 
     return NextResponse.json({
@@ -77,7 +69,7 @@ export async function POST(request: NextRequest) {
       sources,
       totalSources: chunks.length || sources.length,
       webSearchQueries: groundingMetadata?.webSearchQueries ?? [],
-      webContext: compactContext,
+      webContext,
     });
   } catch (err) {
     console.error("[tweet/web-search] error:", err);

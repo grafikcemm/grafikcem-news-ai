@@ -34,7 +34,24 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch sources" }, { status: 500 });
     }
 
-    // 2. Allow processing a single source for debugging
+    // 2. Daily limit check
+    const DAILY_LIMIT = 5;
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { count: todayCount, error: countError } = await supabaseAdmin
+      .from("news_items")
+      .select("*", { count: "exact", head: true })
+      .gte("fetched_at", today + "T00:00:00Z");
+
+    if (countError) throw countError;
+    
+    if (todayCount !== null && todayCount >= DAILY_LIMIT) {
+      return NextResponse.json({ message: "Günlük limit doldu", count: todayCount });
+    }
+
+    const remainingSlots = DAILY_LIMIT - (todayCount || 0);
+
+    // 3. Allow processing a single source for debugging
     const sourceParam = request.nextUrl.searchParams.get("source");
     let sourcesToProcess = sources;
     if (sourceParam !== null) {
@@ -54,7 +71,7 @@ async function handler(request: NextRequest) {
       custom_tag: string | null;
     }> = [];
 
-    // 3. Parse each RSS feed
+    // 4. Parse each RSS feed
     const feedPromises = sourcesToProcess.map(async (source) => {
       try {
         const controller = new AbortController();
@@ -80,7 +97,7 @@ async function handler(request: NextRequest) {
           return;
         }
 
-        const items = feed.items.slice(0, 20); // Max 20 per source
+        const items = feed.items.slice(0, 10); // Check first 10
         let addedCount = 0;
 
         for (const item of items) {
@@ -94,17 +111,6 @@ async function handler(request: NextRequest) {
             .single();
 
           if (!existing) {
-            const lowerTitle = item.title.toLowerCase();
-            const lowerSummary = (item.contentSnippet || item.content?.substring(0, 500) || "").toLowerCase();
-            const fullText = `${lowerTitle} ${lowerSummary}`;
-            
-            let custom_tag = null;
-            const ecoKeywords = ["türkiye", "türk", "istanbul", "ankara", "girişim", "startup tr", "webrazzi", "teknoloji şirketi"];
-            const toolKeywords = ["figma", "canva", "midjourney", "claude", "chatgpt", "gpt", "gemini", "update", "launch", "v2", "v3", "v4", "new feature", "yeni özellik", "güncelleme"];
-            
-            if (ecoKeywords.some(k => fullText.includes(k))) custom_tag = "turkish_eco";
-            else if (toolKeywords.some(k => fullText.includes(k))) custom_tag = "tool_update";
-
             newItems.push({
               source_id: source.id,
               title: item.title,
@@ -112,12 +118,11 @@ async function handler(request: NextRequest) {
               url: item.link,
               category: source.category,
               published_at: item.pubDate || item.isoDate || null,
-              custom_tag
+              custom_tag: null
             });
             addedCount++;
           }
         }
-        console.log(`✓ ${source.name}: ${addedCount} haber`);
       } catch (err: any) {
         console.error(`✗ ${source.name}: Unexpected error - ${err.message || String(err)}`);
       }
@@ -129,71 +134,39 @@ async function handler(request: NextRequest) {
       return NextResponse.json({ message: "No new items found", count: 0 });
     }
 
-    // 4. Cap at 3 items per run for Hobby 10s timeout
-    const itemsToProcess = newItems.slice(0, 3);
-    console.log(`[fetch-news] Processing ${itemsToProcess.length} items`);
+    // 5. Process only what we need to hit the limit
+    const itemsToProcess = newItems.slice(0, remainingSlots * 2); // Process double to account for filtering
+    console.log(`[fetch-news] Processing ${itemsToProcess.length} items to fill ${remainingSlots} slots`);
 
     const validItemsToInsert = [];
 
-    // 5. Scoring, Filter & Translation Loop BEFORE Insert
+    // 6. Scoring, Filter & Translation Loop
     for (const item of itemsToProcess) {
+      if (validItemsToInsert.length >= remainingSlots) break;
+
       try {
         // Viral Filter Step
-        const filterPrompt = `Aşağıdaki haberi değerlendir.
+        const filterPrompt = `Haber puanla (0-100). Odak: AI/tasarım/freelance. Başlık: ${item.title}. JSON: {"s":0-100}`;
+        const filterResultText = await generateWithGemini(filterPrompt, 'analytical', undefined, 'gemini-2.0-flash-lite');
+        const filterData = parseAIJSON<{s: number}>(filterResultText);
 
-Başlık: ${item.title}
-Özet: ${item.summary}
-
-Şu kriterlere göre 0-100 arasında viral_score ver:
-
-YÜKSEk SKOR (70-100) için:
-- Büyük AI model lansmanı veya güncellemesi
-- AI'ın bir mesleği veya sektörü etkilediği haberler
-- Araştırmacı veya pratik kullanıcılar için önemli bulgular
-- Tartışmalı veya sürpriz gelişmeler
-- "Bu değiştirir" niteliğinde gelişmeler
-
-DÜŞÜK SKOR (0-40) için:
-- Şirket haberleri (yatırım, birleşme - AI ile ilgisi yoksa)
-- Akademik makale özetleri (pratik değeri düşük)
-- Bölgesel/yerel haberler
-- Ürün güncellemeleri (minor features)
-- Sponsorlu veya reklam içerikli haberler
-
-SADECE JSON formatında yanıt ver:
-{"viral_score": 50, "category": "ai_model", "worth_fetching": true}`;
-
-        const filterResultText = await generateWithGemini(filterPrompt, 'analytical');
-        const filterData = parseAIJSON<{viral_score: number, category: string, worth_fetching: boolean}>(filterResultText);
-
-        if (!filterData || filterData.worth_fetching === false) {
-           console.log(`[fetch-news] Skipped (worth_fetching=false): ${item.title}`);
+        if (!filterData || filterData.s < 75) {
+           console.log(`[fetch-news] Skipped (score=${filterData?.s}): ${item.title}`);
            continue;
         }
 
-        // Translation Step
-        const translationPrompt = `
-Aşağıdaki haber başlığını ve özetini Türkçeye çevir.
-Başlık: net, anlaşılır, Türkçe gazete diline uygun.
-Özet: 2-3 cümle, sade Türkçe, bilgilendirici.
-
-Orijinal başlık: ${item.title}
-Orijinal özet: ${item.summary || item.title}
-
-SADECE JSON formatında yanıt ver, başka hiçbir şey yazma:
-{"title_tr": "Türkçe başlık buraya", "summary_tr": "Türkçe özet buraya"}
-`;
-
-        const translationText = await generateWithGemini(translationPrompt, 'analytical');
-        const translation = parseAIJSON<{title_tr: string, summary_tr: string}>(translationText);
+        const translationPrompt = `TR'ye çevir. JSON: {"t":"","s":""}. Metin: ${item.title} | ${item.summary?.slice(0, 100)}`;
+        const translationText = await generateWithGemini(translationPrompt, 'analytical', undefined, 'gemini-2.0-flash-lite');
+        const translation = parseAIJSON<{t: string, s: string}>(translationText);
 
         validItemsToInsert.push({
            ...item,
-           title_tr: translation?.title_tr || null,
-           summary_tr: translation?.summary_tr || null,
+           title_tr: translation?.t || null,
+           summary_tr: translation?.s || null,
            title_original: item.title,
-           viral_score: filterData.viral_score || 0,
-           category: filterData.category || item.category
+           viral_score: filterData.s || 0,
+           viral_reason: null,
+           category: item.category
         });
 
       } catch (err) {

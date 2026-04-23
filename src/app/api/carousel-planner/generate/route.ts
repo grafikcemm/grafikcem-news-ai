@@ -6,54 +6,9 @@ export async function POST(req: NextRequest) {
   try {
     const { competitors, existingSeries, weekNumber } = await req.json();
 
-    const prompt = `Sen @grafikcem için haftalık carousel içerik planı oluşturan bir strateji uzmanısın.
+    const prompt = `@grafikcem Instagram (tasarım/AI/freelance) için 5 carousel fikri öner. Rakipler: ${competitors?.join(', ') || 'Yok'}. Mevcutlar: ${existingSeries || 'Yok'}. Hook ve viral nedeni dahil et. JSON: {"strategy_note":"","plans":[{"series_name":"","topic":"","why_viral":"","parts":7,"hook":"","inspiration":"","differentiation":"","content_type":"","estimated_engagement":""}]}`;
 
-@grafikcem hakkında:
-- İstanbul'da freelance grafik tasarımcı
-- Koyu temali carousel setleri üretiyor (siyah/koyu arka plan, hayvan görselleri, serif+script tipografi)
-- Kırmızı/siyah renk paleti
-- Hedef kitle: tasarımcılar, AI kullananlar, freelancerlar
-- Platform: Instagram (@grafikcem)
-
-TAKİP EDİLEN RAKİP HESAPLAR:
-${competitors?.join(', ') || 'Yok'}
-
-MEVCUT SERİLERİM (zaten mevcut, tekrar etme, bunların devamı veya yeni konular öner):
-${existingSeries || 'Yok'}
-
-GÖREV:
-Bu hesapların içerik trendlerini ve @grafikcem'in mevcut serilerini analiz ederek bu hafta için 5 carousel fikri öner.
-
-Her fikir için şunları belirt:
-- Seri adı (kısa, güçlü)
-- Konu (ne hakkında)
-- Neden viral olabilir?
-- Kaç part olmalı?
-- İlk part'ın hook'u (ilk slide'da ne yazmalı?)
-- Rakip hangi hesabın hangi içeriğinden ilham alındı?
-- @grafikcem'in mevcut serilerinden farkı ne?
-
-SADECE JSON formatında yanıt ver:
-{
-  "week": ${weekNumber || 1},
-  "strategy_note": "Bu haftanın genel stratejik notu",
-  "plans": [
-    {
-      "rank": 1,
-      "series_name": "Seri adı",
-      "topic": "Konu açıklaması",
-      "why_viral": "Viral olma gerekçesi",
-      "parts": 7,
-      "hook": "İlk slide hook metni",
-      "inspiration": "@hesapadi — hangi tür içerik",
-      "differentiation": "Diğer serilerden farkı",
-      "content_type": "resource_list / tutorial / comparison / trend / mindset",
-      "estimated_engagement": "high / medium / experimental"
-    }
-  ]
-}`;
-
-    const text = await generateWithGemini(prompt, 'planning');
+    const text = await generateWithGemini(prompt, 'planning', undefined, 'gemini-2.0-flash-lite');
     const parsed = parseAIJSON(text);
 
     if (!parsed) {

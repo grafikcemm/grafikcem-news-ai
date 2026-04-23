@@ -8,7 +8,7 @@ export { genAI };
 
 export const GEMINI_MODEL = "gemini-3-flash-preview";
 export const GEMINI_STANDARD = "gemini-3-flash-preview";
-export const GEMINI_FAST = "gemini-3-flash-preview";
+export const GEMINI_FAST = "gemini-2.0-flash-lite";
 
 const CONFIGS: Record<string, GenerationConfig> = {
   creative: {
