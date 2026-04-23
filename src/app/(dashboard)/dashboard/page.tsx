@@ -142,7 +142,7 @@ export default function DashboardPage() {
         <MetricCard
           tag="NEW"
           title="SON HABER"
-          value={stats.latestNews?.title.slice(0, 60) + (stats.latestNews?.title.length! > 60 ? "..." : "") || "—"}
+          value={stats.latestNews?.title ? (stats.latestNews.title.slice(0, 60) + (stats.latestNews.title.length > 60 ? "..." : "")) : "—"}
           valueClass="text-lg leading-relaxed font-medium"
           subValue={stats.latestNews ? `${stats.latestNews.source} · ${stats.latestNews.time}` : "Haber yok"}
           link="/news-pool"
