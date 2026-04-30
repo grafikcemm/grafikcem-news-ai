@@ -9,6 +9,7 @@ export interface PromptMeta {
   quality_score: number;
   votes: number;
   author: string;
+  source?: string;
 }
 
 export type PromptTexts = Record<string, string>;

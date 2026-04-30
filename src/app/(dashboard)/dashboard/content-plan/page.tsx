@@ -135,7 +135,7 @@ export default function ContentPlanPage() {
                      <CardContent className="p-4 flex flex-col h-full relative">
                         <div className="flex justify-between items-start mb-3 gap-2">
                            <Badge className="bg-[var(--surface-base)] text-[var(--text-secondary)] font-normal border border-[var(--border-default)]">{c.best_time}</Badge>
-                           <Badge className={`font-normal border-0 text-white shadow-xs ${c.platform === '@grafikcem' ? 'bg-[#E879A0]' : c.platform === '@maskulenkod' ? 'bg-[#60A5FA]' : 'bg-[#34D399]'}`}>{c.platform}</Badge>
+                           <Badge className={`font-normal border-0 text-white shadow-xs ${c.platform === '@grafikcem' ? 'bg-pink-400' : c.platform === '@maskulenkod' ? 'bg-blue-400' : 'bg-emerald-400'}`}>{c.platform}</Badge>
                         </div>
                         <Badge variant="outline" className="text-[10px] w-fit mb-2 border-[var(--border-default)] text-[var(--text-secondary)]">{c.format}</Badge>
                         <h4 className="font-bold text-[var(--text-primary)] text-sm mb-2">{c.title}</h4>

@@ -2,6 +2,19 @@
 
 import { useEffect, useState, KeyboardEvent } from "react";
 import { toast } from "sonner";
+import { 
+  Sparkles, 
+  Trash2, 
+  Save, 
+  MessageSquare, 
+  Type, 
+  Zap, 
+  ShieldAlert,
+  LoaderCircle,
+  X,
+  Plus
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type Channel = "grafikcem" | "maskulenkod" | "linkedin";
 
@@ -18,8 +31,8 @@ interface StyleProfile {
 
 const CHANNELS: { id: Channel; label: string; dot: string }[] = [
   { id: "grafikcem", label: "@grafikcem", dot: "bg-blue-400" },
-  { id: "maskulenkod", label: "@maskulenkod", dot: "bg-[var(--text-tertiary)]" },
-  { id: "linkedin", label: "LinkedIn", dot: "bg-indigo-400" },
+  { id: "maskulenkod", label: "@maskulenkod", dot: "bg-[var(--text-muted)]" },
+  { id: "linkedin", label: "LinkedIn", dot: "bg-indigo-500" },
 ];
 
 const TONES = ["Analitik", "Heyecanlı", "Felsefi", "Direkt", "Mentor"];
@@ -59,18 +72,18 @@ function TagInput({
   };
 
   return (
-    <div className="flex flex-wrap gap-2 p-3 rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] min-h-[44px] focus-within:border-slate-500 transition-colors">
+    <div className="flex flex-wrap gap-2 p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-elevated)] min-h-[56px] focus-within:border-[var(--border-strong)] transition-all">
       {tags.map((tag) => (
         <span
           key={tag}
-          className="flex items-center gap-1 text-xs bg-[var(--surface-overlay)] text-[var(--text-primary)] rounded-full px-2.5 py-1"
+          className="flex items-center gap-1.5 text-[10px] font-bold font-mono bg-white text-black rounded-lg px-2.5 py-1"
         >
-          {tag}
+          {tag.toUpperCase()}
           <button
             onClick={() => onChange(tags.filter((t) => t !== tag))}
-            className="text-[var(--text-tertiary)] hover:text-white ml-0.5"
+            className="hover:opacity-60 transition-opacity"
           >
-            ×
+            <X size={10} />
           </button>
         </span>
       ))}
@@ -79,8 +92,8 @@ function TagInput({
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
         onBlur={() => input.trim() && addTag(input)}
-        placeholder={tags.length === 0 ? "Kelime yaz, Enter ile ekle..." : ""}
-        className="flex-1 min-w-[120px] bg-transparent text-sm text-white placeholder-slate-600 focus:outline-none"
+        placeholder={tags.length === 0 ? "Kelime yaz ve Enter'a bas..." : ""}
+        className="flex-1 min-w-[140px] bg-transparent text-sm text-white placeholder-[var(--text-muted)] focus:outline-none"
       />
     </div>
   );
@@ -142,12 +155,12 @@ export default function StyleProfilePage() {
 
   const sentenceLengthLabel =
     profile.sentence_length < 30
-      ? "Çok Kısa"
+      ? "ÇOK KISA"
       : profile.sentence_length < 50
-      ? "Kısa"
+      ? "KISA"
       : profile.sentence_length < 70
-      ? "Orta"
-      : "Uzun";
+      ? "ORTA"
+      : "UZUN";
 
   const sampleCount = profile.sample_tweets
     .split("\n")
@@ -155,207 +168,194 @@ export default function StyleProfilePage() {
     .filter(Boolean).length;
 
   return (
-    <div className="min-h-screen bg-[var(--surface-base)] p-6 lg:p-8">
-      <div className="max-w-3xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[var(--bg-base)] p-6 lg:p-10 animate-in fade-in duration-700">
+      <div className="max-w-4xl mx-auto space-y-10">
 
         {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Stil Profili</h1>
-          <p className="mt-1 text-sm text-[var(--text-tertiary)]">
-            Her kanalın yazım stilini tanımla — üretimde kullanılır
-          </p>
-        </div>
-
-        {/* Channel Tabs */}
-        <div className="flex gap-1.5 p-1.5 bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-xl w-fit">
-          {CHANNELS.map((ch) => (
-            <button
-              key={ch.id}
-              onClick={() => setActiveChannel(ch.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activeChannel === ch.id
-                  ? "bg-[var(--surface-overlay)] text-white"
-                  : "text-[var(--text-tertiary)] hover:text-white"
-              }`}
-            >
-              <span className={`w-2 h-2 rounded-full ${ch.dot}`} />
-              {ch.label}
-            </button>
-          ))}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">Stil Profili</h1>
+            <p className="text-sm text-[var(--text-secondary)]">
+              Yapay zekaya yazım stilini öğret ve her kanala özel karakter kazandır.
+            </p>
+          </div>
+          
+          <div className="flex bg-[var(--bg-surface)] p-1 rounded-xl border border-[var(--border-subtle)]">
+            {CHANNELS.map((ch) => (
+              <button
+                key={ch.id}
+                onClick={() => setActiveChannel(ch.id)}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-[10px] font-bold font-mono transition-all flex items-center gap-2",
+                  activeChannel === ch.id ? "bg-white text-black" : "text-[var(--text-muted)] hover:text-white"
+                )}
+              >
+                <div className={cn("w-1.5 h-1.5 rounded-full", ch.dot)} />
+                {ch.label.toUpperCase()}
+              </button>
+            ))}
+          </div>
         </div>
 
         {loading ? (
-          <div className="space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-32 rounded-xl bg-[var(--surface-card)] animate-pulse" />
-            ))}
+          <div className="flex items-center justify-center h-64">
+            <LoaderCircle className="w-8 h-8 animate-spin text-white/20" />
           </div>
         ) : (
-          <div className="space-y-6">
-
-            {/* Section 1: Sample Tweets */}
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 space-y-3">
-              <div>
-                <h2 className="text-base font-semibold text-white">Yazım Stilini Tanımla</h2>
-                <p className="text-sm text-[var(--text-tertiary)] mt-0.5">
-                  Geçmiş paylaşımlarından 5–10 örnek yapıştır. Sistem bunları öğrenip aynı tarzda üretim yapar.
-                </p>
-              </div>
-              <textarea
-                value={profile.sample_tweets}
-                onChange={(e) => setProfile({ ...profile, sample_tweets: e.target.value })}
-                placeholder={"Örnek paylaşımları buraya yapıştır, her biri yeni satırda...\n\nÖrn:\nYapay zeka araçlarını kullanmak rekabet avantajı değil, minimum standart haline geliyor.\nSabah rutini olmayan biri için \"motivasyon\" kelimesi anlamsızdır."}
-                rows={8}
-                className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-card)] px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 resize-y transition-colors font-mono"
-              />
-              <p className="text-xs text-[var(--text-secondary)]">{sampleCount} örnek girişi</p>
-            </div>
-
-            {/* Section 2: Style Parameters */}
-            <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 space-y-5">
-              <h2 className="text-base font-semibold text-white">Stil Parametreleri</h2>
-
-              {/* Ton */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">Ton</label>
-                <div className="flex flex-wrap gap-2">
-                  {TONES.map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setProfile({ ...profile, tone: t })}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                        profile.tone === t
-                          ? "bg-[#C8F135]/15 text-[#C8F135] border-[#C8F135]/40"
-                          : "text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-white hover:border-slate-600"
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Sentence length slider */}
-              <div className="space-y-2">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            
+            {/* Left: Editor */}
+            <div className="lg:col-span-8 space-y-6">
+              
+              {/* Section 1: Samples */}
+              <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-3xl p-8 space-y-6">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                    Cümle Uzunluğu
-                  </label>
-                  <span className="text-xs text-[var(--text-secondary)] font-medium">{sentenceLengthLabel}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] flex items-center justify-center">
+                      <MessageSquare size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold">Örnek Paylaşımlar</h3>
+                      <p className="text-[10px] font-mono text-[var(--text-muted)] uppercase">{sampleCount} KAYITLI ÖRNEK</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-[var(--text-secondary)] w-10">Kısa</span>
-                  <input
-                    type="range"
-                    min={0}
-                    max={100}
-                    value={profile.sentence_length}
-                    onChange={(e) =>
-                      setProfile({ ...profile, sentence_length: Number(e.target.value) })
-                    }
-                    className="flex-1 accent-[#C8F135] cursor-pointer"
+                
+                <div className="relative group">
+                  <textarea
+                    value={profile.sample_tweets}
+                    onChange={(e) => setProfile({ ...profile, sample_tweets: e.target.value })}
+                    placeholder={"Geçmiş tweetlerini buraya yapıştır...\n\nÖrn:\nYapay zeka araçlarını kullanmak artık bir seçenek değil, zorunluluk."}
+                    className="w-full h-[320px] bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-2xl p-6 text-sm leading-relaxed text-white placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--border-strong)] transition-all font-mono resize-none"
                   />
-                  <span className="text-xs text-[var(--text-secondary)] w-10 text-right">Uzun</span>
+                  <div className="absolute bottom-4 right-4 pointer-events-none opacity-20 group-hover:opacity-40 transition-opacity">
+                    <Type size={40} />
+                  </div>
                 </div>
               </div>
 
-              {/* Emoji usage */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  Emoji Kullanımı
-                </label>
-                <div className="flex gap-2">
-                  {EMOJI_OPTIONS.map((opt) => (
-                    <button
-                      key={opt}
-                      onClick={() => setProfile({ ...profile, emoji_usage: opt })}
-                      className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all border ${
-                        profile.emoji_usage === opt
-                          ? "bg-[#C8F135]/15 text-[#C8F135] border-[#C8F135]/40"
-                          : "text-[var(--text-tertiary)] border-[var(--border-subtle)] hover:text-white hover:border-slate-600"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+              {/* Section 2: Parameters */}
+              <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-3xl p-8 space-y-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-subtle)] flex items-center justify-center">
+                    <Zap size={18} />
+                  </div>
+                  <h3 className="font-bold">Stil Parametreleri</h3>
                 </div>
-              </div>
 
-              {/* Signature closer */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  İmza Kapanış
-                </label>
-                <input
-                  type="text"
-                  value={profile.signature_closer}
-                  onChange={(e) =>
-                    setProfile({ ...profile, signature_closer: e.target.value })
-                  }
-                  placeholder="örn: Odakta kal."
-                  className="w-full rounded-lg border border-[var(--border-subtle)] bg-[var(--surface-raised)] px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-slate-500 transition-colors"
-                />
-              </div>
+                <div className="space-y-8">
+                  {/* Ton */}
+                  <div className="space-y-3">
+                    <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Anlatım Tonu</label>
+                    <div className="flex flex-wrap gap-2">
+                      {TONES.map((t) => (
+                        <button
+                          key={t}
+                          onClick={() => setProfile({ ...profile, tone: t })}
+                          className={cn(
+                            "px-4 py-2 rounded-xl text-xs font-bold font-mono transition-all border",
+                            profile.tone === t 
+                              ? "bg-white text-black border-white" 
+                              : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-muted)] hover:text-white"
+                          )}
+                        >
+                          {t.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              {/* Avoid words */}
-              <div className="space-y-2">
-                <label className="text-xs font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                  Kaçınılacak Kelimeler
-                </label>
-                <TagInput
-                  tags={profile.avoid_words}
-                  onChange={(tags) => setProfile({ ...profile, avoid_words: tags })}
-                />
+                  {/* Length Slider */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Cümle Uzunluğu</label>
+                      <span className="text-[10px] font-bold font-mono bg-[var(--bg-elevated)] px-2 py-0.5 rounded border border-white/10 text-white">{sentenceLengthLabel}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={profile.sentence_length}
+                      onChange={(e) => setProfile({ ...profile, sentence_length: Number(e.target.value) })}
+                      className="w-full h-1.5 bg-[var(--bg-elevated)] rounded-lg appearance-none cursor-pointer accent-white"
+                    />
+                  </div>
+
+                  {/* Avoid words */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert size={14} className="text-amber-500" />
+                      <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Kullanılmayacak Kelimeler</label>
+                    </div>
+                    <TagInput
+                      tags={profile.avoid_words}
+                      onChange={(tags) => setProfile({ ...profile, avoid_words: tags })}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Save button */}
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full rounded-xl bg-[#C8F135] py-3 text-sm font-bold text-[var(--text-primary)] hover:bg-[#d4f54a] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-            >
-              {saving ? "Kaydediliyor..." : "Stili Kaydet"}
-            </button>
-
-            {/* Section 3: Active Style Summary */}
-            {savedProfile && (
-              <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-card)] p-6 space-y-4">
-                <h2 className="text-base font-semibold text-white">Aktif Stil Özeti</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[
-                    { label: "Örnek Sayısı", value: `${savedProfile.sample_count || 0} tweet` },
-                    { label: "Ton", value: savedProfile.tone },
-                    { label: "Cümle Uzunluğu", value: savedProfile.sentence_length < 30 ? "Çok Kısa" : savedProfile.sentence_length < 50 ? "Kısa" : savedProfile.sentence_length < 70 ? "Orta" : "Uzun" },
-                    { label: "Emoji", value: savedProfile.emoji_usage },
-                    ...(savedProfile.signature_closer ? [{ label: "Kapanış", value: savedProfile.signature_closer }] : []),
-                    ...(savedProfile.avoid_words?.length ? [{ label: "Kaçınılan", value: `${savedProfile.avoid_words.length} kelime` }] : []),
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-lg bg-[var(--surface-card)] p-3">
-                      <p className="text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider mb-1">
-                        {item.label}
-                      </p>
-                      <p className="text-sm text-white font-medium truncate">{item.value}</p>
-                    </div>
-                  ))}
+            {/* Right: Sidebar & Save */}
+            <div className="lg:col-span-4 space-y-6">
+              <div className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-3xl p-6 sticky top-6 space-y-6">
+                <div className="space-y-4">
+                  <Button 
+                    onClick={handleSave} 
+                    disabled={saving}
+                    className="w-full h-14 bg-white text-black font-bold text-lg rounded-2xl hover:opacity-90 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+                  >
+                    {saving ? <LoaderCircle className="animate-spin" /> : <Save size={20} />}
+                    Stili Kaydet
+                  </Button>
+                  <p className="text-[10px] text-center text-[var(--text-muted)] font-mono uppercase">Değişiklikler anında AI modeline yansıtılır</p>
                 </div>
-                {savedProfile.updated_at && (
-                  <p className="text-xs text-[var(--text-secondary)]">
-                    Son güncelleme:{" "}
-                    {new Date(savedProfile.updated_at).toLocaleDateString("tr-TR", {
-                      day: "2-digit",
-                      month: "long",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
+
+                {savedProfile && (
+                  <div className="pt-6 border-t border-white/5 space-y-6">
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-white">Aktif Profil Özeti</h4>
+                    <div className="space-y-3">
+                      <SummaryItem label="Anlatım Tonu" value={savedProfile.tone} />
+                      <SummaryItem label="Cümle Yapısı" value={sentenceLengthLabel} />
+                      <SummaryItem label="Emoji" value={savedProfile.emoji_usage} />
+                      <SummaryItem label="Yasaklı Kelime" value={`${savedProfile.avoid_words.length} Adet`} />
+                    </div>
+                    
+                    <div className="p-4 rounded-2xl bg-[var(--bg-elevated)] border border-white/5">
+                      <p className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase mb-1">Son Güncelleme</p>
+                      <p className="text-[10px] font-mono text-white">
+                        {savedProfile.updated_at ? new Date(savedProfile.updated_at).toLocaleString('tr-TR') : 'HİÇBİR ZAMAN'}
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
-            )}
+            </div>
+
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between py-2 border-b border-white/5">
+      <span className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase">{label}</span>
+      <span className="text-[11px] font-bold text-white">{value.toUpperCase()}</span>
+    </div>
+  );
+}
+
+function Button({ children, onClick, disabled, className, variant = "primary" }: any) {
+  return (
+    <button 
+      onClick={onClick} 
+      disabled={disabled} 
+      className={cn(className)}
+    >
+      {children}
+    </button>
   );
 }

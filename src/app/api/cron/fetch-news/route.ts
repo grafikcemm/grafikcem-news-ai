@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase";
 import Parser from "rss-parser";
 import { VIRAL_SCORING_SYSTEM_PROMPT, buildScoringUserPrompt } from "@/lib/prompts";
 import { validateCronRequest, unauthorizedResponse } from "@/lib/auth";
-import { generateWithGemini } from "@/lib/gemini";
+import { generateWithGeminiFast } from "@/lib/gemini";
 import { parseAIJSON } from "@/lib/parse-ai";
 
 export const maxDuration = 60; // Max allowed for Vercel Hobby tier
@@ -136,8 +136,7 @@ async function handler(request: NextRequest) {
 
     // 5. Process only what we need to hit the limit
     const itemsToProcess = newItems.slice(0, remainingSlots * 2); // Process double to account for filtering
-    console.log(`[fetch-news] Processing ${itemsToProcess.length} items to fill ${remainingSlots} slots`);
-
+    
     const validItemsToInsert = [];
 
     // 6. Scoring, Filter & Translation Loop
@@ -147,16 +146,15 @@ async function handler(request: NextRequest) {
       try {
         // Viral Filter Step
         const filterPrompt = `Haber puanla (0-100). Odak: AI/tasarım/freelance. Başlık: ${item.title}. JSON: {"s":0-100}`;
-        const filterResultText = await generateWithGemini(filterPrompt, 'analytical', undefined, 'gemini-2.0-flash-lite');
+        const filterResultText = await generateWithGeminiFast(filterPrompt);
         const filterData = parseAIJSON<{s: number}>(filterResultText);
 
         if (!filterData || filterData.s < 75) {
-           console.log(`[fetch-news] Skipped (score=${filterData?.s}): ${item.title}`);
-           continue;
+                      continue;
         }
 
         const translationPrompt = `TR'ye çevir. JSON: {"t":"","s":""}. Metin: ${item.title} | ${item.summary?.slice(0, 100)}`;
-        const translationText = await generateWithGemini(translationPrompt, 'analytical', undefined, 'gemini-2.0-flash-lite');
+        const translationText = await generateWithGeminiFast(translationPrompt);
         const translation = parseAIJSON<{t: string, s: string}>(translationText);
 
         validItemsToInsert.push({
@@ -170,7 +168,16 @@ async function handler(request: NextRequest) {
         });
 
       } catch (err) {
-        console.error(`[fetch-news] Processing error for ${item.title}:`, err);
+        console.warn(`[fetch-news] Gemini scoring failed for item, using fallback: ${item.title}`);
+        validItemsToInsert.push({
+           ...item,
+           title_tr: null,
+           summary_tr: null,
+           title_original: item.title,
+           viral_score: 50,
+           viral_reason: null,
+           category: 'uncategorized'
+        });
       }
     }
 

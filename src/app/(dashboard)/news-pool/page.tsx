@@ -2,15 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Button } from "@/components/ui/button";
-import { ScoreBadge } from "@/components/ui/score-badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { EmptyState } from "@/components/ui/empty-state";
+import { 
+  SearchIcon, 
+  ClockIcon, 
+  ExternalLinkIcon, 
+  SparklesIcon, 
+  BookmarkIcon,
+  ChevronRightIcon,
+  FilterIcon,
+  LoaderCircle,
+  Zap,
+  Layout,
+  Share2,
+  ChevronLeft
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { tr } from "date-fns/locale";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { HelpCircleIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface NewsItem {
   id: string;
@@ -31,51 +42,23 @@ interface NewsItem {
   sources?: { name: string };
 }
 
-interface ArticleData {
-  id: string;
-  title: string;
-  title_tr: string;
-  title_original: string;
-  full_summary_tr: string;
-  summary: string;
-  url: string;
-  source_name: string;
-  fetched_at: string;
-  viral_score: number;
-  viral_reason: string;
-  category: string;
-}
-
 const categories = [
-  { value: "all", label: "Hepsi" },
-  { value: "ai_model", label: "🤖 AI Model" },
-  { value: "ai_tool", label: "🛠️ AI Araç" },
-  { value: "ai_impact", label: "💥 AI Etki" },
-  { value: "ai_research", label: "🔬 Araştırma" },
-  { value: "turkish", label: "🇹🇷 Türkiye" },
+  { value: "all", label: "TÜMÜ" },
+  { value: "ai_news", label: "AI NEWS" },
+  { value: "design", label: "DESIGN" },
+  { value: "automation", label: "AUTOMATION" },
+  { value: "dev_tools", label: "DEV TOOLS" },
+  { value: "turkish", label: "TURKISH" },
 ];
-
-
-function ScoreBar({ score }: { score: number }) {
-  const color = score >= 90 ? "#ef4444" : score >= 75 ? "var(--accent)" : "var(--text-tertiary)";
-  return (
-    <div style={{ width: 40, height: 3, background: "var(--surface-overlay)", borderRadius: 2, overflow: "hidden" }}>
-      <div style={{ width: `${score}%`, height: "100%", background: color, borderRadius: 2 }} />
-    </div>
-  );
-}
 
 export default function NewsPoolPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  const [activeSource, setActiveSource] = useState<string>("all");
-  const [generatingId, setGeneratingId] = useState<string | null>(null);
-
   const [selectedNewsId, setSelectedNewsId] = useState<string | null>(null);
-  const [articleData, setArticleData] = useState<ArticleData | null>(null);
   const [articleLoading, setArticleLoading] = useState(false);
+  const [articleData, setArticleData] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -106,39 +89,10 @@ export default function NewsPoolPage() {
     }
   }
 
-  async function handleGenerate(newsId: string) {
-    setGeneratingId(newsId);
-
-    setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
-    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then(() => {}, () => {});
-
-    try {
-      const res = await fetch("/api/tweet/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ news_id: newsId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        toast.success("Tweet seçenekleri üretildi!");
-        router.push(`/tweet-generator?news_id=${newsId}`);
-      } else {
-        toast.error(data?.error || "Tweet üretimi başarısız oldu");
-      }
-    } catch {
-      toast.error("Bir hata oluştu");
-    } finally {
-      setGeneratingId(null);
-    }
-  }
-
   async function handleOpenArticle(newsId: string) {
     setSelectedNewsId(newsId);
     setArticleData(null);
     setArticleLoading(true);
-
-    setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
-    supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then(() => {}, () => {});
 
     try {
       const res = await fetch("/api/news/article", {
@@ -150,6 +104,8 @@ export default function NewsPoolPage() {
       const data = await res.json();
       if (res.ok) {
         setArticleData(data);
+        setNews(prev => prev.map(n => n.id === newsId ? { ...n, is_read: true } : n));
+        supabase.from("news_items").update({ is_read: true }).eq("id", newsId).then(() => {});
       } else {
         toast.error(data?.error || "Makale yüklenemedi");
       }
@@ -160,331 +116,197 @@ export default function NewsPoolPage() {
     }
   }
 
-  const filtered = news.filter((item) => {
-    const matchSearch =
-      (item.title_tr || item.title).toLowerCase().includes(search.toLowerCase()) ||
-      item.title.toLowerCase().includes(search.toLowerCase()) ||
-      (item.summary && item.summary.toLowerCase().includes(search.toLowerCase()));
-
-    if (!matchSearch) return false;
-    if (activeSource !== "all") {
-      if (item.sources?.name !== activeSource) return false;
-    }
-    return true;
-  });
-
-  const uniqueSources = Array.from(new Set(news.map(n => n.sources?.name).filter(Boolean))) as string[];
-
-  // Stats calculation
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const todayNews = news.filter(n => new Date(n.fetched_at) >= today);
-  const todayCount = todayNews.length;
-  const avgScore = todayCount > 0 ? Math.round(todayNews.reduce((a, b) => a + (b.viral_score || 0), 0) / todayCount) : 0;
-  const maxScore = todayCount > 0 ? Math.max(...todayNews.map(n => n.viral_score || 0)) : 0;
+  const filtered = news.filter((item) =>
+    (item.title_tr || item.title).toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div className="flex flex-col lg:flex-row" style={{ height: "calc(100vh - 56px)" }}>
-      {/* LEFT PANEL — List */}
-      <div
-        className="w-full lg:w-[38%] flex flex-col h-full overflow-hidden"
-        style={{ background: "var(--surface-raised)", borderRight: "1px solid var(--border-subtle)" }}
-      >
-        {/* Header */}
-        <div
-          className="shrink-0"
-          style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", background: "var(--surface-raised)" }}
-        >
-          {/* Stats Bar */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px",
-            marginBottom: "12px",
-            fontSize: "11px",
-            color: "var(--text-tertiary)",
-            fontFamily: "var(--font-mono)"
-          }}>
-            <span>Bugün: <strong style={{ color: "var(--text-primary)" }}>{todayCount}/5</strong> haber</span>
-            <span>|</span>
-            <span>Ort. Skor: <strong style={{ color: "var(--text-primary)" }}>{avgScore}</strong></span>
-            <span>|</span>
-            <span>En Yüksek: <strong style={{ color: "var(--text-primary)" }}>{maxScore}</strong></span>
-          </div>
-          {/* Search */}
-          <div className="flex items-center gap-[8px]" style={{
-            background: "var(--surface-elevated)",
-            border: "1px solid var(--border-default)",
-            borderRadius: "var(--radius-md)",
-            padding: "8px 14px",
-            marginBottom: 12,
-          }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: "var(--text-tertiary)" }}>
-              <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
-            </svg>
-            <input
-              type="text"
-              placeholder="Haberlerde ara..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{
-                background: "transparent",
-                border: "none",
-                outline: "none",
-                color: "var(--text-primary)",
-                fontSize: 13,
-                flex: 1,
-              }}
-            />
-          </div>
-
-          {/* Category pills */}
-          <div className="flex flex-wrap gap-[6px]" style={{ marginBottom: 8 }}>
-            {categories.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => setActiveCategory(cat.value)}
-                style={{
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  fontSize: 11,
-                  fontWeight: 500,
-                  background: activeCategory === cat.value ? "var(--accent-subtle)" : "var(--surface-elevated)",
-                  color: activeCategory === cat.value ? "var(--accent)" : "var(--text-secondary)",
-                  border: `1px solid ${activeCategory === cat.value ? "var(--accent-muted)" : "var(--border-default)"}`,
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                }}
-              >
-                {cat.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Source pills */}
-          <div className="flex flex-wrap gap-[6px] items-center">
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>Kaynak:</span>
+    <div className="flex flex-col h-[calc(100vh-52px)] bg-[var(--bg-base)]">
+      
+      {/* Filters Bar */}
+      <div className="h-14 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] px-6 flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          {categories.map((cat) => (
             <button
-              onClick={() => setActiveSource("all")}
-              style={{
-                padding: "3px 8px",
-                borderRadius: "var(--radius-sm)",
-                fontSize: 10,
-                fontWeight: 500,
-                background: activeSource === "all" ? "var(--accent-subtle)" : "var(--surface-elevated)",
-                color: activeSource === "all" ? "var(--accent)" : "var(--text-tertiary)",
-                border: "none",
-                cursor: "pointer",
-              }}
+              key={cat.value}
+              onClick={() => setActiveCategory(cat.value)}
+              className={cn(
+                "px-3 py-1.5 text-[10px] font-bold font-mono rounded-lg transition-all border",
+                activeCategory === cat.value 
+                  ? "bg-white text-black border-white" 
+                  : "bg-[var(--bg-elevated)] border-[var(--border-default)] text-[var(--text-muted)] hover:text-white"
+              )}
             >
-              Hepsi
+              {cat.label}
             </button>
-            {uniqueSources.map(src => (
-              <button
-                key={src}
-                onClick={() => setActiveSource(src)}
-                style={{
-                  padding: "3px 8px",
-                  borderRadius: "var(--radius-sm)",
-                  fontSize: 10,
-                  fontWeight: 500,
-                  background: activeSource === src ? "var(--accent-subtle)" : "var(--surface-elevated)",
-                  color: activeSource === src ? "var(--accent)" : "var(--text-tertiary)",
-                  border: "none",
-                  cursor: "pointer",
-                }}
-              >
-                {src}
-              </button>
-            ))}
-          </div>
+          ))}
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto">
-          {loading ? (
-            <div style={{ padding: 20 }} className="space-y-3">
-              {[...Array(6)].map((_, i) => (
-                <Skeleton key={i} className="h-[70px] w-full" style={{ background: "var(--surface-elevated)", borderRadius: "var(--radius-md)" }} />
-              ))}
-            </div>
-          ) : filtered.length === 0 ? (
-            <div style={{ padding: 48, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>Haber bulunamadı</div>
-          ) : (
-            <div className="flex flex-col">
-              {filtered.map(item => {
-                const isSelected = selectedNewsId === item.id;
-                return (
+        <div className="relative group w-64">
+          <SearchIcon size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+          <input 
+            type="text" 
+            placeholder="HABER ARA..." 
+            className="w-full h-8 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-lg pl-8 pr-3 text-[10px] font-mono text-white outline-none focus:border-[var(--border-strong)] transition-all"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-1 overflow-hidden">
+        
+        {/* Left: News List */}
+        <div className="w-[400px] border-r border-[var(--border-subtle)] flex flex-col bg-[var(--bg-surface)]">
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            {loading ? (
+              <div className="p-4 space-y-3">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="h-24 w-full bg-[var(--bg-elevated)] animate-pulse rounded-xl border border-[var(--border-subtle)]" />
+                ))}
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="p-20 text-center opacity-20">
+                <FilterIcon size={32} className="mx-auto mb-2" />
+                <span className="text-[10px] font-bold font-mono">BULUNAMADI</span>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                {filtered.map((item) => (
                   <div
                     key={item.id}
                     onClick={() => handleOpenArticle(item.id)}
-                    className="cursor-pointer transition-colors duration-100"
-                    style={{
-                      padding: "14px 20px",
-                      borderBottom: "1px solid var(--border-subtle)",
-                      background: isSelected ? "var(--accent-subtle)" : "transparent",
-                      borderLeft: isSelected ? "2px solid var(--accent)" : "2px solid transparent",
-                    }}
-                    onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "var(--surface-elevated)"; }}
-                    onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
+                    className={cn(
+                      "p-[12px] px-[16px] border-b border-[var(--border-subtle)] cursor-pointer transition-all hover:bg-[var(--bg-elevated)]/50 relative group",
+                      selectedNewsId === item.id ? "bg-[var(--bg-elevated)] border-r-2 border-r-white" : ""
+                    )}
                   >
-                    <div className="flex items-center gap-[8px]" style={{ marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{item.sources?.name}</span>
-                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                        · {formatDistanceToNow(new Date(item.fetched_at), { addSuffix: true, locale: tr })}
-                      </span>
-                      {!item.is_read && (
-                        <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", boxShadow: "0 0 6px var(--accent)" }} />
-                      )}
-                    </div>
-                    <p
-                      className="line-clamp-2"
-                      style={{
-                        fontSize: 13,
-                        fontWeight: item.is_read ? 400 : 500,
-                        color: item.is_read ? "var(--text-secondary)" : "var(--text-primary)",
-                        lineHeight: 1.4,
-                        marginBottom: 4,
-                      }}
-                    >
-                      {item.title_tr || item.title}
-                    </p>
-                    <p
-                      className="line-clamp-2"
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-tertiary)",
-                        lineHeight: 1.4,
-                        marginBottom: 8,
-                      }}
-                    >
-                      {item.summary_tr || item.summary}
-                    </p>
-                    <div className="flex items-center gap-[8px]">
-                      <ScoreBar score={item.viral_score} />
-                      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{item.viral_score}</span>
+                    <div className="flex items-start gap-4">
+                      <div className={cn(
+                        "w-8 h-8 flex items-center justify-center rounded-lg text-[10px] font-bold font-mono shrink-0",
+                        item.viral_score >= 70 ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : 
+                        item.viral_score >= 40 ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" : 
+                        "bg-[var(--bg-base)] text-[var(--text-muted)] border border-[var(--border-default)]"
+                      )}>
+                        {item.viral_score}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <h4 className={cn(
+                          "text-[13px] leading-snug line-clamp-2",
+                          item.is_read ? "text-[var(--text-muted)] font-normal" : "text-white font-medium"
+                        )}>
+                          {item.title_tr || item.title}
+                        </h4>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3 text-[9px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-wider">
+                            <span>{item.sources?.name}</span>
+                            <span>•</span>
+                            <span>{formatDistanceToNow(new Date(item.fetched_at), { addSuffix: true, locale: tr })}</span>
+                          </div>
+                          
+                          {/* Hover Action */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/tweet-generator?news_id=${item.id}`);
+                            }}
+                            className="opacity-0 group-hover:opacity-100 bg-white text-black text-[9px] font-bold px-2 py-1 rounded transition-all flex items-center gap-1"
+                          >
+                            <Share2 size={10} />
+                            TWEET ÜRET
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* RIGHT PANEL — Detail */}
-      <div
-        className="w-full lg:w-[62%] flex flex-col h-full overflow-y-auto"
-        style={{ background: "var(--surface-base)", padding: "32px 40px" }}
-      >
-        {!selectedNewsId ? (
-          <div className="flex-1 flex items-center justify-center">
-            <EmptyState
-              icon={<HelpCircleIcon size={40} />}
-              title="Bir haber seçin"
-              description="Haberi özetlemek ve tweet formatında içerik üretmek için sol taraftan bir haber seçin."
-            />
-          </div>
-        ) : articleLoading ? (
-          <div className="space-y-6 max-w-3xl animate-pulse">
-            <Skeleton className="w-[100px] h-6" style={{ background: "var(--surface-elevated)" }} />
-            <Skeleton className="w-full h-12" style={{ background: "var(--surface-elevated)" }} />
-            <Skeleton className="w-3/4 h-12" style={{ background: "var(--surface-elevated)" }} />
-            <div className="pt-10 space-y-3">
-              <Skeleton className="w-full h-4" style={{ background: "var(--surface-elevated)" }} />
-              <Skeleton className="w-full h-4" style={{ background: "var(--surface-elevated)" }} />
-              <Skeleton className="w-[85%] h-4" style={{ background: "var(--surface-elevated)" }} />
-            </div>
-          </div>
-        ) : articleData ? (
-          <div className="flex flex-col flex-1 max-w-3xl w-full">
-            {/* Metadata */}
-            <div className="flex flex-wrap items-center gap-[12px]" style={{ marginBottom: 20 }}>
-              <span className="text-label" style={{
-                padding: "4px 10px",
-                background: "var(--surface-elevated)",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--radius-sm)",
-                color: "var(--text-primary)",
-                fontSize: 12,
-                fontWeight: 500,
-              }}>
-                {articleData.source_name}
-              </span>
-              <ScoreBadge score={articleData.viral_score} />
-              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                {articleData.fetched_at && formatDistanceToNow(new Date(articleData.fetched_at), { addSuffix: true, locale: tr })}
-              </span>
-            </div>
-
-            {/* Title */}
-            <h1 className="text-display" style={{ fontSize: 24, marginBottom: 16 }}>
-              {articleData.title_tr}
-            </h1>
-            {articleData.title_original && articleData.title_original !== articleData.title_tr && (
-              <p style={{ fontSize: 14, color: "var(--text-tertiary)", fontStyle: "italic", marginBottom: 32, fontWeight: 450 }}>
-                &ldquo;{articleData.title_original}&rdquo;
-              </p>
+                ))}
+              </div>
             )}
+          </div>
+        </div>
 
-            <hr style={{ border: "none", borderTop: "1px solid var(--border-subtle)", marginBottom: 32 }} />
+        {/* Right: Article Detail */}
+        <div className="flex-1 bg-[var(--bg-base)] overflow-y-auto custom-scrollbar">
+          {!selectedNewsId ? (
+            <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-40">
+              <div className="p-4 rounded-full bg-[var(--bg-surface)] border border-[var(--border-subtle)]">
+                <Layout className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-lg font-medium">Haber Detayı</p>
+                <p className="text-sm">Analiz ve üretim için soldan bir haber seçin.</p>
+              </div>
+            </div>
+          ) : articleLoading ? (
+            <div className="h-full flex flex-col items-center justify-center space-y-4">
+              <LoaderCircle className="w-8 h-8 animate-spin text-white/20" />
+              <p className="text-xs font-mono text-white/20 uppercase">Haber Yükleniyor</p>
+            </div>
+          ) : articleData ? (
+            <div className="p-10 max-w-3xl mx-auto space-y-10 animate-in fade-in duration-500 pb-32">
+              
+              <div className="space-y-6">
+                <div className="flex items-center gap-4">
+                  <span className="text-[10px] font-bold font-mono px-3 py-1 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-full text-white">
+                    {articleData.source_name?.toUpperCase()}
+                  </span>
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold font-mono",
+                    articleData.viral_score >= 70 ? "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20" : "text-amber-400 bg-amber-500/10 border border-amber-500/20"
+                  )}>
+                    <Zap size={10} />
+                    VIRAL SCORE: {articleData.viral_score}
+                  </div>
+                  <span className="text-[10px] font-mono text-[var(--text-muted)] uppercase">
+                    {formatDistanceToNow(new Date(articleData.fetched_at), { addSuffix: true, locale: tr })}
+                  </span>
+                </div>
 
-            {/* Content */}
-            <div className="flex-1 space-y-5">
-              {articleData.full_summary_tr ? (
-                articleData.full_summary_tr.split("\n\n").map((paragraph, i) => (
-                  <p key={i} className="text-body" style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-secondary)" }}>
-                    {paragraph}
+                <div className="space-y-4">
+                  <h1 className="text-3xl font-bold text-white leading-tight tracking-tight">
+                    {articleData.title_tr}
+                  </h1>
+                  <p className="text-sm text-[var(--text-muted)] font-mono italic leading-relaxed">
+                    "{articleData.title_original}"
                   </p>
-                ))
-              ) : (
-                <p className="text-body" style={{ fontSize: 15, lineHeight: 1.7, color: "var(--text-secondary)" }}>
-                  {articleData.summary || "Özet mevcut değil."}
-                </p>
-              )}
-            </div>
+                </div>
+              </div>
 
-            {/* Action Bar */}
-            <div
-              className="sticky bottom-0 flex gap-[12px]"
-              style={{
-                marginTop: 40,
-                padding: "16px 0",
-                background: "var(--surface-base)",
-                borderTop: "1px solid var(--border-subtle)",
-              }}
-            >
-              <Button
-                variant="default"
-                size="lg"
-                className="flex-1"
-                style={{ height: 48, fontSize: 15 }}
-                onClick={() => handleGenerate(selectedNewsId)}
-                disabled={generatingId === selectedNewsId}
-              >
-                {generatingId === selectedNewsId ? "Üretiliyor..." : "X'e Dönüştür"}
-              </Button>
-              <Button variant="secondary" size="lg" style={{ height: 48, fontSize: 15 }}>
-                LinkedIn Yap
-              </Button>
-              <Button variant="ghost" size="lg" style={{ height: 48, fontSize: 15 }}>
-                Kaydet
-              </Button>
-              {articleData.url && (
-                <a href={articleData.url} target="_blank" rel="noopener noreferrer">
-                  <Button variant="ghost" size="lg" style={{ height: 48, fontSize: 15, color: "var(--text-tertiary)" }}>
-                    Kaynak ↗
+              <div className="prose prose-invert max-w-none prose-p:text-[15px] prose-p:leading-relaxed prose-p:text-[var(--text-secondary)] space-y-6 border-t border-white/5 pt-10">
+                {articleData.full_summary_tr ? (
+                  articleData.full_summary_tr.split("\n\n").map((p: string, i: number) => (
+                    <p key={i}>{p}</p>
+                  ))
+                ) : (
+                  <p>{articleData.summary}</p>
+                )}
+              </div>
+
+              {/* Action Bar */}
+              <div className="fixed bottom-10 left-1/2 -translate-x-1/2 ml-[200px] w-full max-w-xl px-4 z-20">
+                <div className="bg-[var(--bg-surface)] border border-[var(--border-strong)] rounded-2xl p-3 shadow-[0_20px_50px_rgba(0,0,0,0.5)] flex items-center gap-3">
+                  <Button 
+                    onClick={() => router.push(`/tweet-generator?news_id=${selectedNewsId}`)}
+                    className="flex-1 bg-white text-black font-bold h-12 rounded-xl"
+                  >
+                    <Share2 className="w-4 h-4 mr-2" />
+                    Tweet Üret
                   </Button>
-                </a>
-              )}
+                  <Button variant="ghost" className="border border-[var(--border-default)] px-5 h-12 rounded-xl" onClick={() => window.open(articleData.url, '_blank')}>
+                    <ExternalLinkIcon size={18} />
+                  </Button>
+                  <Button variant="ghost" className="border border-[var(--border-default)] px-5 h-12 rounded-xl">
+                    <BookmarkIcon size={18} />
+                  </Button>
+                </div>
+              </div>
+
             </div>
-          </div>
-        ) : (
-          <div style={{ padding: 48, textAlign: "center", color: "var(--text-tertiary)" }}>
-            Makale yüklenemedi.
-          </div>
-        )}
+          ) : null}
+        </div>
+
       </div>
+
     </div>
   );
 }

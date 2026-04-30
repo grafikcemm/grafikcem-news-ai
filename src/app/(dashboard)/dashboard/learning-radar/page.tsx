@@ -10,6 +10,24 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { 
+  Sparkles, 
+  Plus, 
+  BookOpen, 
+  Heart, 
+  CheckCircle2, 
+  ExternalLink, 
+  Search, 
+  Filter, 
+  LoaderCircle,
+  Video,
+  FileText,
+  Wrench,
+  GraduationCap,
+  Library
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Resource {
   id: string;
@@ -24,11 +42,12 @@ interface Resource {
   created_at: string;
 }
 
-const CAT_COLORS: Record<string, string> = {
-  "design": "bg-[#E879A0]/20 text-[#E879A0]",
-  "ai": "bg-[#60A5FA]/20 text-[#60A5FA]",
-  "freelance": "bg-[#34D399]/20 text-[#34D399]",
-  "business": "bg-[#fbbf24]/20 text-[#fbbf24]"
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  "course": <GraduationCap size={14} />,
+  "article": <FileText size={14} />,
+  "video": <Video size={14} />,
+  "tool": <Wrench size={14} />,
+  "book": <BookOpen size={14} />
 };
 
 export default function LearningRadarPage() {
@@ -37,9 +56,9 @@ export default function LearningRadarPage() {
   const [generating, setGenerating] = useState(false);
 
   // Filters
-  const [catFilter, setCatFilter] = useState("Tümü"); // design, ai, freelance, business
-  const [typeFilter, setTypeFilter] = useState("Tümü"); // course, article, video, tool, book
-  const [statusFilter, setStatusFilter] = useState("Tümü"); // saved, completed
+  const [catFilter, setCatFilter] = useState("Tümü");
+  const [typeFilter, setTypeFilter] = useState("Tümü");
+  const [statusFilter, setStatusFilter] = useState("Tümü");
 
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,13 +80,13 @@ export default function LearningRadarPage() {
     try {
       const res = await fetch("/api/learning/find-resources", { method: "POST" });
       if (res.ok) {
-         alert("8 yeni kaynak bulundu ✓");
+         toast.success("Yeni kaynaklar başarıyla radarımıza takıldı!");
          fetchData();
       } else {
-         alert("Hata oluştu.");
+         toast.error("Kaynak tarama başarısız oldu.");
       }
     } catch {
-       alert("Network hatası.");
+       toast.error("Network hatası.");
     } finally {
        setGenerating(false);
     }
@@ -81,24 +100,24 @@ export default function LearningRadarPage() {
   const completeResource = async (r: Resource) => {
     setResources(prev => prev.map(x => x.id === r.id ? { ...x, is_completed: true } : x));
     await supabase.from("learning_resources").update({ is_completed: true }).eq("id", r.id);
+    toast.success("Kaynak tamamlandı olarak işaretlendi!");
   };
 
   const handleManualAdd = async () => {
-    if (!form.title || !form.url) return alert("Başlık ve URL zorunlu.");
+    if (!form.title || !form.url) return toast.error("Başlık ve URL zorunlu.");
     const { error } = await supabase.from("learning_resources").insert([{
       ...form, is_saved: false, is_completed: false, 
       week_number: 0, year: new Date().getFullYear()
     }]);
     if (!error) {
-      alert("Manuel kaynak eklendi ✓");
+      toast.success("Yeni kaynak manuel olarak eklendi.");
       setModalOpen(false);
       fetchData();
-    } else alert("Hata oluştu.");
+    } else toast.error("Kayıt sırasında bir hata oluştu.");
   };
 
   const filtered = useMemo(() => {
     return resources.filter(r => {
-      // mapping tr -> en for filters
       const c = catFilter === 'Tasarım' ? 'design' : catFilter === 'AI' ? 'ai' : catFilter === 'Freelance' ? 'freelance' : catFilter === 'İş Geliştirme' ? 'business' : 'Tümü';
       const t = typeFilter === 'Kurs' ? 'course' : typeFilter === 'Makale' ? 'article' : typeFilter === 'Video' ? 'video' : typeFilter === 'Araç' ? 'tool' : typeFilter === 'Kitap' ? 'book' : 'Tümü';
       
@@ -113,122 +132,211 @@ export default function LearningRadarPage() {
   const sortedAndFiltered = filtered.sort((a,b) => Number(a.is_completed) - Number(b.is_completed));
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-7xl mx-auto min-h-screen bg-[var(--surface-base)]">
-      {/* Üst Bar */}
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-         <div>
-            <h1 className="text-2xl font-bold text-[var(--text-primary)]">Kaynak Radarı</h1>
-            <p className="text-[var(--text-secondary)] text-sm mt-1">Sizin için seçilmiş güncel tasarım ve AI odaklı öğrenim materyalleri.</p>
+    <div className="p-6 lg:p-10 space-y-10 max-w-[1600px] mx-auto min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
+      {/* Header Bar */}
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-6">
+         <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight">Kaynak Radarı</h1>
+            <p className="text-[var(--text-secondary)] text-sm">Zihnini besleyecek en taze tasarım ve AI kaynakları.</p>
          </div>
-         <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setModalOpen(true)} className="bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)] rounded-[var(--radius-md)]">+ Manuel Ekle</Button>
-            <Button onClick={handleGenerate} disabled={generating} className="bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] font-medium rounded-[var(--radius-md)]">✨ AI ile Kaynak Bul</Button>
+         <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setModalOpen(true)} className="h-12 px-6 rounded-2xl bg-[var(--bg-surface)] border border-[var(--border-subtle)] hover:bg-[var(--bg-elevated)] transition-all font-bold text-xs gap-2">
+              <Plus size={16} /> MANUEL EKLE
+            </Button>
+            <Button onClick={handleGenerate} disabled={generating} className="h-12 px-6 rounded-2xl bg-white text-black hover:opacity-90 transition-all font-bold text-xs gap-2">
+              {generating ? <LoaderCircle className="animate-spin" size={16} /> : <Sparkles size={16} />}
+              AI İLE TARA
+            </Button>
          </div>
       </div>
 
-      {/* Filtreler */}
-      <div className="bg-[var(--surface-raised)] border border-[var(--border-subtle)] p-4 rounded-[var(--radius-lg)] flex flex-wrap gap-4 items-center">
-         <div className="flex bg-[var(--surface-base)] rounded-md p-1 border border-[var(--border-subtle)]">
-            {['Tümü', 'Tasarım', 'AI', 'Freelance', 'İş Geliştirme'].map(c => (
-              <button key={c} onClick={() => setCatFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${catFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)]'}`}>{c}</button>
-            ))}
-         </div>
-         <div className="flex bg-[var(--surface-base)] rounded-md p-1 border border-[var(--border-subtle)]">
-            {['Tümü', 'Kurs', 'Makale', 'Video', 'Araç', 'Kitap'].map(c => (
-              <button key={c} onClick={() => setTypeFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${typeFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)]'}`}>{c}</button>
-            ))}
-         </div>
-         <div className="flex bg-[var(--surface-base)] rounded-md p-1 border border-[var(--border-subtle)]">
-            {['Tümü', 'Kaydedilenler', 'Tamamlananlar'].map(c => (
-              <button key={c} onClick={() => setStatusFilter(c)} className={`px-3 py-1 text-xs rounded transition-colors ${statusFilter === c ? 'bg-[var(--accent-subtle)] text-[var(--accent)] border border-[var(--accent-muted)]' : 'bg-[var(--surface-overlay)] text-[var(--text-tertiary)] hover:bg-[var(--surface-elevated)]'}`}>{c}</button>
-            ))}
-         </div>
-       </div>
+      {/* Filters */}
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap gap-4 p-5 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-3xl items-center shadow-sm">
+           <Filter size={16} className="text-[var(--text-muted)] mr-2" />
+           
+           <FilterGroup label="KATEGORİ" options={['Tümü', 'Tasarım', 'AI', 'Freelance', 'İş Geliştirme']} active={catFilter} onChange={setCatFilter} />
+           <div className="w-px h-6 bg-white/5" />
+           <FilterGroup label="TÜR" options={['Tümü', 'Kurs', 'Makale', 'Video', 'Araç', 'Kitap']} active={typeFilter} onChange={setTypeFilter} />
+           <div className="w-px h-6 bg-white/5" />
+           <FilterGroup label="DURUM" options={['Tümü', 'Kaydedilenler', 'Tamamlananlar']} active={statusFilter} onChange={setStatusFilter} />
+        </div>
+      </div>
 
        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-             {[1,2,3,4].map(i=><Skeleton key={i} className="h-48 bg-[var(--surface-raised)] rounded-[var(--radius-lg)]" />)}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+             {[1,2,3,4,5,6,7,8].map(i=><Skeleton key={i} className="h-[280px] bg-[var(--bg-surface)] rounded-3xl border border-[var(--border-subtle)]" />)}
           </div>
        ) : resources.length === 0 ? (
-          <div className="py-24 flex flex-col items-center justify-center bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-lg)]">
-             <div className="text-4xl mb-4 opacity-60 text-[var(--text-tertiary)]">📚</div>
-             <p className="text-[var(--text-primary)] font-semibold mb-1">Henüz kaynak yok</p>
-             <p className="text-[var(--text-secondary)] text-sm mb-6">Öğrenme haftanıza taze içeriklerle başlayın.</p>
-             <Button onClick={handleGenerate} disabled={generating} className="bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] font-medium rounded-[var(--radius-md)]">✨ AI ile Bu Haftanın Kaynaklarını Bul</Button>
+          <div className="py-32 flex flex-col items-center justify-center bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[40px] space-y-6 text-center">
+             <div className="w-20 h-20 rounded-full bg-[var(--bg-elevated)] border border-[var(--border-subtle)] flex items-center justify-center text-3xl">
+                <Library size={32} className="text-[var(--text-muted)]" />
+             </div>
+             <div className="space-y-1">
+               <p className="text-xl font-bold">Henüz kaynak taranmadı</p>
+               <p className="text-[var(--text-secondary)] text-sm max-w-sm mx-auto">Radar henüz boş. AI tarayıcısını başlatarak web'deki en iyi kaynakları toplayabilirsin.</p>
+             </div>
+             <Button onClick={handleGenerate} disabled={generating} className="h-14 px-8 rounded-2xl bg-white text-black font-bold text-sm gap-2">
+               <Sparkles size={18} /> Radar Taramasını Başlat
+             </Button>
           </div>
        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-in fade-in duration-700">
              {sortedAndFiltered.map(r => (
-               <Card key={r.id} className={`bg-[var(--surface-raised)] border border-[var(--border-subtle)] rounded-[var(--radius-lg)] flex flex-col transition-all ${r.is_completed ? 'opacity-50' : 'hover:border-[var(--border-default)]'}`}>
-                  <CardContent className="p-4 flex flex-col h-full">
-                     <div className="flex justify-between items-start mb-3">
-                        <div className="flex gap-2">
-                          <Badge variant="outline" className="text-[9px] border-[var(--border-subtle)] text-[var(--text-secondary)] capitalize bg-[var(--surface-overlay)]">{r.resource_type}</Badge>
-                          <Badge className={`text-[9px] border-0 capitalize ${CAT_COLORS[r.category] || 'bg-[#555]/20 text-[#ccc]'}`}>{r.category}</Badge>
+               <Card key={r.id} className={cn(
+                 "bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-[32px] flex flex-col transition-all group hover:border-[var(--border-default)] overflow-hidden",
+                 r.is_completed && "opacity-40 grayscale"
+               )}>
+                  <CardContent className="p-6 flex flex-col h-full space-y-5">
+                     <div className="flex justify-between items-start">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-[var(--bg-elevated)] border border-white/5 text-[var(--text-secondary)]">
+                            {TYPE_ICONS[r.resource_type] || <BookOpen size={14} />}
+                          </div>
+                          <span className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">{r.category}</span>
                         </div>
-                        <button onClick={() => toggleSave(r)} className="text-lg leading-none cursor-pointer hover:scale-110 transition-transform">
-                          {r.is_saved ? '❤️' : '🤍'}
+                        <button 
+                          onClick={() => toggleSave(r)} 
+                          className={cn(
+                            "w-8 h-8 rounded-full flex items-center justify-center transition-all border",
+                            r.is_saved ? "bg-red-500/10 border-red-500/20 text-red-500" : "bg-[var(--bg-elevated)] border-white/5 text-[var(--text-muted)] hover:text-white"
+                          )}
+                        >
+                          <Heart size={14} fill={r.is_saved ? "currentColor" : "none"} />
                         </button>
                      </div>
-                     <h3 className="font-bold text-[var(--text-primary)] text-sm mb-2 line-clamp-2">{r.title}</h3>
-                     <p className="text-xs text-[var(--text-secondary)] line-clamp-2 mb-3">{r.ai_summary}</p>
+
+                     <div className="space-y-2 flex-1">
+                       <h3 className="font-bold text-white leading-tight line-clamp-2 group-hover:text-[var(--accent)] transition-colors">{r.title}</h3>
+                       <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-3">{r.ai_summary}</p>
+                     </div>
                      
-                     <div className="mt-auto pt-4 border-t border-[var(--border-subtle)] flex items-center justify-between">
-                         <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">{r.source}</span>
-                         <div className="flex gap-2">
-                           {!r.is_completed && <Button variant="ghost" size="sm" onClick={() => completeResource(r)} className="h-7 px-2 text-[10px] text-[var(--text-tertiary)] hover:text-[var(--success)]">Tamamlandı ✓</Button>}
-                           <a href={r.url} target="_blank" rel="noopener noreferrer" className="h-7 px-3 flex items-center justify-center rounded-[var(--radius-md)] text-[10px] font-medium bg-[var(--surface-overlay)] border border-[var(--border-default)] text-[var(--text-primary)] hover:bg-[var(--surface-elevated)]">Ziyaret Et →</a>
-                         </div>
+                     <div className="pt-5 border-t border-white/5 flex flex-col gap-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-wider">{r.source || 'BİLİNMEYEN'}</span>
+                          <span className="text-[9px] font-mono text-[var(--text-muted)]">{new Date(r.created_at).toLocaleDateString()}</span>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                           {!r.is_completed ? (
+                             <Button variant="ghost" onClick={() => completeResource(r)} className="h-10 flex-1 bg-[var(--bg-elevated)] border border-white/5 rounded-xl text-[10px] font-bold font-mono uppercase text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-hover)]">
+                                <CheckCircle2 size={12} className="mr-2" /> TAMAMLANDI
+                             </Button>
+                           ) : (
+                             <div className="h-10 flex-1 flex items-center justify-center text-[10px] font-bold font-mono text-emerald-500 uppercase">
+                               <CheckCircle2 size={12} className="mr-2" /> BİTİRİLDİ
+                             </div>
+                           )}
+                           <a href={r.url} target="_blank" rel="noopener noreferrer" className="h-10 px-4 flex items-center justify-center rounded-xl bg-white text-black hover:opacity-90 transition-all shadow-sm">
+                             <ExternalLink size={14} />
+                           </a>
+                        </div>
                      </div>
                   </CardContent>
                </Card>
              ))}
-             {sortedAndFiltered.length === 0 && <div className="col-span-full py-12 text-center text-[var(--text-tertiary)] text-sm">Filtrelere uygun kaynak bulunamadı.</div>}
+             {sortedAndFiltered.length === 0 && (
+               <div className="col-span-full py-20 text-center opacity-20 flex flex-col items-center gap-4">
+                 <Search size={40} />
+                 <p className="text-[10px] font-bold font-mono tracking-widest uppercase">KRİTERLERE UYGUN KAYNAK BULUNAMADI</p>
+               </div>
+             )}
           </div>
        )}
 
-       {/* Manuel Ekle Modal */}
+       {/* Modal */}
        <Sheet open={modalOpen} onOpenChange={setModalOpen}>
-        <SheetContent className="w-[400px] bg-[var(--surface-raised)] border-l border-[var(--border-subtle)]">
-          <SheetHeader className="mb-6"><SheetTitle className="text-[var(--text-primary)]">Manuel Kaynak Ekle</SheetTitle></SheetHeader>
-          <div className="space-y-4">
-             <div>
-               <label className="text-xs text-[var(--text-secondary)] mb-1 block">Başlık *</label>
-               <Input value={form.title || ''} onChange={e => setForm({...form, title: e.target.value})} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] rounded-[var(--radius-md)] focus:border-[var(--accent)]" />
+        <SheetContent className="w-full sm:max-w-md bg-[var(--bg-surface)] border-l border-[var(--border-subtle)] text-white p-8 overflow-y-auto">
+          <SheetHeader className="mb-8 space-y-1">
+            <SheetTitle className="text-xl font-bold">Manuel Kaynak Ekle</SheetTitle>
+            <p className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Kendi keşfettiğin kaynakları radara dahil et</p>
+          </SheetHeader>
+          
+          <div className="space-y-6">
+             <div className="space-y-2">
+               <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Başlık *</label>
+               <Input 
+                value={form.title || ''} 
+                onChange={e => setForm({...form, title: e.target.value})} 
+                className="h-12 bg-[var(--bg-elevated)] border-[var(--border-default)] text-sm rounded-xl focus:border-[var(--border-strong)] transition-all" 
+                placeholder="Örn: Framer Motion Masterclass"
+               />
              </div>
-             <div>
-               <label className="text-xs text-[var(--text-secondary)] mb-1 block">URL *</label>
-               <Input value={form.url || ''} onChange={e => setForm({...form, url: e.target.value})} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] rounded-[var(--radius-md)] focus:border-[var(--accent)]" />
+             
+             <div className="space-y-2">
+               <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">URL *</label>
+               <Input 
+                value={form.url || ''} 
+                onChange={e => setForm({...form, url: e.target.value})} 
+                className="h-12 bg-[var(--bg-elevated)] border-[var(--border-default)] text-sm rounded-xl focus:border-[var(--border-strong)] transition-all" 
+                placeholder="https://..."
+               />
              </div>
+
              <div className="grid grid-cols-2 gap-4">
-                <div>
-                   <label className="text-xs text-[var(--text-secondary)] mb-1 block">Tür</label>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Kaynak Türü</label>
                    <Select value={form.resource_type ?? undefined} onValueChange={v => setForm({...form, resource_type: v ?? ''})}>
-                      <SelectTrigger className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] rounded-[var(--radius-md)]"><SelectValue/></SelectTrigger>
+                      <SelectTrigger className="h-12 bg-[var(--bg-elevated)] border-[var(--border-default)] text-xs rounded-xl"><SelectValue/></SelectTrigger>
                       <SelectContent>
-                        {['course', 'article', 'video', 'tool', 'book'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {['course', 'article', 'video', 'tool', 'book'].map(s => <SelectItem key={s} value={s}>{s.toUpperCase()}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
-                <div>
-                   <label className="text-xs text-[var(--text-secondary)] mb-1 block">Kategori</label>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Kategori</label>
                    <Select value={form.category ?? undefined} onValueChange={v => setForm({...form, category: v ?? ''})}>
-                      <SelectTrigger className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] rounded-[var(--radius-md)]"><SelectValue/></SelectTrigger>
+                      <SelectTrigger className="h-12 bg-[var(--bg-elevated)] border-[var(--border-default)] text-xs rounded-xl"><SelectValue/></SelectTrigger>
                       <SelectContent>
-                        {['design', 'ai', 'freelance', 'business'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                        {['design', 'ai', 'freelance', 'business'].map(s => <SelectItem key={s} value={s}>{s.toUpperCase()}</SelectItem>)}
                       </SelectContent>
                    </Select>
                 </div>
              </div>
-             <div>
-               <label className="text-xs text-[var(--text-secondary)] mb-1 block">Notlar (neden eklendi?)</label>
-               <Textarea value={form.ai_summary || ''} onChange={e => setForm({...form, ai_summary: e.target.value})} className="bg-[var(--surface-overlay)] border-[var(--border-default)] text-[var(--text-primary)] min-h-[80px] rounded-[var(--radius-md)] focus:border-[var(--accent)]" />
+
+             <div className="space-y-2">
+               <label className="text-[10px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">Neden ekledin? (Notlar)</label>
+               <Textarea 
+                value={form.ai_summary || ''} 
+                onChange={e => setForm({...form, ai_summary: e.target.value})} 
+                className="min-h-[100px] bg-[var(--bg-elevated)] border-[var(--border-default)] text-sm rounded-xl focus:border-[var(--border-strong)] transition-all resize-none" 
+               />
              </div>
-             <Button onClick={handleManualAdd} className="w-full bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white mt-4 font-medium rounded-[var(--radius-md)]">Kaydet</Button>
+
+             <div className="pt-6 border-t border-white/5 space-y-4">
+              <Button onClick={handleManualAdd} className="w-full h-14 bg-white text-black font-bold text-lg rounded-2xl hover:opacity-90 transition-all">
+                Kaynağı Kaydet
+              </Button>
+              <Button variant="ghost" onClick={() => setModalOpen(false)} className="w-full h-12 text-[var(--text-muted)] hover:text-white">
+                İptal
+              </Button>
+             </div>
           </div>
         </SheetContent>
       </Sheet>
 
+    </div>
+  );
+}
+
+function FilterGroup({ label, options, active, onChange }: any) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-[8px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-[0.2em]">{label}</span>
+      <div className="flex gap-1">
+        {options.map((opt: string) => (
+          <button
+            key={opt}
+            onClick={() => onChange(opt)}
+            className={cn(
+              "px-3 py-1.5 rounded-lg text-[10px] font-bold font-mono transition-all",
+              active === opt ? "bg-white text-black" : "text-[var(--text-muted)] hover:text-white"
+            )}
+          >
+            {opt.toUpperCase()}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateApiRequest, unauthorizedResponse } from "@/lib/auth";
-import { generateWithGemini, GEMINI_FAST } from "@/lib/gemini";
+import { generateWithGemini, GEMINI_STANDARD } from "@/lib/gemini";
 import { parseAIJSON } from "@/lib/parse-ai";
 import {
   ACCOUNT_CONFIGS,
@@ -64,20 +64,16 @@ function buildSinglePrompt({
   language,
   mode,
   webContext,
-  references,
   account,
 }: GenerateBody & {
   mode: TweetMode;
-  references: string[];
 }) {
   const formatConfig = getFormatConfig(format);
-  const persona = ACCOUNT_CONFIGS[account].systemPrompt;
 
   return `
-${persona} — ${ACCOUNT_CONFIGS[account].handle} için tweet yaz. Türkçe. ${format} formatı. ${tone} ton. ${knowledge} bilgi. Karakter: ${character}. Max ${formatConfig.maxChars} karakter.
+${format} formatı. ${tone} ton. ${knowledge} bilgi. Karakter: ${character}. Max ${formatConfig.maxChars} karakter.
 Konu: ${topic}
 ${webContext ? `Veri: ${clampText(webContext, 300)}` : ""}
-${references.length ? `Ritim: ${references.join(" | ")}` : ""}
 JSON: {"text":""}
 `.trim();
 }
@@ -90,30 +86,30 @@ function buildThreadPrompt({
   tone,
   knowledge,
   language,
-  references,
-}: GenerateBody & { references: string[] }) {
-  const persona = ACCOUNT_CONFIGS[account].systemPrompt;
+}: GenerateBody) {
   return `
-${persona} — ${ACCOUNT_CONFIGS[account].handle} için 5 tweetlik thread. Türkçe. ${tone} ton. ${knowledge} bilgi.
+5 tweetlik thread. Türkçe. ${tone} ton. ${knowledge} bilgi.
 Konu: ${topic}
 ${webContext ? `Veri: ${clampText(webContext, 300)}` : ""}
 JSON array: [{"step":1,"type":"hook","text":""},...]
 `.trim();
 }
 
-async function getReferenceTweets(account: TweetAccount) {
+async function getViralContext() {
   const { data } = await supabaseAdmin
     .from("viral_references")
-    .select("tweet_text")
-    .eq("account", account)
+    .select("tweet_text, format, engagement_score")
     .eq("is_active", true)
-    .order("created_at", { ascending: false })
+    .order("engagement_score", { ascending: false })
     .limit(5);
 
-  return (data ?? [])
-    .map((item) => truncateReference(item.tweet_text, 140))
-    .filter(Boolean)
-    .slice(0, 3);
+  if (!data || data.length === 0) return "";
+
+  const viralContext = data.map((e, i) =>
+    `Örnek ${i + 1} (${e.format || 'Genel'}, skor: ${e.engagement_score || 0}):\n${e.tweet_text}`
+  ).join('\n\n---\n\n');
+
+  return `REFERANS TWEET ÖRNEKLERİ (bu tarz ve tonda yaz):\n${viralContext}`;
 }
 
 function normalizeThread(raw: unknown): ThreadTweet[] | null {
@@ -166,7 +162,8 @@ export async function POST(request: NextRequest) {
     }
 
     const accountConfig = ACCOUNT_CONFIGS[body.account];
-    const references = await getReferenceTweets(body.account);
+    const viralContext = await getViralContext();
+    const systemPrompt = `${accountConfig.systemPrompt}\n\n${viralContext}`.trim();
 
     if (body.format === "thread") {
       const prompt = buildThreadPrompt({
@@ -179,10 +176,9 @@ export async function POST(request: NextRequest) {
         language: body.language ?? accountConfig.defaults.language,
         webContext: body.webContext,
         mode,
-        references,
       });
 
-      const text = await generateWithGemini(prompt, "creative", accountConfig.systemPrompt, GEMINI_FAST);
+      const text = await generateWithGemini(prompt, "creative", systemPrompt);
       const parsed = parseAIJSON<unknown>(text);
       const thread = normalizeThread(parsed);
 
@@ -195,7 +191,7 @@ export async function POST(request: NextRequest) {
         format: body.format,
         account: body.account,
         thread,
-        referencesUsed: references,
+        viralContextUsed: viralContext !== "",
       });
     }
 
@@ -209,10 +205,9 @@ export async function POST(request: NextRequest) {
       language: body.language ?? accountConfig.defaults.language,
       webContext: body.webContext,
       mode,
-      references,
     });
 
-    const text = await generateWithGemini(prompt, "creative", accountConfig.systemPrompt, GEMINI_FAST);
+    const text = await generateWithGemini(prompt, "creative", systemPrompt);
     const parsed = parseAIJSON<SingleTweetResult>(text);
 
     if (!parsed?.text?.trim()) {
@@ -224,7 +219,7 @@ export async function POST(request: NextRequest) {
       format: body.format,
       account: body.account,
       tweet: parsed.text.trim(),
-      referencesUsed: references,
+      viralContextUsed: viralContext !== "",
     });
   } catch (err) {
     console.error("[tweet/generate] error:", err);

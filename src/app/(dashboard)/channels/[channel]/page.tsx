@@ -260,8 +260,7 @@ export default function ChannelPage() {
   useEffect(() => {
     async function load() {
       const channelId = channel;
-      console.log("Channel ID:", channelId);
-      setLoading(true);
+            setLoading(true);
       try {
         if (channelId === "linkedin") {
           const res = await fetch(`/api/channels/${channelId}/content?status=all`);

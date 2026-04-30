@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       .select("handle, category")
       .limit(10);
     
-    console.log("Plan üretimi için veriler toplandı:", { newsCount: newsItems?.length, competitorsCount: competitors?.length });
+    
 
     const systemPrompt = "Sen profesyonel bir sosyal medya stratejistisin. Verilen gündem ve rakip verilerine dayanarak haftalık içerik planı oluşturursun.";
     const userPrompt = `Aşağıdaki verilere dayanarak Türk tasarım, AI ve kişisel gelişim içerik üreticisi için (Ali Cem) bu haftanın 10 içerik planını oluştur. 

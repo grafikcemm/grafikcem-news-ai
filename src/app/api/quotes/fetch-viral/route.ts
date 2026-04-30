@@ -23,8 +23,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ tweets: cached, fetched: cached.length, cached: true });
     }
 
-    // No cached tweets — return mock data
-    return NextResponse.json({ tweets: MOCK_VIRAL_TWEETS, fetched: MOCK_VIRAL_TWEETS.length, mock: true });
+    // No cached tweets — save mock data to DB first
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from("viral_tweets")
+      .insert(MOCK_VIRAL_TWEETS.map(({ id, ...rest }) => rest)) // exclude mock numeric id
+      .select();
+
+    if (insertError) {
+      console.error("Insert mock error:", insertError);
+      return NextResponse.json({ tweets: MOCK_VIRAL_TWEETS, fetched: MOCK_VIRAL_TWEETS.length, mock: true });
+    }
+
+    return NextResponse.json({ tweets: inserted, fetched: inserted.length, mock: false });
   } catch (err) {
     console.error("Fetch viral error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

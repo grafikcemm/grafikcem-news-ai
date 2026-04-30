@@ -1,54 +1,55 @@
-import { GoogleGenerativeAI, GenerationConfig } from "@google/generative-ai";
+import { GoogleGenerativeAI } from '@google/generative-ai'
 
-const genAI = new GoogleGenerativeAI(
+export const genAI = new GoogleGenerativeAI(
   process.env.GOOGLE_GEMINI_API_KEY!
-);
+)
 
-export { genAI };
+// Model sabitleri — doğrulanmış API stringleri
+export const GEMINI_FAST = 'gemini-3.1-flash-lite-preview'      // Haber filtreleme, cron, skorlama
+export const GEMINI_STANDARD = 'gemini-3-flash-preview'          // Tweet, carousel, prompt studio
 
-export const GEMINI_MODEL = "gemini-3-flash-preview";
-export const GEMINI_STANDARD = "gemini-3-flash-preview";
-export const GEMINI_FAST = "gemini-2.0-flash-lite";
-
-const CONFIGS: Record<string, GenerationConfig> = {
-  creative: {
-    temperature: 0.9,
-    topP: 0.95,
-    maxOutputTokens: 4096,
-  },
-  analytical: {
-    temperature: 0.3,
-    topP: 0.85,
-    maxOutputTokens: 8192,
-  },
-  planning: {
-    temperature: 0.6,
-    topP: 0.90,
-    maxOutputTokens: 8192,
-  },
-};
+// Gemini 3 serisi için thinkingConfig kullanılıyor (temperature artık çalışmıyor)
+// thinking_level: minimal = en hızlı/ucuz | high = en derin reasoning
 
 export async function generateWithGemini(
   prompt: string,
-  mode: "creative" | "analytical" | "planning" = "creative",
+  mode: 'creative' | 'analytical' | 'planning' = 'creative',
   systemPrompt?: string,
-  modelName = GEMINI_MODEL
+  modelName = GEMINI_STANDARD
 ): Promise<string> {
   try {
+    // Gemini 3.1 Flash Lite için thinking_level minimal (hız öncelikli)
+    // Gemini 3 Flash için thinking_level low (kalite/hız dengesi)
+    const thinkingLevel = modelName === GEMINI_FAST ? 'minimal' : 'low'
+
     const model = genAI.getGenerativeModel({
       model: modelName,
-      generationConfig: CONFIGS[mode],
       systemInstruction: systemPrompt,
-    });
+    })
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
+    // Thinking level'ı request body'ye ekle
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        maxOutputTokens: mode === 'planning' ? 8192 : 4096,
+        thinkingConfig: { thinking_level: thinkingLevel }
+      } as any,
+    })
 
-    if (!text) throw new Error("Empty response from Gemini");
-    return text;
+    const response = await result.response
+    const text = response.text()
+    if (!text) throw new Error('Empty response from Gemini')
+    return text
   } catch (err) {
-    console.error("Gemini API error:", err);
-    throw err;
+    console.error('Gemini API error:', err)
+    throw err
   }
+}
+
+// Convenience wrapper — fast model için
+export async function generateWithGeminiFast(
+  prompt: string,
+  systemPrompt?: string
+): Promise<string> {
+  return generateWithGemini(prompt, 'analytical', systemPrompt, GEMINI_FAST)
 }

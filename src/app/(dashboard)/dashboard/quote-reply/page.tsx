@@ -232,7 +232,7 @@ export default function QuoteReplyPage() {
                   {selectedFormat === "LinkedIn Yorum" ? (
                     <Button 
                       onClick={() => window.open(`https://www.linkedin.com/feed/`, "_blank")} 
-                      className="flex-1 bg-[#0A66C2] hover:bg-[#004182] text-white"
+                      className="flex-1 bg-blue-600 hover:bg-blue-800 text-white"
                     >
                       LinkedIn&apos;i Aç
                     </Button>

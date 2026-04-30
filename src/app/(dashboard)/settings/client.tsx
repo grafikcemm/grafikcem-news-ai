@@ -8,6 +8,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { 
+  Settings, 
+  Shield, 
+  Clock, 
+  Sparkles, 
+  Save, 
+  Lock, 
+  Cpu,
+  CheckCircle2,
+  AlertCircle
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface SettingsClientProps {
   initialPrompt: string;
@@ -38,95 +50,149 @@ export function SettingsClient({ initialPrompt, envs }: SettingsClientProps) {
   }
 
   return (
-    <div className="p-4 lg:p-8 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold text-[var(--text-primary)]">Ayarlar</h1>
-        <p className="text-[var(--text-tertiary)] text-sm mt-1">Platform tercihleri, API anahtarları ve otomasyon ayarları</p>
+    <div className="p-6 lg:p-10 space-y-10 max-w-5xl mx-auto min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)]">
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold tracking-tight">Ayarlar</h1>
+        </div>
+        <p className="text-[var(--text-secondary)] text-sm">Platform tercihleri, AI konfigürasyonu ve otomasyon yönetimi.</p>
       </div>
 
-      {/* Prompts Section */}
-      <Card className="border-0 shadow-sm bg-[var(--surface-card)]">
-        <CardHeader>
-          <CardTitle className="text-lg">Kişisel Ses Promptu</CardTitle>
-          <CardDescription>
-            Claude'un tweet üretirken size özel davranabilmesi için ek yönlendirmeler girin.
-            (Örn: "Daha çok soru sorarak bitir, X kelimesini çok sık kullan")
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Textarea
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Buraya ek kişisel ses kurallarını yazın..."
-            className="min-h-[150px] resize-y"
-          />
-          <Button
-            onClick={savePrompt}
-            disabled={saving || prompt === initialPrompt}
-            className="bg-blue-500 hover:bg-blue-600 text-white"
-          >
-            {saving ? "Kaydediliyor..." : "Promptu Kaydet"}
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="grid grid-cols-1 gap-8">
+        {/* Personal Voice Prompt */}
+        <Card className="bg-[var(--bg-surface)] border-[var(--border-subtle)] rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-4 h-4 text-[var(--accent)]" />
+              <CardTitle className="text-lg">Kişisel Ses Promptu</CardTitle>
+            </div>
+            <CardDescription className="text-[var(--text-muted)] text-xs">
+              AI'nın üretim yaparken size özel bir ton yakalaması için ek kurallar girin.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="relative">
+              <textarea
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                placeholder="Örn: 'Daha çok soru sorarak bitir', 'Asla teknik jargon kullanma'..."
+                className="w-full h-40 bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl p-4 text-sm text-white placeholder-[var(--text-muted)] focus:border-[var(--border-strong)] outline-none resize-none leading-relaxed transition-all font-mono"
+              />
+            </div>
+            <div className="flex justify-end">
+              <Button
+                onClick={savePrompt}
+                disabled={saving || prompt === initialPrompt}
+                className="bg-white text-black hover:opacity-90 font-bold px-8 rounded-xl h-11"
+              >
+                {saving ? "Kaydediliyor..." : "Ayarları Güncelle"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Env Vars (Read Only) */}
-      <Card className="border-0 shadow-sm bg-[var(--surface-card)]">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-tertiary)]"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            <CardTitle className="text-lg">API Anahtarları (Salt Okunur)</CardTitle>
-          </div>
-          <CardDescription>
-            Güvenlik nedeniyle API anahtarlarınız veritabanında tutulmamaktadır.
-            Bu değerleri projenizin .env ortam değişkenlerinden düzenleyebilirsiniz.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-4 max-w-sm">
-            <h3 className="font-medium text-sm text-[var(--text-primary)] flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-              Anthropic (Claude) API
-            </h3>
-            <div>
-              <Label className="text-xs text-[var(--text-tertiary)]">API Key</Label>
-              <Input value={envs.anthropicKey} disabled className="mt-1 bg-[var(--surface-elevated)] font-mono text-sm" />
+        {/* Security & API */}
+        <Card className="bg-[var(--bg-surface)] border-[var(--border-subtle)] rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30">
+            <div className="flex items-center gap-2 mb-1">
+              <Shield className="w-4 h-4 text-[var(--text-secondary)]" />
+              <CardTitle className="text-lg">Sistem Güvenliği</CardTitle>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            <CardDescription className="text-[var(--text-muted)] text-xs">
+              Aktif API anahtarları ve servis durumu (Salt Okunur).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-3 p-4 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-[var(--accent)]" />
+                    <span className="text-xs font-bold font-mono uppercase tracking-widest text-white">Google Gemini</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span className="text-[10px] font-bold text-emerald-400">ACTIVE</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-[var(--text-muted)] font-mono uppercase">API ENDPOINT</Label>
+                  <p className="text-xs text-[var(--text-secondary)] truncate font-mono">generativelanguage.googleapis.com</p>
+                </div>
+              </div>
 
-      {/* Cron Info */}
-      <Card className="border-0 shadow-sm bg-[var(--surface-card)] overflow-hidden">
-        <CardHeader className="bg-[var(--surface-elevated)] border-b border-[var(--border-subtle)] pb-4">
-          <div className="flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--text-tertiary)]"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <CardTitle className="text-lg">Cron Zamanlamaları</CardTitle>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="divide-y divide-slate-100">
-            <div className="p-5 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Otomatik Haber Çekimi</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">Aktif kaynaklardaki RSS feed'leri taranır, yeni haberler veritabanına eklenir ve Claude ile skorlanır.</p>
-              </div>
-              <div className="bg-[var(--surface-elevated)] text-[var(--text-secondary)] px-3 py-1.5 rounded-lg text-sm font-mono shrink-0">
-                */30 * * * * (Her 30 dk)
+              <div className="space-y-3 p-4 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <Lock className="w-4 h-4 text-[var(--text-secondary)]" />
+                    <span className="text-xs font-bold font-mono uppercase tracking-widest text-white">Anthropic (Legacy)</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[10px] text-[var(--text-muted)] font-mono uppercase">API KEY</Label>
+                  <p className="text-xs text-[var(--text-secondary)] font-mono">{envs.anthropicKey}</p>
+                </div>
               </div>
             </div>
-            <div className="p-5 flex items-start sm:items-center justify-between gap-4 flex-col sm:flex-row">
-              <div>
-                <p className="font-medium text-[var(--text-primary)]">Günlük Tweet Üretimi</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">Son 48 saat içindeki en viral 3 haber için günlük otomatik taslaklar oluşturulur.</p>
-              </div>
-              <div className="bg-[var(--surface-elevated)] text-[var(--text-secondary)] px-3 py-1.5 rounded-lg text-sm font-mono shrink-0">
-                0 4 * * * (Her gün 07:00 TR)
-              </div>
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+              <AlertCircle size={14} className="text-blue-400" />
+              <p className="text-[11px] text-blue-100/60 leading-tight">
+                Not: Gemini API Key güvenli bir şekilde .env.local üzerinden yönetilmektedir ve UI'da maskelenmiştir.
+              </p>
             </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Cron Timings */}
+        <Card className="bg-[var(--bg-surface)] border-[var(--border-subtle)] rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-[var(--border-subtle)] bg-[var(--bg-elevated)]/30">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="w-4 h-4 text-[var(--text-secondary)]" />
+              <CardTitle className="text-lg">Otomasyon Zamanlamaları</CardTitle>
+            </div>
+            <CardDescription className="text-[var(--text-muted)] text-xs">
+              Arka planda çalışan cron işlemlerinin frekansları.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="divide-y divide-[var(--border-subtle)]">
+              {[
+                { 
+                  title: "Haber Tarama & Skorlama", 
+                  desc: "RSS feed'leri taranır ve Gemini ile haber değerleri ölçülür.",
+                  cron: "*/30 * * * *",
+                  freq: "Her 30 Dakika"
+                },
+                { 
+                  title: "Tweet Taslağı Hazırlama", 
+                  desc: "En yüksek skorlu haberler için otomatik taslak tweetler üretilir.",
+                  cron: "0 4 * * *",
+                  freq: "Her Gün 07:00 (TR)"
+                },
+                { 
+                  title: "Carousel Strateji Planı", 
+                  desc: "Rakiplerin analizi yapılarak haftalık içerik stratejisi yenilenir.",
+                  cron: "0 0 * * 1",
+                  freq: "Her Pazartesi"
+                }
+              ].map((item, i) => (
+                <div key={i} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-bold text-white text-sm">{item.title}</p>
+                    <p className="text-xs text-[var(--text-secondary)] leading-relaxed max-w-md">{item.desc}</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <div className="bg-[var(--bg-elevated)] border border-[var(--border-default)] text-white px-3 py-1.5 rounded-lg text-[11px] font-mono">
+                      {item.cron}
+                    </div>
+                    <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-tight">{item.freq}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

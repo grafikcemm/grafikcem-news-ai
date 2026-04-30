@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateWithGemini } from "@/lib/gemini";
+import { generateWithGemini, GEMINI_STANDARD } from "@/lib/gemini";
 import { parseAIJSON } from "@/lib/parse-ai";
 
 export async function POST(req: NextRequest) {
@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
 
     const prompt = `@grafikcem Instagram (tasarım/AI/freelance) için 5 carousel fikri öner. Rakipler: ${competitors?.join(', ') || 'Yok'}. Mevcutlar: ${existingSeries || 'Yok'}. Hook ve viral nedeni dahil et. JSON: {"strategy_note":"","plans":[{"series_name":"","topic":"","why_viral":"","parts":7,"hook":"","inspiration":"","differentiation":"","content_type":"","estimated_engagement":""}]}`;
 
-    const text = await generateWithGemini(prompt, 'planning', undefined, 'gemini-2.0-flash-lite');
+    const text = await generateWithGemini(prompt, 'planning');
     const parsed = parseAIJSON(text);
 
     if (!parsed) {

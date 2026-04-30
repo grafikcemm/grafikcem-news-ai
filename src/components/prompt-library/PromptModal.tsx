@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
 import { PromptMeta } from '@/lib/prompt-library/types';
 import { CATEGORY_CONFIG } from '@/lib/prompt-library/categories';
+import { X, Copy, Check, Info, Target, Zap } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PromptModalProps {
   prompt: PromptMeta | null;
@@ -13,10 +14,9 @@ interface PromptModalProps {
   isCopied: boolean;
 }
 
-export default function PromptModal({ prompt, promptText, onClose, onCopy, isCopied }: PromptModalProps) {
-  const router = useRouter();
+export default function PromptModal({ prompt, promptText, onClose, onCopy, isCopied: externalIsCopied }: PromptModalProps) {
+  const [internalIsCopied, setInternalIsCopied] = useState(false);
 
-  // ESC ile kapat
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -25,7 +25,6 @@ export default function PromptModal({ prompt, promptText, onClose, onCopy, isCop
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  // Body scroll kilitle
   useEffect(() => {
     if (prompt) {
       document.body.style.overflow = 'hidden';
@@ -37,111 +36,107 @@ export default function PromptModal({ prompt, promptText, onClose, onCopy, isCop
 
   if (prompt === null) return null;
 
-  const catConfig = CATEGORY_CONFIG[prompt.category];
+  const catConfig = CATEGORY_CONFIG[prompt.category] || CATEGORY_CONFIG['Diğer'];
+  const isCopied = externalIsCopied || internalIsCopied;
+
+  const handleCopy = () => {
+    onCopy();
+    setInternalIsCopied(true);
+    setTimeout(() => setInternalIsCopied(false), 2000);
+  };
 
   return (
     <div
-      className="fixed inset-0 bg-black/85 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in duration-300"
       onClick={onClose}
     >
       <div
-        className="bg-[#111111] border border-[#333333] rounded-xl w-full max-w-2xl max-h-[85vh] overflow-y-auto p-6 flex flex-col gap-4"
+        className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-in zoom-in-95 duration-300"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Üst satır */}
-        <div className="flex justify-between items-center">
-          <span
-            className="inline-flex px-2 py-0.5 rounded text-xs"
-            style={{
-              color: catConfig?.color || '#6B7280',
-              backgroundColor: catConfig?.bg || 'rgba(107,114,128,0.15)',
-            }}
-          >
-            {catConfig?.label || prompt.category}
-          </span>
+        {/* Header */}
+        <div className="flex justify-between items-center px-8 py-6 border-b border-white/5">
+          <div className="flex items-center gap-3">
+            <span
+              className="px-2 py-0.5 rounded text-[10px] font-bold font-mono uppercase tracking-wider"
+              style={{
+                color: catConfig.color,
+                backgroundColor: catConfig.bg,
+                border: `1px solid ${catConfig.color}20`
+              }}
+            >
+              {prompt.category}
+            </span>
+            <div className="flex gap-1">
+              {prompt.tags.slice(0, 3).map(tag => (
+                <span key={tag} className="text-[10px] font-medium text-[var(--text-muted)]">#{tag}</span>
+              ))}
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="text-[#888] hover:text-white text-lg transition-colors"
+            className="w-8 h-8 rounded-lg bg-[var(--bg-elevated)] flex items-center justify-center text-[var(--text-muted)] hover:text-white transition-all border border-transparent hover:border-[var(--border-subtle)]"
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
-        {/* Başlık bloğu */}
-        <div>
-          <h2 className="text-[#F5F5F0] text-xl font-semibold">{prompt.title_tr}</h2>
-          <p className="text-[#555] text-xs mt-1">{prompt.title_original}</p>
-        </div>
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8">
+          {/* Title & Description */}
+          <div className="space-y-4">
+            <h2 className="text-2xl font-black tracking-tight text-white leading-tight">
+              {prompt.title_tr}
+            </h2>
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-[var(--bg-elevated)] border border-white/5">
+              <Info size={16} className="text-[var(--accent)] mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-[var(--text-secondary)] leading-relaxed">
+                {prompt.description_tr}
+              </p>
+            </div>
+          </div>
 
-        {/* Meta satırı */}
-        <div className="flex gap-4 text-xs text-[#888]">
-          <span>★ {prompt.quality_score}/10</span>
-          <span>👤 @{prompt.author}</span>
-          {prompt.votes > 0 && <span>{prompt.votes} oy</span>}
-        </div>
+          {/* Use Case */}
+          {prompt.use_case_tr && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-[11px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">
+                <Target size={12} className="text-[var(--accent)]" />
+                NE ZAMAN KULLANILIR?
+              </div>
+              <p className="text-sm text-[var(--text-secondary)]">
+                {prompt.use_case_tr}
+              </p>
+            </div>
+          )}
 
-        {/* Açıklama */}
-        <div>
-          <p className="text-xs font-medium text-[#C8F135] mb-1">Açıklama</p>
-          <p className="text-sm text-[#CCCCCC]">{prompt.description_tr}</p>
-        </div>
-
-        {/* Kullanım senaryosu */}
-        <div>
-          <p className="text-xs font-medium text-[#C8F135] mb-1">Ne Zaman Kullanılır?</p>
-          <p className="text-sm text-[#CCCCCC]">{prompt.use_case_tr}</p>
-        </div>
-
-        {/* Etiketler */}
-        <div className="flex flex-wrap gap-2">
-          {prompt.tags.map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 rounded text-[10px] bg-[var(--surface-elevated)] border border-white/10 text-[#888888]"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
-
-        {/* Ayırıcı */}
-        <hr className="border-[#222]" />
-
-        {/* Prompt metni */}
-        <div>
-          <p className="text-xs font-medium text-[#C8F135] mb-2">Prompt Metni</p>
-          <div className="bg-[#0A0A0A] border border-[#222] rounded-md p-4 font-mono text-xs text-[#F5F5F0] whitespace-pre-wrap max-h-64 overflow-y-auto leading-relaxed">
-            {promptText || 'Prompt metni yüklenemedi.'}
+          {/* Prompt Content */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-[11px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">
+                <Zap size={12} className="text-[var(--accent)]" />
+                PROMPT METNİ
+              </div>
+            </div>
+            <div className="relative group">
+              <div className="bg-[var(--bg-base)] border border-[var(--border-subtle)] rounded-xl p-6 font-mono text-[13px] text-stone-100 whitespace-pre-wrap max-h-96 overflow-y-auto leading-relaxed selection:bg-[var(--accent)]/30">
+                {promptText || 'Prompt metni yüklenemedi.'}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Alt butonlar */}
-        <div className="flex gap-3 pt-2">
+        {/* Footer */}
+        <div className="p-8 border-t border-white/5 bg-[var(--bg-base)]/50">
           <button
-            onClick={onCopy}
-            className={`px-4 py-2 rounded text-sm font-medium transition ${
+            onClick={handleCopy}
+            className={cn(
+              "w-full h-12 rounded-xl flex items-center justify-center gap-3 text-sm font-bold tracking-tight transition-all",
               isCopied
-                ? 'bg-[#22C55E] text-white'
-                : 'bg-[#C8F135] text-black hover:opacity-90'
-            }`}
+                ? "bg-green-500 text-white shadow-lg shadow-green-500/10"
+                : "bg-[var(--accent)] text-black hover:opacity-90 shadow-lg shadow-[var(--accent)]/10"
+            )}
           >
-            {isCopied ? '✅ Kopyalandı!' : '📋 Kopyala'}
-          </button>
-          <button
-            onClick={() => {
-              localStorage.setItem(
-                'promptStudioPreload',
-                JSON.stringify({
-                  text: promptText,
-                  source: prompt.title_tr,
-                })
-              );
-              router.push('/dashboard/prompt-studio');
-              onClose();
-            }}
-            className="border border-[#333] text-[#F5F5F0] px-4 py-2 rounded text-sm hover:border-[#C8F135] transition-colors"
-          >
-            ✨ Prompt Studio&apos;da Kullan
+            {isCopied ? <Check size={18} /> : <Copy size={18} />}
+            {isCopied ? 'PROMPT KOPYALANDI ✓' : 'PROMPT METNİ KOPYALA'}
           </button>
         </div>
       </div>

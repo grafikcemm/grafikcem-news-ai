@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { parseAIJSON } from '@/lib/parse-ai';
+import { GEMINI_STANDARD } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,7 +12,7 @@ export async function POST(req: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: 'gemini-3-flash-preview' });
+    const model = genAI.getGenerativeModel({ model: GEMINI_STANDARD });
 
     const prompt = `Analyze this image and create a detailed JSON prompt that would help recreate a similar image using AI image generation tools.
 

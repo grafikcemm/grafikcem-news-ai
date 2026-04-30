@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { PromptMeta } from '@/lib/prompt-library/types';
 import { CATEGORY_CONFIG } from '@/lib/prompt-library/categories';
+import { Eye, Copy, Sparkles, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface PromptCardProps {
   prompt: PromptMeta;
@@ -10,92 +13,95 @@ interface PromptCardProps {
   isCopied: boolean;
 }
 
-export default function PromptCard({ prompt, onOpen, onCopy, isCopied }: PromptCardProps) {
-  const catConfig = CATEGORY_CONFIG[prompt.category];
+export default function PromptCard({ prompt, onOpen, onCopy, isCopied: externalIsCopied }: PromptCardProps) {
+  const [internalIsCopied, setInternalIsCopied] = useState(false);
+  const catConfig = CATEGORY_CONFIG[prompt.category] || CATEGORY_CONFIG['Diğer'];
 
-  const qualityColor =
-    prompt.quality_score >= 8
-      ? '#22C55E'
-      : prompt.quality_score >= 6
-        ? '#EAB308'
-        : '#6B7280';
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onCopy();
+    setInternalIsCopied(true);
+    setTimeout(() => setInternalIsCopied(false), 2000);
+  };
+
+  const isCopied = externalIsCopied || internalIsCopied;
 
   return (
-    <div className="bg-[#111111] border border-[#222222] rounded-lg p-4 hover:border-[#C8F135] transition-colors duration-200 flex flex-col gap-3">
-      {/* Üst satır */}
-      <div className="flex justify-between items-start">
-        {/* Kategori badge */}
-        <span
-          className="inline-flex px-2 py-0.5 rounded text-xs"
-          style={{
-            color: catConfig?.color || '#6B7280',
-            backgroundColor: catConfig?.bg || 'rgba(107,114,128,0.15)',
-          }}
-        >
-          {catConfig?.label || prompt.category}
-        </span>
+    <div 
+      onClick={onOpen}
+      className="group bg-[var(--bg-elevated)] border border-[var(--border-subtle)] rounded-xl p-[14px] cursor-pointer hover:border-[var(--border-default)] transition-all flex flex-col h-[220px]"
+    >
+      {/* Header */}
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center gap-2">
+          <span
+            className="px-2 py-0.5 rounded text-[9px] font-bold font-mono uppercase tracking-wider"
+            style={{
+              color: catConfig.color,
+              backgroundColor: catConfig.bg,
+              border: `1px solid ${catConfig.color}20`
+            }}
+          >
+            {prompt.category}
+          </span>
+          {prompt.source === 'grafikcem' && (
+            <span className="px-1.5 py-0.5 rounded text-[9px] font-bold font-mono uppercase tracking-wider bg-blue-500/10 text-blue-500 border border-blue-500/20">
+              YENİ
+            </span>
+          )}
+        </div>
 
-        {/* Kalite badge */}
-        <span className="text-xs font-medium" style={{ color: qualityColor }}>
-          ★ {prompt.quality_score}/10
-        </span>
-      </div>
-
-      {/* Başlık */}
-      <div>
-        <h3 className="text-[#F5F5F0] font-semibold text-sm line-clamp-2">
-          {prompt.title_tr || prompt.title_original}
-        </h3>
-        {prompt.title_tr && prompt.title_original && (
-          <p className="text-[#888888] text-[10px] mt-0.5 line-clamp-1">
-            {prompt.title_original}
-          </p>
+        {prompt.quality_score >= 8 && (
+          <div className="flex items-center gap-1 text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded border border-green-500/20">
+            <Sparkles size={8} />
+            <span className="text-[9px] font-bold font-mono">{prompt.quality_score}</span>
+          </div>
         )}
       </div>
 
-      {/* Açıklama */}
-      <p className="text-[#888888] text-xs line-clamp-3">
-        {prompt.description_tr}
-      </p>
+      {/* Body */}
+      <div className="flex-1 space-y-2">
+        <h3 className="text-[13px] font-bold text-white group-hover:text-[var(--accent)] transition-colors line-clamp-1">
+          {prompt.title_tr}
+        </h3>
+        <p className="text-[12px] text-[var(--text-muted)] leading-relaxed line-clamp-2">
+          {prompt.description_tr}
+        </p>
+      </div>
 
-      {/* Kullanım senaryosu */}
-      <p className="text-[#666666] text-xs italic truncate">
-        {prompt.use_case_tr}
-      </p>
-
-      {/* Etiketler */}
-      <div className="flex flex-wrap gap-1">
+      {/* Tags */}
+      <div className="flex flex-wrap gap-1 mb-4">
         {prompt.tags.slice(0, 3).map((tag) => (
           <span
             key={tag}
-            className="px-2 py-0.5 rounded text-[10px] bg-[var(--surface-elevated)] border border-white/10 text-[#888888]"
+            className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-[var(--bg-surface)] border border-white/5 text-[var(--text-muted)]"
           >
-            {tag}
+            #{tag}
           </span>
         ))}
       </div>
 
-      {/* Alt satır */}
-      <div className="flex justify-between items-center mt-auto">
-        <span className="text-[#555] text-xs">@{prompt.author}</span>
-        <div className="flex gap-2">
-          <button
-            onClick={onOpen}
-            className="border border-[#333] text-[#F5F5F0] text-xs px-3 py-1 rounded hover:border-[#C8F135] transition-colors"
-          >
-            Gör
-          </button>
-          <button
-            onClick={onCopy}
-            className={`text-xs px-3 py-1 rounded transition ${
-              isCopied
-                ? 'bg-[#22C55E] text-white'
-                : 'bg-[#C8F135] text-black hover:opacity-90'
-            }`}
-          >
-            {isCopied ? '✅ Kopyalandı!' : '📋 Kopyala'}
-          </button>
-        </div>
+      {/* Footer / Buttons */}
+      <div className="flex gap-2 pt-3 border-t border-white/5">
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpen(); }}
+          className="flex-1 flex items-center justify-center gap-1.5 h-8 bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-lg text-[10px] font-bold font-mono text-[var(--text-muted)] hover:text-white hover:border-[var(--border-default)] transition-all"
+        >
+          <Eye size={12} />
+          GÖRÜNTÜLE
+        </button>
+        <button
+          onClick={handleCopy}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[10px] font-bold font-mono transition-all",
+            isCopied
+              ? "bg-green-500 text-white"
+              : "bg-[var(--accent)] text-black hover:opacity-90"
+          )}
+        >
+          {isCopied ? <Check size={12} /> : <Copy size={12} />}
+          {isCopied ? 'KOPYALANDI ✓' : 'KOPYALA'}
+        </button>
       </div>
     </div>
   );

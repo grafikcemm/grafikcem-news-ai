@@ -1,108 +1,71 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Home, Search, Bell } from "lucide-react";
+import { ChevronRight, Search, Bell, User } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const PAGE_NAMES: Record<string, string> = {
-  "/dashboard": "Ana Sayfa",
-  "/dashboard/news-pool": "Haber Havuzu",
-  "/tweet-generator": "Tweet Üretici",
-  "/dashboard/quote-reply": "Quote & Reply",
-  "/dashboard/content-calendar": "İçerik Takvimi",
-  "/dashboard/content-plan": "Haftalık Plan",
-    "/dashboard/competitors": "Rakip Takip",
-  "/dashboard/prompt-studio": "Prompt Studio",
-  "/dashboard/prompt-library": "Prompt Kütüphanesi",
-  "/dashboard/learning-radar": "Kaynak Radarı",
-  "/settings": "Ayarlar",
+  "/dashboard": "DASHBOARD",
+  "/dashboard/news-pool": "HABER HAVUZU",
+  "/tweet-generator": "TWEET ÜRETİCİ",
+  "/dashboard/carousel-planner": "CAROUSEL PLANLAYICI",
+  "/dashboard/content-calendar": "İÇERİK TAKVİMİ",
+  "/dashboard/competitors": "RAKİP TAKİP",
+  "/dashboard/style-profile": "STİL PROFİLİ",
+  "/dashboard/prompt-studio": "PROMPT STUDIO",
+  "/dashboard/learning-radar": "KAYNAK RADARI",
+  "/settings": "AYARLAR",
 };
 
 export function TopBar() {
   const pathname = usePathname();
-  const currentPage = PAGE_NAMES[pathname] || "Sayfa";
+  const currentPage = PAGE_NAMES[pathname] || "DASHBOARD";
 
   return (
-    <header
-      className="sticky top-0 z-30 flex items-center justify-between"
-      style={{
-        height: 56,
-        background: "rgba(8,11,18,0.8)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-        borderBottom: "1px solid var(--border-subtle)",
-        padding: "0 32px",
-      }}
-    >
+    <header className="h-[52px] border-b border-[var(--border-subtle)] bg-[var(--bg-base)]/80 backdrop-blur-xl flex items-center justify-between px-6 sticky top-0 z-40">
+      
       {/* Left — Breadcrumb */}
-      <div className="flex items-center gap-[8px]">
-        <Home size={16} style={{ color: "var(--text-tertiary)" }} />
-        <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>/</span>
-        <span style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 500 }}>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-bold font-mono text-[var(--text-muted)] tracking-widest">SYSTEM</span>
+        <ChevronRight size={10} className="text-[var(--text-muted)]" />
+        <span className="text-[10px] font-bold font-mono text-white tracking-widest">
           {currentPage}
         </span>
       </div>
 
-      {/* Center — Search */}
-      <div
-        className="hidden md:flex items-center gap-[8px]"
-        style={{
-          width: 280,
-          background: "var(--surface-elevated)",
-          border: "1px solid var(--border-default)",
-          borderRadius: "var(--radius-md)",
-          padding: "8px 14px",
-        }}
-      >
-        <Search size={14} style={{ color: "var(--text-tertiary)" }} />
-        <span style={{ color: "var(--text-tertiary)", fontSize: 13, flex: 1 }}>Ara...</span>
-        <span
-          style={{
-            background: "var(--surface-overlay)",
-            color: "var(--text-tertiary)",
-            fontSize: 10,
-            padding: "2px 6px",
-            borderRadius: 4,
-            fontWeight: 500,
-          }}
-        >
-          /
-        </span>
-      </div>
-
-      {/* Right */}
-      <div className="flex items-center gap-[16px]">
-        {/* Bell */}
-        <button
-          className="transition-colors"
-          style={{ color: "var(--text-secondary)" }}
-          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
-          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-secondary)")}
-        >
-          <Bell size={18} />
-        </button>
-
-        {/* Divider */}
-        <div style={{ width: 1, height: 24, background: "var(--border-default)" }} />
-
-        {/* Avatar */}
-        <div className="flex items-center gap-[10px]">
-          <div
-            className="flex items-center justify-center text-white font-bold text-[12px]"
-            style={{
-              width: 32,
-              height: 32,
-              borderRadius: "var(--radius-md)",
-              background: "var(--gradient-accent)",
-            }}
-          >
-            AC
-          </div>
-          <div className="hidden sm:block">
-            <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.2 }}>Your OS</p>
-            <p style={{ fontSize: 10, color: "var(--text-tertiary)", lineHeight: 1.2 }}>v1.0</p>
+      {/* Right — Actions */}
+      <div className="flex items-center gap-3">
+        <div className="hidden md:flex items-center bg-[var(--bg-elevated)] border border-[var(--border-default)] rounded-xl px-4 h-10 w-64 group focus-within:border-[var(--border-strong)] transition-all">
+          <Search size={14} className="text-[var(--text-muted)]" />
+          <input 
+            type="text" 
+            placeholder="Search anywhere..." 
+            className="bg-transparent border-none focus:ring-0 text-xs text-white placeholder-[var(--text-muted)] w-full ml-2"
+          />
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <IconButton icon={<Bell size={18} />} />
+          <div className="w-px h-6 bg-white/5 mx-2" />
+          <div className="flex items-center gap-3 pl-2 group cursor-pointer">
+            <div className="text-right hidden sm:block">
+              <p className="text-[10px] font-bold text-white leading-none">GrafikCem</p>
+              <p className="text-[9px] font-mono text-[var(--text-muted)] uppercase mt-1">Admin</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center group-hover:border-white/30 transition-all">
+              <User size={20} className="text-white" />
+            </div>
           </div>
         </div>
       </div>
     </header>
+  );
+}
+
+function IconButton({ icon }: { icon: React.ReactNode }) {
+  return (
+    <button className="w-10 h-10 rounded-xl bg-[var(--bg-elevated)] border border-[var(--border-default)] flex items-center justify-center text-[var(--text-muted)] hover:text-white hover:border-[var(--border-strong)] transition-all">
+      {icon}
+    </button>
   );
 }

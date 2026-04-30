@@ -9,21 +9,19 @@ import {
   Newspaper,
   LayoutGrid,
   Twitter,
-  MessageSquare,
   CalendarDays,
-  ListChecks,
   Users,
-  CalendarClock,
-  Send,
-  DollarSign,
   Wand2,
   BookOpen,
   Radar,
   Settings,
-  ChevronLeft,
-  LogOut,
   Menu,
+  ChevronRight,
+  Zap,
+  Linkedin,
+  Wrench
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface NavItem {
   label: string;
@@ -39,148 +37,99 @@ interface NavGroup {
 
 const navGroups: NavGroup[] = [
   {
-    title: "OVERVIEW",
+    title: "GENEL",
     items: [
-      { label: "Ana Sayfa", href: "/dashboard", icon: <Home size={15} /> },
+      { label: "Dashboard", href: "/dashboard", icon: <Home size={14} /> },
+      { label: "Toolbox", href: "/dashboard/toolbox", icon: <Wrench size={14} /> },
     ],
   },
   {
-    title: "CREATE",
+    title: "İÇERİK",
     items: [
-      { label: "@grafikcem", href: "/channels/grafikcem", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-grafikcem)"}} /> },
-      { label: "@maskulenkod", href: "/channels/maskulenkod", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-maskulenkod)"}} /> },
-      { label: "@sporhaberleri", href: "/channels/sporhaberleri", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-sporhaberleri)"}} /> },
-      { label: "LinkedIn", href: "/channels/linkedin", icon: <div style={{width: 8, height: 8, borderRadius: "50%", background: "var(--channel-linkedin)"}} /> },
+      { label: "Haber Havuzu", href: "/news-pool", icon: <Newspaper size={14} /> },
+      { label: "Tweet Üretici", href: "/tweet-generator", icon: <Twitter size={14} /> },
+      { label: "Carousel Planner", href: "/dashboard/carousel-planner", icon: <LayoutGrid size={14} /> },
+      { label: "İçerik Takvimi", href: "/dashboard/content-calendar", icon: <CalendarDays size={14} /> },
     ],
   },
   {
-    title: "CONTENT",
+    title: "PROMPT",
     items: [
-      { label: "Haber Havuzu", href: "/dashboard/news-pool", icon: <Newspaper size={15} /> },
-      { label: "Tweet Üretici", href: "/tweet-generator", icon: <Twitter size={15} /> },
-      { label: "Quote & Reply", href: "/dashboard/quote-reply", icon: <MessageSquare size={15} /> },
-      { label: "Carousel Planlayıcı", href: "/dashboard/carousel-planner", icon: <span style={{ fontSize: 15, display: "inline-block", transform: "translateY(-1px)" }}>🎠</span> },
+      { label: "Prompt Studio", href: "/dashboard/prompt-studio", icon: <Wand2 size={14} /> },
+      { label: "Prompt Kütüphanesi", href: "/dashboard/prompt-library", icon: <BookOpen size={14} /> },
     ],
   },
   {
-    title: "PLANNING",
+    title: "ANALİZ",
     items: [
-      { label: "İçerik Takvimi", href: "/dashboard/content-calendar", icon: <CalendarDays size={15} /> },
-      { label: "Haftalık Plan", href: "/dashboard/content-plan", icon: <ListChecks size={15} /> },
+      { label: "LinkedIn", href: "/dashboard/linkedin", icon: <Linkedin size={14} /> },
+      { label: "Rakip Takip", href: "/dashboard/competitors", icon: <Users size={14} /> },
+      { label: "Style Profile", href: "/style-profile", icon: <BookOpen size={14} /> },
     ],
   },
   {
-    title: "OUTREACH",
+    title: "SİSTEM",
     items: [
-      { label: "Rakip Takip", href: "/dashboard/competitors", icon: <DollarSign size={15} /> },
-    ],
-  },
-  {
-    title: "LIBRARY",
-    items: [
-      { label: "Prompt Studio", href: "/dashboard/prompt-studio", icon: <Wand2 size={15} /> },
-      { label: "Prompt Kütüphanesi", href: "/dashboard/prompt-library", icon: <BookOpen size={15} /> },
-      { label: "Kaynak Radarı", href: "/dashboard/learning-radar", icon: <Radar size={15} /> },
+      { label: "Ayarlar", href: "/settings", icon: <Settings size={14} /> },
+      { label: "Kaynaklar", href: "/dashboard/learning-radar", icon: <Radar size={14} /> },
     ],
   },
 ];
 
 function SidebarContent({ pathname }: { pathname: string }) {
   return (
-    <div className="flex flex-col h-full w-[240px]" style={{ background: "var(--gradient-sidebar)" }}>
-      {/* Logo */}
-      <div style={{ padding: "20px 16px" }}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-[10px]">
-            <div
-              className="w-[32px] h-[32px] rounded-[var(--radius-md)] flex items-center justify-center text-white font-bold text-[14px]"
-              style={{ background: "var(--gradient-accent)" }}
-            >
-              G
-            </div>
-            <div>
-              <p className="text-[13px] font-semibold" style={{ color: "var(--text-primary)" }}>
-                GrafikCem OS
-              </p>
-              <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>
-                AI-Powered Creator
-              </p>
-            </div>
+    <div className="flex flex-col h-full w-[220px] bg-[var(--bg-surface)] border-r border-[var(--border-subtle)]">
+      {/* Logo Section */}
+      <div className="p-8 border-b border-white/5 space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
+            <Zap size={18} className="text-black fill-black" />
           </div>
-          <ChevronLeft size={14} style={{ color: "var(--text-tertiary)" }} />
+          <div>
+            <p className="font-black text-xs tracking-tighter text-white uppercase leading-none">
+              GrafikCem
+            </p>
+            <p className="text-[10px] font-bold font-mono text-[var(--text-muted)] tracking-widest uppercase">
+              NEWS AI
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* Divider */}
-      <div style={{ height: 1, background: "var(--border-subtle)", margin: "0 16px 8px" }} />
-
-      {/* Profile */}
-      <div
-        style={{
-          padding: "12px 16px",
-          background: "var(--surface-elevated)",
-          borderRadius: "var(--radius-md)",
-          margin: "0 8px 8px",
-        }}
-      >
-        <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>Welcome Back,</p>
-        <p className="text-[16px] font-bold" style={{ color: "var(--text-primary)" }}>Ali Cem</p>
-        <p className="text-[10px]" style={{ color: "var(--text-tertiary)" }}>Son giriş: bugün</p>
-      </div>
-
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto" style={{ padding: "8px" }}>
+      <nav className="flex-1 overflow-y-auto custom-scrollbar py-6 px-4 space-y-8">
         {navGroups.map((group, gIdx) => (
-          <div key={gIdx}>
-            <p className="text-label" style={{ padding: "16px 8px 6px" }}>
+          <div key={gIdx} className="space-y-2">
+            <p className="px-3 pt-4 pb-1 text-[10px] font-medium text-[var(--text-muted)] tracking-[0.08em] uppercase">
               {group.title}
             </p>
-            <div className="flex flex-col gap-[2px]">
+            <div className="space-y-1">
               {group.items.map((item) => {
                 const isActive =
                   pathname === item.href ||
                   (item.href !== "/dashboard" && pathname.startsWith(item.href + "/"));
+                  
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
-                    className="flex items-center gap-[10px] transition-all duration-150"
-                    style={{
-                      padding: "8px 10px",
-                      borderRadius: "var(--radius-md)",
-                      fontSize: "13px",
-                      fontWeight: isActive ? 500 : 450,
-                      color: isActive ? "var(--accent)" : "var(--text-secondary)",
-                      background: isActive ? "var(--accent-subtle)" : "transparent",
-                      borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = "var(--surface-elevated)";
-                        e.currentTarget.style.color = "var(--text-primary)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.background = "transparent";
-                        e.currentTarget.style.color = "var(--text-secondary)";
-                      }
-                    }}
+                    className={cn(
+                      "group flex items-center gap-3 px-[12px] py-[7px] rounded-xl text-[11px] font-bold font-mono transition-all duration-300 border border-transparent",
+                      isActive 
+                        ? "bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.1)]" 
+                        : "text-[var(--text-muted)] hover:text-white hover:bg-[var(--bg-elevated)]"
+                    )}
                   >
-                    <span style={{ color: isActive ? "var(--accent)" : "var(--text-tertiary)" }}>
+                    <span className={cn(
+                      "transition-colors",
+                      isActive ? "text-black" : "text-[var(--text-muted)] group-hover:text-white"
+                    )}>
                       {item.icon}
                     </span>
-                    <span className="flex-1">{item.label}</span>
+                    <span className="flex-1 uppercase tracking-wider">{item.label}</span>
+                    {isActive && <ChevronRight size={10} className="text-black/30" />}
                     {item.badge && (
-                      <span
-                        className="text-[10px] font-semibold"
-                        style={{
-                          background: "var(--accent-subtle)",
-                          color: "var(--accent)",
-                          borderRadius: 999,
-                          padding: "1px 6px",
-                        }}
-                      >
+                      <span className="ml-auto bg-[var(--bg-elevated)] px-1.5 py-0.5 rounded-md text-[9px]">
                         {item.badge}
                       </span>
                     )}
@@ -192,33 +141,13 @@ function SidebarContent({ pathname }: { pathname: string }) {
         ))}
       </nav>
 
-      {/* Bottom */}
-      <div style={{ borderTop: "1px solid var(--border-subtle)", padding: "12px 8px" }}>
-        <Link
-          href="/settings"
-          className="flex items-center gap-[10px] transition-all duration-150"
-          style={{
-            padding: "8px 10px",
-            borderRadius: "var(--radius-md)",
-            fontSize: "13px",
-            fontWeight: pathname === "/settings" ? 500 : 450,
-            color: pathname === "/settings" ? "var(--accent)" : "var(--text-secondary)",
-            background: pathname === "/settings" ? "var(--accent-subtle)" : "transparent",
-          }}
-        >
-          <Settings size={15} style={{ color: pathname === "/settings" ? "var(--accent)" : "var(--text-tertiary)" }} />
-          Ayarlar
-        </Link>
-        <div
-          className="flex items-center gap-[10px] cursor-pointer"
-          style={{
-            padding: "8px 10px",
-            fontSize: "12px",
-            color: "var(--text-tertiary)",
-          }}
-        >
-          <LogOut size={14} />
-          Log Out
+      {/* Bottom status bar */}
+      <div className="p-6 border-t border-white/5 space-y-4 bg-[var(--bg-base)]/30">
+        <div className="flex items-center gap-3 px-2">
+          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+          <span className="text-[9px] font-bold font-mono text-[var(--text-muted)] uppercase tracking-widest">
+            Gemini 3 Flash <span className="opacity-40">v1.2</span>
+          </span>
         </div>
       </div>
     </div>
@@ -232,55 +161,29 @@ export function Sidebar() {
   return (
     <>
       {/* Mobile hamburger */}
-      <div
-        className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center gap-3"
-        style={{
-          background: "var(--surface-base)",
-          borderBottom: "1px solid var(--border-subtle)",
-          padding: "12px 16px",
-        }}
-      >
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 flex items-center gap-3 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] p-4">
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger>
-            <div
-              className="cursor-pointer p-2 rounded-[var(--radius-md)] transition-colors"
-              style={{ color: "var(--text-primary)" }}
-            >
-              <Menu size={20} />
-            </div>
+          <SheetTrigger className="p-2 rounded-xl bg-[var(--bg-elevated)] text-white">
+            <Menu size={18} />
           </SheetTrigger>
           <SheetContent
             side="left"
-            className="w-[240px] p-0"
-            style={{
-              background: "var(--surface-base)",
-              borderRight: "1px solid var(--border-subtle)",
-            }}
+            className="w-[220px] p-0 bg-black border-r border-white/10"
           >
             <SheetTitle className="sr-only">Navigasyon</SheetTitle>
             <SidebarContent pathname={pathname} />
           </SheetContent>
         </Sheet>
         <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-[var(--radius-md)] flex items-center justify-center text-white font-bold text-xs"
-            style={{ background: "var(--gradient-accent)" }}
-          >
-            G
-          </div>
-          <span className="font-semibold text-sm" style={{ color: "var(--text-primary)" }}>
-            GrafikCem OS
+          <Zap size={14} className="text-white" />
+          <span className="font-bold text-xs uppercase tracking-widest text-white">
+            GC NEWS AI
           </span>
         </div>
       </div>
 
       {/* Desktop sidebar */}
-      <aside
-        className="hidden lg:flex lg:w-[240px] lg:flex-col lg:fixed lg:inset-y-0 z-10"
-        style={{
-          borderRight: "1px solid var(--border-subtle)",
-        }}
-      >
+      <aside className="hidden lg:flex lg:w-[220px] lg:flex-col lg:fixed lg:inset-y-0 z-10">
         <SidebarContent pathname={pathname} />
       </aside>
     </>
