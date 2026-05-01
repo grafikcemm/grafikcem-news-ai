@@ -57,6 +57,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Prompt Studio", href: "/dashboard/prompt-studio", icon: <Wand2 size={14} /> },
       { label: "Prompt Kütüphanesi", href: "/dashboard/prompt-library", icon: <BookOpen size={14} /> },
+      { label: "Token Optimizer", href: "/dashboard/token-optimizer", icon: <Zap size={14} /> },
     ],
   },
   {
