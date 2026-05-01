@@ -1,55 +1,59 @@
-import { GoogleGenerativeAI } from '@google/generative-ai'
+import OpenAI from 'openai'
 
-export const genAI = new GoogleGenerativeAI(
-  process.env.GOOGLE_GEMINI_API_KEY!
-)
+const client = new OpenAI({
+  baseURL: 'https://openrouter.ai/api/v1',
+  apiKey: process.env.OPENROUTER_API_KEY!,
+  defaultHeaders: {
+    'HTTP-Referer': 'https://grafikcem-news-ai.vercel.app',
+    'X-Title': 'GrafikCem News AI',
+  },
+})
 
-// Model sabitleri — doğrulanmış API stringleri
-export const GEMINI_FAST = 'gemini-3.1-flash-lite-preview'      // Haber filtreleme, cron, skorlama
-export const GEMINI_STANDARD = 'gemini-3-flash-preview'          // Tweet, carousel, prompt studio
+// Model sabitleri — DeepSeek V4 serisi
+export const DEEPSEEK_PRO = 'deepseek/deepseek-v4-pro'    // Ağır: tweet, linkedin, carousel
+export const DEEPSEEK_FLASH = 'deepseek/deepseek-v4-flash' // Hafif: cron, chat, filtreleme
 
-// Gemini 3 serisi için thinkingConfig kullanılıyor (temperature artık çalışmıyor)
-// thinking_level: minimal = en hızlı/ucuz | high = en derin reasoning
+// Geriye dönük uyumluluk için alias — eski kod değişmesin
+export const GEMINI_STANDARD = DEEPSEEK_PRO
+export const GEMINI_FAST = DEEPSEEK_FLASH
+export const GEMINI_MODEL = DEEPSEEK_PRO
 
 export async function generateWithGemini(
   prompt: string,
   mode: 'creative' | 'analytical' | 'planning' = 'creative',
   systemPrompt?: string,
-  modelName = GEMINI_STANDARD
+  modelName: string = DEEPSEEK_PRO
 ): Promise<string> {
   try {
-    // Gemini 3.1 Flash Lite için thinking_level minimal (hız öncelikli)
-    // Gemini 3 Flash için thinking_level low (kalite/hız dengesi)
-    const thinkingLevel = modelName === GEMINI_FAST ? 'minimal' : 'low'
+    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = []
 
-    const model = genAI.getGenerativeModel({
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt })
+    }
+    messages.push({ role: 'user', content: prompt })
+
+    const completion = await client.chat.completions.create({
       model: modelName,
-      systemInstruction: systemPrompt,
+      messages,
+      max_tokens: mode === 'planning' ? 8192 : 4096,
+      temperature: mode === 'creative' ? 0.8 : mode === 'analytical' ? 0.3 : 0.6,
     })
 
-    // Thinking level'ı request body'ye ekle
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: mode === 'planning' ? 8192 : 4096,
-        thinkingConfig: { thinking_level: thinkingLevel }
-      } as any,
-    })
-
-    const response = await result.response
-    const text = response.text()
-    if (!text) throw new Error('Empty response from Gemini')
+    const text = completion.choices[0]?.message?.content
+    if (!text) throw new Error('Empty response from DeepSeek')
     return text
   } catch (err) {
-    console.error('Gemini API error:', err)
+    console.error('OpenRouter API error:', err)
     throw err
   }
 }
 
-// Convenience wrapper — fast model için
+// Convenience wrapper — Flash model için
 export async function generateWithGeminiFast(
   prompt: string,
   systemPrompt?: string
 ): Promise<string> {
-  return generateWithGemini(prompt, 'analytical', systemPrompt, GEMINI_FAST)
+  return generateWithGemini(prompt, 'analytical', systemPrompt, DEEPSEEK_FLASH)
 }
+
+export { client as genAI }

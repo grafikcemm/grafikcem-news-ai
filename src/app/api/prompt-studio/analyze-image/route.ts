@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { genAI, GEMINI_STANDARD } from '@/lib/gemini';
 import { parseAIJSON } from '@/lib/parse-ai';
-import { GEMINI_STANDARD } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,9 +9,6 @@ export async function POST(req: NextRequest) {
     if (!imageBase64) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
-
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY!);
-    const model = genAI.getGenerativeModel({ model: GEMINI_STANDARD });
 
     const prompt = `Analyze this image and create a detailed JSON prompt that would help recreate a similar image using AI image generation tools.
 
@@ -63,16 +59,31 @@ Respond with ONLY this JSON structure, no other text:
 
     // Clean up base64 prefix if present
     const base64Data = imageBase64.includes(',') ? imageBase64.split(',')[1] : imageBase64;
+    const finalMimeType = mimeType || 'image/jpeg';
+    
+    const imageUrl = `data:${finalMimeType};base64,${base64Data}`;
 
-    const imagePart = {
-      inlineData: {
-        data: base64Data,
-        mimeType: mimeType || 'image/jpeg'
-      }
-    };
+    const completion = await genAI.chat.completions.create({
+      model: GEMINI_STANDARD,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            {
+              type: 'image_url',
+              image_url: {
+                url: imageUrl
+              }
+            }
+          ]
+        }
+      ],
+      max_tokens: 4096,
+      temperature: 0.6
+    });
 
-    const result = await model.generateContent([prompt, imagePart]);
-    const text = result.response.text();
+    const text = completion.choices[0]?.message?.content || "";
     const parsed = parseAIJSON(text);
 
     if (!parsed) {

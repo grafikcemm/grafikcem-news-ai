@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { generateWithGemini, GEMINI_STANDARD } from '@/lib/gemini'
+import { generateWithGemini, DEEPSEEK_FLASH } from '@/lib/gemini'
 import promptsMeta from '@/data/prompts_meta.json'
 
 export async function POST(req: NextRequest) {
@@ -32,7 +32,7 @@ YANIT KURALLARI:
       message,
       'analytical',
       systemPrompt,
-      GEMINI_STANDARD
+      DEEPSEEK_FLASH
     )
 
     return NextResponse.json({ response })

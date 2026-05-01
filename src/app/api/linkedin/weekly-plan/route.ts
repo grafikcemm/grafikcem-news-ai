@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin as supabase } from '@/lib/supabase'
-import { generateWithGemini, GEMINI_STANDARD } from '@/lib/gemini'
+import { generateWithGemini, DEEPSEEK_FLASH } from '@/lib/gemini'
 import { BRAND_DNA_SYSTEM_PROMPT, WEEKLY_PLAN_PROMPT } from '@/lib/linkedin-prompts'
 
 export async function POST(req: NextRequest) {
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       WEEKLY_PLAN_PROMPT(newsStr, systemPrompt, startDate),
       'planning',
       undefined,
-      GEMINI_STANDARD
+      DEEPSEEK_FLASH
     )
 
     const cleaned = raw.replace(/```json|```/g, '').trim()

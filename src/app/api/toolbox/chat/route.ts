@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { generateWithGemini, GEMINI_STANDARD } from '@/lib/gemini'
+import { generateWithGemini, DEEPSEEK_FLASH } from '@/lib/gemini'
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +40,7 @@ YANIT KURALLARI:
       message,
       'analytical',
       systemPrompt,
-      GEMINI_STANDARD
+      DEEPSEEK_FLASH
     )
 
     return NextResponse.json({ response })

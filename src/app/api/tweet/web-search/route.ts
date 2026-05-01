@@ -11,15 +11,6 @@ interface SearchSource {
   snippet: string;
 }
 
-function uniqueSources(items: SearchSource[]) {
-  const seen = new Set<string>();
-  return items.filter((item) => {
-    if (!item.url || seen.has(item.url)) return false;
-    seen.add(item.url);
-    return true;
-  });
-}
-
 export async function POST(request: NextRequest) {
   if (!validateApiRequest(request)) return unauthorizedResponse();
 
@@ -31,44 +22,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "query required" }, { status: 400 });
     }
 
-    const model = genAI.getGenerativeModel({
+    const completion = await genAI.chat.completions.create({
       model: GEMINI_FAST,
-      tools: [{ googleSearch: {} } as any],
+      messages: [
+        { role: "system", content: "You are a helpful assistant providing a brief summary of information. If asked about real-time info, provide what you know." },
+        { role: "user", content: query }
+      ],
+      max_tokens: 500,
     });
 
-    const result = await model.generateContent({
-      contents: [{ role: "user", parts: [{ text: query }] }],
-    });
-
-    const response = await result.response;
-    const summary = clampText(response.text() ?? "", 300);
-    const candidate = response.candidates?.[0];
-    const groundingMetadata = candidate?.groundingMetadata;
-    const chunks = groundingMetadata?.groundingChunks ?? [];
+    const text = completion.choices[0]?.message?.content ?? "";
+    const summary = clampText(text, 300);
     
-    const sources = uniqueSources(
-      chunks
-        .map((chunk) => ({
-          title: chunk.web?.title?.trim() ?? "Kaynak",
-          url: chunk.web?.uri?.trim() ?? "",
-          snippet: "",
-        }))
-        .filter((item) => item.url)
-    ).slice(0, 3);
+    // Fallback empty sources since DeepSeek doesn't natively return Google Search grounding metadata
+    const sources: SearchSource[] = [];
 
-    const webContext = clampText(
-      [
-        summary,
-        sources.map((s) => s.title).join(" | "),
-      ].filter(Boolean).join("\n\n"),
-      300
-    );
+    const webContext = clampText(summary, 300);
 
     return NextResponse.json({
       summary,
       sources,
-      totalSources: chunks.length || sources.length,
-      webSearchQueries: groundingMetadata?.webSearchQueries ?? [],
+      totalSources: sources.length,
+      webSearchQueries: [query],
       webContext,
     });
   } catch (err) {
